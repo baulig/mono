@@ -26,7 +26,6 @@
 // OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 // WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //
-#if MONO_FEATURE_HTTPLISTENER
 namespace System.Net {
 	// do not inline into HttpListenerResponse as this recursively brings everything that's
 	// reachable by IDisposable.Dispose (and that's quite a lot in this case).
@@ -86,4 +85,3 @@ namespace System.Net {
 		}
 	}
 }
-#endif
