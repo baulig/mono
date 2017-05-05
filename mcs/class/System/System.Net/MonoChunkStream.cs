@@ -1,5 +1,5 @@
 //
-// System.Net.ChunkStream
+// System.Net.MonoChunkStream
 //
 // Authors:
 //	Gonzalo Paniagua Javier (gonzalo@ximian.com)
@@ -27,17 +27,16 @@
 // OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 // WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //
-using System;
+
 using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
-using System.Net;
 using System.Text;
 
-namespace Mono.Net
+namespace System.Net
 {
-	class ChunkStream
+	class MonoChunkStream
 	{
 		enum State {
 			None,
@@ -77,13 +76,13 @@ namespace Mono.Net
 		int trailerState;
 		ArrayList chunks;
 		
-		public ChunkStream (byte [] buffer, int offset, int size, WebHeaderCollection headers)
+		public MonoChunkStream (byte [] buffer, int offset, int size, WebHeaderCollection headers)
 					: this (headers)
 		{
 			Write (buffer, offset, size);
 		}
 
-		public ChunkStream (WebHeaderCollection headers)
+		public MonoChunkStream (WebHeaderCollection headers)
 		{
 			this.headers = headers;
 			saved = new StringBuilder ();

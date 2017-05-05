@@ -34,7 +34,7 @@ using System.Runtime.InteropServices;
 namespace Mono.Net {
 	class ChunkedInputStream : RequestStream {
 		bool disposed;
-		ChunkStream decoder;
+		MonoChunkStream decoder;
 		HttpListenerContext context;
 		bool no_more_data;
 
@@ -61,10 +61,10 @@ namespace Mono.Net {
 		{
 			this.context = context;
 			WebHeaderCollection coll = (WebHeaderCollection) context.Request.Headers;
-			decoder = new ChunkStream (coll);
+			decoder = new MonoChunkStream (coll);
 		}
 
-		public ChunkStream Decoder {
+		public MonoChunkStream Decoder {
 			get { return decoder; }
 			set { decoder = value; }
 		}
