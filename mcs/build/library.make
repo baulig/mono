@@ -28,19 +28,20 @@ LIB_MCS_FLAGS += $(patsubst %,-r:%.dll, $(subst =,=$(topdir)/class/lib/$(PROFILE
 
 sourcefile = $(LIBRARY).sources
 
-profile_library = $(PROFILE)_$(LIBRARY)
-
 # If the directory contains the per profile include file, generate list file.
 ifdef intermediate
 intermediate_name = $(patsubst %_,%,$(subst /,_,$(intermediate)))
-PROFILE_sources := $(wildcard $(PROFILE)_$(intermediate_name)_$(LIBRARY).sources)
-ifdef PROFILE_sources
 profile_library = $(PROFILE)_$(intermediate_name)_$(LIBRARY)
 else
-PROFILE_sources := $(wildcard $(PROFILE)_$(LIBRARY).sources)
+profile_library = $(PROFILE)_$(LIBRARY)
 endif
-else
-PROFILE_sources := $(wildcard $(PROFILE)_$(LIBRARY).sources)
+PROFILE_sources := $(wildcard $(profile_library).sources)
+ifndef PROFILE_sources
+ifdef intermediate
+# If $(PROFILE)_$(intermediate_name)_$(LIBRARY).sources does not exist, fallback to $(PROFILE)_$(LIBRARY).sources
+profile_library = $(PROFILE)_$(LIBRARY)
+PROFILE_sources := $(wildcard $(profile_library).sources)
+endif
 endif
 ifdef PROFILE_sources
 PROFILE_excludes = $(wildcard $(profile_library).exclude.sources)
