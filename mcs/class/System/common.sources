@@ -979,6 +979,8 @@ corefx/SR.cs
 ../../../external/corefx/src/System.Net.HttpListener/src/System/Net/HttpListenerRequest.cs
 ../../../external/corefx/src/System.Net.HttpListener/src/System/Net/HttpListenerRequestUriBuilder.cs
 ../../../external/corefx/src/System.Net.HttpListener/src/System/Net/HttpListenerResponse.cs
+../../../external/corefx/src/System.Net.HttpListener/src/System/Net/HttpRequestStream.cs
+../../../external/corefx/src/System.Net.HttpListener/src/System/Net/HttpResponseStream.cs
 ../../../external/corefx/src/System.Net.HttpListener/src/System/Net/NetEventSource.HttpListener.cs
 ../../../external/corefx/src/System.Net.HttpListener/src/System/Net/ServiceNameStore.cs
 
@@ -1007,5 +1009,22 @@ corefx/SR.cs
 ../../../external/corefx/src/Common/src/System/Net/HttpStatusDescription.cs
 
 ../../../external/corefx/src/System.Private.Uri/src/System/UriBuilder.cs
+
+../../../external/corefx/src/System.Numerics.Vectors/src/System/MathF.cs
+../../../external/corefx/src/System.Numerics.Vectors/src/System/Numerics/ConstantHelper.cs
+../../../external/corefx/src/System.Numerics.Vectors/src/System/Numerics/JitIntrinsicAttribute.cs
+../../../external/corefx/src/System.Numerics.Vectors/src/System/Numerics/Matrix3x2.cs
+../../../external/corefx/src/System.Numerics.Vectors/src/System/Numerics/Matrix4x4.cs
+../../../external/corefx/src/System.Numerics.Vectors/src/System/Numerics/Plane.cs
+../../../external/corefx/src/System.Numerics.Vectors/src/System/Numerics/Quaternion.cs
+../../../external/corefx/src/System.Numerics.Vectors/src/System/Numerics/Register.cs
+../../../external/corefx/src/System.Numerics.Vectors/src/System/Numerics/Vector.cs
+../../../external/corefx/src/System.Numerics.Vectors/src/System/Numerics/Vector2.cs
+../../../external/corefx/src/System.Numerics.Vectors/src/System/Numerics/Vector2_Intrinsics.cs
+../../../external/corefx/src/System.Numerics.Vectors/src/System/Numerics/Vector3.cs
+../../../external/corefx/src/System.Numerics.Vectors/src/System/Numerics/Vector3_Intrinsics.cs
+../../../external/corefx/src/System.Numerics.Vectors/src/System/Numerics/Vector4.cs
+../../../external/corefx/src/System.Numerics.Vectors/src/System/Numerics/Vector4_Intrinsics.cs
+../../../external/corefx/src/System.Numerics.Vectors/src/System/Numerics/Vector_Operations.cs
 
 ../../../external/corefx/src/System.Runtime.Extensions/src/System/CodeDom/Compiler/IndentedTextWriter.cs
