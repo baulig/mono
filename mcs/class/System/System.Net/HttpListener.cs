@@ -69,6 +69,7 @@ namespace System.Net {
 		bool listening;
 		bool disposed;
 
+		Hashtable registry;   // Dictionary<HttpListenerContext,HttpListenerContext> 
 		ArrayList ctx_queue;  // List<HttpListenerContext> ctx_queue;
 		ArrayList wait_queue; // List<ListenerAsyncResult> wait_queue;
 		Hashtable connections;
@@ -82,6 +83,7 @@ namespace System.Net {
 		public HttpListener ()
 		{
 			prefixes = new HttpListenerPrefixCollection (this);
+			registry = new Hashtable ();
 			connections = Hashtable.Synchronized (new Hashtable ());
 			ctx_queue = new ArrayList ();
 			wait_queue = new ArrayList ();
