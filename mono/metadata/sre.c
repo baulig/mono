@@ -519,7 +519,8 @@ mono_reflection_methodbuilder_from_ctor_builder (ReflectionMethodBuilder *rmb, M
 	rmb->call_conv = mb->call_conv;
 	rmb->code = NULL;
 	rmb->type = mb->type;
-	rmb->name = mono_string_new (mono_domain_get (), name);
+	rmb->name = mono_string_new_checked (mono_domain_get (), name, error);
+	return_val_if_nok (error, FALSE);
 	rmb->table_idx = &mb->table_idx;
 	rmb->init_locals = mb->init_locals;
 	rmb->skip_visibility = FALSE;
@@ -3416,6 +3417,11 @@ typebuilder_setup_fields (MonoClass *klass, MonoError *error)
 			return_if_nok (error);
 		}
 
+		if (!klass->enumtype && !mono_type_get_underlying_type (field->type)) {
+			mono_class_set_type_load_failure (klass, "Field '%s' is an enum type with a bad underlying type", field->name);
+			continue;
+		}
+
 		if ((fb->attrs & FIELD_ATTRIBUTE_HAS_FIELD_RVA) && (rva_data = fb->rva_data)) {
 			char *base = mono_array_addr (rva_data, char, 0);
 			size_t size = mono_array_length (rva_data);
@@ -3441,7 +3447,9 @@ typebuilder_setup_fields (MonoClass *klass, MonoError *error)
 		}
 	}
 
-	mono_class_layout_fields (klass, instance_size, packing_size, TRUE);
+	if (!mono_class_has_failure (klass)) {
+		mono_class_layout_fields (klass, instance_size, packing_size, TRUE);
+	}
 }
 
 static void
