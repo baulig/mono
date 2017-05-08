@@ -47,6 +47,8 @@ using System.Security.Cryptography.X509Certificates;
 
 namespace System.Net {
 	partial class HttpListener {
+		Hashtable registry = new Hashtable ();
+
 #if SECURITY_DEP
 		MonoTlsProvider tlsProvider;
 		MonoTlsSettings tlsSettings;
