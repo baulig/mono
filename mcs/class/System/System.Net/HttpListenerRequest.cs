@@ -28,8 +28,7 @@
 // WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //
 
-#if SECURITY_DEP && MONO_FEATURE_HTTPLISTENER
-
+#if MONO_FEATURE_HTTPLISTENER
 using System.Collections;
 using System.Collections.Specialized;
 using System.Globalization;
@@ -581,4 +580,3 @@ namespace System.Net {
 	}
 }
 #endif
-

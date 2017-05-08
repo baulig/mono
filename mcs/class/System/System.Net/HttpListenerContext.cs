@@ -26,8 +26,7 @@
 // WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //
 
-#if SECURITY_DEP && MONO_FEATURE_HTTPLISTENER
-
+#if MONO_FEATURE_HTTPLISTENER
 using System.Collections.Specialized;
 using System.IO;
 using System.Security.Principal;
@@ -164,10 +163,4 @@ namespace System.Net {
 		}
 	}
 }
-#else
-namespace System.Net {
-	public sealed partial class HttpListenerContext {
-	}
-}
 #endif
-

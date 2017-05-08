@@ -25,8 +25,7 @@
 // OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 // WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //
-#if SECURITY_DEP && MONO_FEATURE_HTTPLISTENER
-
+#if MONO_FEATURE_HTTPLISTENER
 using System.Collections;
 using System.Collections.Generic;
 
@@ -94,6 +93,11 @@ namespace System.Net {
 			((ICollection) prefixes).CopyTo (array, offset);
 		}
 
+		public IEnumerator<string> GetEnumerator ()
+		{
+			return prefixes.GetEnumerator ();
+		}
+	
 		IEnumerator IEnumerable.GetEnumerator ()
 		{
 			return prefixes.GetEnumerator ();

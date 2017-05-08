@@ -27,13 +27,14 @@
 // WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //
 
-#if SECURITY_DEP && MONO_FEATURE_HTTPLISTENER
-
+#if MONO_FEATURE_HTTPLISTENER
+#if SECURITY_DEP
 #if MONO_SECURITY_ALIAS
 extern alias MonoSecurity;
 using MonoSecurity::Mono.Security.Authenticode;
 #else
 using Mono.Security.Authenticode;
+#endif
 #endif
 
 using System;
@@ -375,4 +376,3 @@ namespace Mono.Net {
 	}
 }
 #endif
-
