@@ -69,6 +69,8 @@ namespace System.Net {
 		bool listening;
 		bool disposed;
 
+		readonly object _internalLock; // don't rename to match CoreFx
+
 		Hashtable registry;   // Dictionary<HttpListenerContext,HttpListenerContext> 
 		ArrayList ctx_queue;  // List<HttpListenerContext> ctx_queue;
 		ArrayList wait_queue; // List<ListenerAsyncResult> wait_queue;
@@ -82,6 +84,7 @@ namespace System.Net {
 
 		public HttpListener ()
 		{
+			_internalLock = new object ();
 			prefixes = new HttpListenerPrefixCollection (this);
 			registry = new Hashtable ();
 			connections = Hashtable.Synchronized (new Hashtable ());
@@ -237,7 +240,7 @@ namespace System.Net {
 
 		void Cleanup (bool close_existing)
 		{
-			lock (registry) {
+			lock (_internalLock) {
 				if (close_existing) {
 					// Need to copy this since closing will call UnregisterContext
 					ICollection keys = registry.Keys;
@@ -393,7 +396,7 @@ namespace System.Net {
 
 		internal void RegisterContext (HttpListenerContext context)
 		{
-			lock (registry)
+			lock (_internalLock)
 				registry [context] = context;
 
 			XListenerAsyncResult ares = null;
@@ -412,7 +415,7 @@ namespace System.Net {
 
 		internal void UnregisterContext (HttpListenerContext context)
 		{
-			lock (registry)
+			lock (_internalLock)
 				registry.Remove (context);
 			lock (ctx_queue) {
 				int idx = ctx_queue.IndexOf (context);

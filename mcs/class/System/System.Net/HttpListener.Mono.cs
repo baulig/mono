@@ -64,7 +64,7 @@ namespace System.Net {
 		internal X509Certificate LoadCertificateAndKey (IPAddress addr, int port)
 		{
 #if SECURITY_DEP
-			lock (registry) {
+			lock (_internalLock) {
 				if (certificate != null)
 					return certificate;
 
@@ -97,7 +97,7 @@ namespace System.Net {
 		internal SslStream CreateSslStream (Stream innerStream, bool ownsStream, RemoteCertificateValidationCallback callback)
 		{
 #if SECURITY_DEP
-			lock (registry) {
+			lock (_internalLock) {
 				if (tlsProvider == null)
 					tlsProvider = MonoTlsProviderFactory.GetProvider ();
 				if (tlsSettings == null)
