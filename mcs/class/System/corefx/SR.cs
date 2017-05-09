@@ -105,10 +105,6 @@ partial class SR
 	public const string net_uri_BadUnicodeHostForIdn = "An invalid Unicode character by IDN standards was specified in the host.";
 	public const string Argument_ExtraNotValid = "Extra portion of URI not valid.";
 	public const string Argument_InvalidUriSubcomponent = "The subcomponent, {0}, of this uri is not valid.";
-	public const string Arg_ArgumentOutOfRangeException = "Index was out of bounds:";
-	public const string Arg_ElementsInSourceIsGreaterThanDestination = "Number of elements in source vector is greater than the destination array";
-	public const string Arg_NullArgumentNullRef = "The method was called with a null array argument.";
-	public const string Arg_TypeNotSupported = "Specified type is not supported";
 	public const string IO_EOF_ReadBeyondEOF = "Unable to read beyond the end of the stream.";
 	public const string BaseStream_Invalid_Not_Open = "The BaseStream is only available when the port is open.";
 	public const string PortNameEmpty_String = "The PortName cannot be empty.";
