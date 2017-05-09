@@ -968,34 +968,26 @@ corefx/SR.cs
 ../../../external/corefx/src/System.Net.WebSockets.Client/src/System/Net/WebSockets/ClientWebSocketOptions.cs
 ../../../external/corefx/src/System.Net.WebSockets.Client/src/System/Net/WebSockets/WebSocketHandle.Managed.cs
 
-../../../external/corefx/src/System.Net.HttpListener/src/System/Net/WebSockets/HttpListenerWebSocketContext.cs
-
 ../../../external/corefx/src/System.Net.HttpListener/src/System/Net/AuthenticationSchemeSelector.cs
 ../../../external/corefx/src/System.Net.HttpListener/src/System/Net/AuthenticationTypes.cs
 ../../../external/corefx/src/System.Net.HttpListener/src/System/Net/HttpListener.cs
 ../../../external/corefx/src/System.Net.HttpListener/src/System/Net/HttpListenerBasicIdentity.cs
 ../../../external/corefx/src/System.Net.HttpListener/src/System/Net/HttpListenerContext.cs
 ../../../external/corefx/src/System.Net.HttpListener/src/System/Net/HttpListenerException.cs
+../../../external/corefx/src/System.Net.HttpListener/src/System/Net/HttpListenerPrefixCollection.cs
 ../../../external/corefx/src/System.Net.HttpListener/src/System/Net/HttpListenerRequest.cs
 ../../../external/corefx/src/System.Net.HttpListener/src/System/Net/HttpListenerRequestUriBuilder.cs
 ../../../external/corefx/src/System.Net.HttpListener/src/System/Net/HttpListenerResponse.cs
 ../../../external/corefx/src/System.Net.HttpListener/src/System/Net/HttpRequestStream.cs
 ../../../external/corefx/src/System.Net.HttpListener/src/System/Net/HttpResponseStream.cs
-../../../external/corefx/src/System.Net.HttpListener/src/System/Net/NetEventSource.HttpListener.cs
-../../../external/corefx/src/System.Net.HttpListener/src/System/Net/ServiceNameStore.cs
-
-../../../external/corefx/src/System.Net.HttpListener/src/System/Net/WebSockets/HttpWebSocket.cs
-../../../external/corefx/src/System.Net.HttpListener/src/System/Net/WebSockets/HttpListenerWebSocketContext.cs
-
-../../../external/corefx/src/System.Net.HttpListener/src/System/Net/Managed/ChunkStream.cs
 ../../../external/corefx/src/System.Net.HttpListener/src/System/Net/Managed/ChunkedInputStream.cs
+../../../external/corefx/src/System.Net.HttpListener/src/System/Net/Managed/ChunkStream.cs
 ../../../external/corefx/src/System.Net.HttpListener/src/System/Net/Managed/HttpConnection.cs
 ../../../external/corefx/src/System.Net.HttpListener/src/System/Net/Managed/HttpEndPointListener.cs
 ../../../external/corefx/src/System.Net.HttpListener/src/System/Net/Managed/HttpEndPointManager.cs
 ../../../external/corefx/src/System.Net.HttpListener/src/System/Net/Managed/HttpHeaderStrings.cs
 ../../../external/corefx/src/System.Net.HttpListener/src/System/Net/Managed/HttpListener.Managed.cs
 ../../../external/corefx/src/System.Net.HttpListener/src/System/Net/Managed/HttpListenerContext.Managed.cs
-../../../external/corefx/src/System.Net.HttpListener/src/System/Net/Managed/HttpListenerPrefixCollection.Managed.cs
 ../../../external/corefx/src/System.Net.HttpListener/src/System/Net/Managed/HttpListenerRequest.Managed.cs
 ../../../external/corefx/src/System.Net.HttpListener/src/System/Net/Managed/HttpListenerResponse.Managed.cs
 ../../../external/corefx/src/System.Net.HttpListener/src/System/Net/Managed/HttpListenerTimeoutManager.Managed.cs
@@ -1005,6 +997,10 @@ corefx/SR.cs
 ../../../external/corefx/src/System.Net.HttpListener/src/System/Net/Managed/ListenerAsyncResult.Managed.cs
 ../../../external/corefx/src/System.Net.HttpListener/src/System/Net/Managed/ListenerPrefix.cs
 ../../../external/corefx/src/System.Net.HttpListener/src/System/Net/Managed/WebSockets/HttpWebSocket.Managed.cs
+../../../external/corefx/src/System.Net.HttpListener/src/System/Net/NetEventSource.HttpListener.cs
+../../../external/corefx/src/System.Net.HttpListener/src/System/Net/ServiceNameStore.cs
+../../../external/corefx/src/System.Net.HttpListener/src/System/Net/WebSockets/HttpListenerWebSocketContext.cs
+../../../external/corefx/src/System.Net.HttpListener/src/System/Net/WebSockets/HttpWebSocket.cs
 
 ../../../external/corefx/src/Common/src/System/Net/HttpStatusDescription.cs
 
