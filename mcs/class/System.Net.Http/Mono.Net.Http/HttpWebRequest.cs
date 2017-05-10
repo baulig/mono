@@ -1670,11 +1670,9 @@ namespace Mono.Net.Http
 					return false;
 				request.webHeaders [isProxy ? "Proxy-Authorization" : "Authorization"] = auth.Message;
 				isCompleted = auth.Complete;
-#if !MARTIN_TEST
 				bool is_ntlm = (auth.ModuleAuthenticationType == "NTLM");
 				if (is_ntlm)
 					ntlm_auth_state = (NtlmAuthState)((int) ntlm_auth_state + 1);
-#endif
 				return true;
 			}
 

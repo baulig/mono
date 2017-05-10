@@ -65,6 +65,7 @@ Mono.Net.Http/WebExceptionStatus.cs
 
 corefx/SR.cs
 corefx/SR2.cs
+corefx/Authorization.Mono.cs
 corefx/WebExceptionPal.Mono.cs
 
 ../../../external/corefx/src/Common/src/System/Net/Logging/NetEventSource.Common.cs
