@@ -155,5 +155,14 @@ namespace Mono.Net.Security
 			throw new NotSupportedException ();
 			#endif
 		}
+
+		internal static IWebProxy InternalDefaultWebProxy {
+			get {
+				return WebRequest.InternalDefaultWebProxy;
+			}
+			set {
+				WebRequest.InternalDefaultWebProxy = value;
+			}
+		}
 	}
 }

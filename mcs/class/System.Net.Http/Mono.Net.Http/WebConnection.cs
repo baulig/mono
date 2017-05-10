@@ -252,6 +252,9 @@ namespace Mono.Net.Http
 					connect_request.Credentials = creds;
 				}
 
+#if MARTIN_TEST
+				throw new PlatformNotSupportedException ();
+#else
 				if (creds != null) {
 					for (int i = 0; i < challenge.Length; i++) {
 						var auth = AuthenticationManager.Authenticate (challenge [i], connect_request, creds);
@@ -263,6 +266,7 @@ namespace Mono.Net.Http
 						break;
 					}
 				}
+#endif
 			}
 
 			if (ntlm) {
@@ -415,7 +419,7 @@ namespace Mono.Net.Http
 				}
 			} catch (Exception ex) {
 				if (tlsStream != null)
-					status = tlsStream.ExceptionStatus;
+					status = (WebExceptionStatus)tlsStream.ExceptionStatus;
 				else if (!request.Aborted)
 					status = WebExceptionStatus.ConnectFailure;
 				connect_exception = ex;

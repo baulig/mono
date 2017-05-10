@@ -46,6 +46,7 @@ using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading;
 using Mono.Security.Interface;
+using Mono.Net.Security;
 
 namespace Mono.Net.Http
 {
@@ -143,7 +144,7 @@ namespace Mono.Net.Http
 		{
 			this.requestUri = uri;
 			this.actualUri = uri;
-			this.proxy = InternalDefaultWebProxy;
+			this.proxy = NoReflectionHelper.InternalDefaultWebProxy;
 			this.webHeaders = new WebHeaderCollection (WebHeaderCollectionType.HttpWebRequest);
 			ThrowOnError = true;
 			ResetAuthorization ();
@@ -1669,9 +1670,11 @@ namespace Mono.Net.Http
 					return false;
 				request.webHeaders [isProxy ? "Proxy-Authorization" : "Authorization"] = auth.Message;
 				isCompleted = auth.Complete;
+#if !MARTIN_TEST
 				bool is_ntlm = (auth.ModuleAuthenticationType == "NTLM");
 				if (is_ntlm)
 					ntlm_auth_state = (NtlmAuthState)((int) ntlm_auth_state + 1);
+#endif
 				return true;
 			}
 
