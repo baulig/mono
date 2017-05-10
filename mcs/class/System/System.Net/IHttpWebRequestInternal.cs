@@ -24,6 +24,19 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 //
+
+#if SECURITY_DEP
+#if MONO_SECURITY_ALIAS
+extern alias MonoSecurity;
+using MonoSecurity::Mono.Security.Interface;
+#else
+using Mono.Security.Interface;
+#endif
+#endif
+
+using System;
+using System.Security.Cryptography.X509Certificates;
+
 namespace System.Net
 {
 	interface IHttpConnectionInternal
@@ -73,6 +86,18 @@ namespace System.Net
 			get; set;
 		}
 
+		string Host {
+			get; set;
+		}
+
+		ServicePoint ServicePoint {
+			get;
+		}
+
+		ServicePoint ServicePointNoLock {
+			get;
+		}
+
 		Uri Address {
 			get;
 		}
@@ -81,6 +106,24 @@ namespace System.Net
 			get; set;
 		}
 
+		X509CertificateCollection ClientCertificates {
+			get;
+		}
+
 		IHttpConnectionInternal CreateConnection (IWebConnectionState state, ServicePoint sPoint);
+
+		ServerCertValidationCallback ServerCertValidationCallback {
+			get;
+		}
+
+#if SECURITY_DEP
+		MonoTlsProvider TlsProvider {
+			get;
+		}
+
+		MonoTlsSettings TlsSettings {
+			get;
+		}
+#endif
 	}
 }

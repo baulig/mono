@@ -31,15 +31,6 @@
 // WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //
 
-#if SECURITY_DEP
-#if MONO_SECURITY_ALIAS
-extern alias MonoSecurity;
-using MonoSecurity::Mono.Security.Interface;
-#else
-using Mono.Security.Interface;
-#endif
-#endif
-
 using System;
 using System.Collections;
 using System.Configuration;
@@ -54,7 +45,7 @@ using System.Runtime.Serialization;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading;
-using Mono.Net.Security;
+using Mono.Security.Interface;
 
 namespace Mono.Net.Http
 {
@@ -112,10 +103,8 @@ namespace Mono.Net.Http
 		int maxResponseHeadersLength;
 		static int defaultMaxResponseHeadersLength;
 		int readWriteTimeout = 300000; // ms
-#if SECURITY_DEP
 		MonoTlsProvider tlsProvider;
 		MonoTlsSettings tlsSettings;
-#endif
 		ServerCertValidationCallback certValidationCallback;
 
 		enum NtlmAuthState {
@@ -160,15 +149,13 @@ namespace Mono.Net.Http
 			ResetAuthorization ();
 		}
 
-#if SECURITY_DEP
 		internal HttpWebRequest (Uri uri, MonoTlsProvider tlsProvider, MonoTlsSettings settings = null)
 			: this (uri)
 		{
 			this.tlsProvider = tlsProvider;
 			this.tlsSettings = settings;
 		}
-#endif
-		
+
 		[Obsolete ("Serialization is obsoleted for this type", false)]
 		protected HttpWebRequest (SerializationInfo serializationInfo, StreamingContext streamingContext) 
 		{
@@ -279,7 +266,14 @@ namespace Mono.Net.Http
 			}
 		}
 
-#if SECURITY_DEP
+		MonoTlsProvider IHttpWebRequestInternal.TlsProvider {
+			get { return TlsProvider; }
+		}
+
+		MonoTlsSettings IHttpWebRequestInternal.TlsSettings {
+			get { return TlsSettings; }
+		}
+
 		internal MonoTlsProvider TlsProvider {
 			get { return tlsProvider; }
 		}
@@ -287,7 +281,6 @@ namespace Mono.Net.Http
 		internal MonoTlsSettings TlsSettings {
 			get { return tlsSettings; }
 		}
-#endif
 
 		public X509CertificateCollection ClientCertificates {
 			get {
@@ -648,9 +641,14 @@ namespace Mono.Net.Http
 			get { return GetServicePoint (); }
 		}
 
+		ServicePoint IHttpWebRequestInternal.ServicePointNoLock {
+			get { return ServicePointNoLock; }
+		}
+
 		internal ServicePoint ServicePointNoLock {
 			get { return servicePoint; }
 		}
+
 		public virtual bool SupportsCookieContainer { 
 			get {
 				// The managed implementation supports the cookie container
@@ -724,6 +722,10 @@ namespace Mono.Net.Http
 		
 		internal bool ProxyQuery {
 			get { return servicePoint.UsesProxy && !servicePoint.UseConnect; }
+		}
+
+		ServerCertValidationCallback IHttpWebRequestInternal.ServerCertValidationCallback {
+			get { return ServerCertValidationCallback; }
 		}
 
 		internal ServerCertValidationCallback ServerCertValidationCallback {
@@ -1053,8 +1055,12 @@ namespace Mono.Net.Http
 			set { finished_reading = value; }
 		}
 
-		public bool Aborted {
+		internal bool Aborted {
 			get { return Interlocked.CompareExchange (ref aborted, 0, 0) == 1; }
+		}
+
+		bool IHttpWebRequestInternal.Aborted {
+			get { return Aborted; }
 		}
 
 		public override void Abort ()

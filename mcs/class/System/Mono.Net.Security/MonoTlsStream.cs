@@ -54,9 +54,9 @@ namespace Mono.Net.Security
 #if SECURITY_DEP		
 		readonly MonoTlsProvider provider;
 		readonly NetworkStream networkStream;		
-		readonly HttpWebRequest request;
+		readonly IHttpWebRequestInternal request;
 
-		internal HttpWebRequest Request {
+		internal IHttpWebRequestInternal Request {
 			get { return request; }
 		}
 
@@ -81,7 +81,7 @@ namespace Mono.Net.Security
 //		readonly ChainValidationHelper validationHelper;
 		readonly MonoTlsSettings settings;
 
-		public MonoTlsStream (HttpWebRequest request, NetworkStream networkStream)
+		public MonoTlsStream (IHttpWebRequestInternal request, NetworkStream networkStream)
 		{
 			this.request = request;
 			this.networkStream = networkStream;

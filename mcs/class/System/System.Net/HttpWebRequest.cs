@@ -280,6 +280,14 @@ namespace System.Net
 		}
 
 #if SECURITY_DEP
+		MonoTlsProvider IHttpWebRequestInternal.TlsProvider {
+			get { return TlsProvider; }
+		}
+
+		MonoTlsSettings IHttpWebRequestInternal.TlsSettings {
+			get { return TlsSettings; }
+		}
+
 		internal MonoTlsProvider TlsProvider {
 			get { return tlsProvider; }
 		}
@@ -648,9 +656,14 @@ namespace System.Net
 			get { return GetServicePoint (); }
 		}
 
+		ServicePoint IHttpWebRequestInternal.ServicePointNoLock {
+			get { return ServicePointNoLock; }
+		}
+
 		internal ServicePoint ServicePointNoLock {
 			get { return servicePoint; }
 		}
+
 		public virtual bool SupportsCookieContainer { 
 			get {
 				// The managed implementation supports the cookie container
@@ -724,6 +737,10 @@ namespace System.Net
 		
 		internal bool ProxyQuery {
 			get { return servicePoint.UsesProxy && !servicePoint.UseConnect; }
+		}
+
+		ServerCertValidationCallback IHttpWebRequestInternal.ServerCertValidationCallback {
+			get { return ServerCertValidationCallback; }
 		}
 
 		internal ServerCertValidationCallback ServerCertValidationCallback {

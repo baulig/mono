@@ -313,7 +313,7 @@ namespace System.Net
 			{
 				Group = group;
 				idleSince = DateTime.UtcNow;
-				Connection = new WebConnection (this, group.sPoint);
+				Connection = request.CreateConnection (this, group.sPoint);
 			}
 		}
 		

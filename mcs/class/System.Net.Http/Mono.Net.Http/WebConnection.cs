@@ -396,7 +396,6 @@ namespace Mono.Net.Http
 				NetworkStream serverStream = new NetworkStream (socket, false);
 
 				if (request.Address.Scheme == Uri.UriSchemeHttps) {
-#if SECURITY_DEP
 					if (!reused || nstream == null || tlsStream == null) {
 						byte [] buffer = null;
 						if (sPoint.UseConnect) {
@@ -411,9 +410,6 @@ namespace Mono.Net.Http
 					// and ServicePoint.ClientCertificate but this can
 					// only be done later (after handshake - which is
 					// done only after a read operation).
-#else
-					throw new NotSupportedException ();
-#endif
 				} else {
 					nstream = serverStream;
 				}

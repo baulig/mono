@@ -26,6 +26,7 @@
 // WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //
 
+using Mono.Net.Http;
 using System.Collections.Generic;
 using System.Security.Authentication;
 using System.Security.Cryptography.X509Certificates;
@@ -38,6 +39,9 @@ using System.Linq;
 
 namespace System.Net.Http
 {
+	using HttpWebRequest = Mono.Net.Http.HttpWebRequest;
+	using HttpWebResponse = Mono.Net.Http.HttpWebResponse;
+
 	public class HttpClientHandler : HttpMessageHandler
 	{
 		static long groupCounter;

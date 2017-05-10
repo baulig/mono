@@ -73,7 +73,7 @@ namespace Mono.Net.Security
 		readonly LocalCertSelectionCallback certSelectionCallback;
 		readonly ServerCertValidationCallbackWrapper callbackWrapper;
 		readonly MonoTlsStream tlsStream;
-		readonly HttpWebRequest request;
+		readonly IHttpWebRequestInternal request;
 
 #pragma warning disable 618
 
@@ -350,7 +350,10 @@ namespace Mono.Net.Security
 					sp = request.ServicePointNoLock;
 
 				// pre 2.0 callback
-				result = policy.CheckValidationResult (sp, leaf, request, status11);
+				var internalRequest = request as HttpWebRequest;
+				if (internalRequest == null)
+					throw new PlatformNotSupportedException ();
+				result = policy.CheckValidationResult (sp, leaf, internalRequest, status11);
 				user_denied = !result && !(policy is DefaultCertificatePolicy);
 			}
 			// If there's a 2.0 callback, it takes precedence
