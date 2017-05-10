@@ -157,6 +157,11 @@ namespace Mono.Net.Http
 			this.tlsSettings = settings;
 		}
 
+		internal HttpWebRequest (Uri uri, bool returnResponseOnFailureStatusCode, string connectionGroupName, Action<Stream> resendRequestContent)
+			: this (uri)
+		{
+		}
+
 		[Obsolete ("Serialization is obsoleted for this type", false)]
 		protected HttpWebRequest (SerializationInfo serializationInfo, StreamingContext streamingContext) 
 		{
