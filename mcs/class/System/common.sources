@@ -74,7 +74,6 @@ System.Net.Mail/AttachmentCollection.cs
 System.Net.Mail/DeliveryNotificationOptions.cs
 System.Net.Mail/LinkedResource.cs
 System.Net.Mail/LinkedResourceCollection.cs
-System.Net.Mail/MailAddress.cs
 System.Net.Mail/MailAddressCollection.cs
 System.Net.Mail/MailMessage.cs
 System.Net.Mail/MailPriority.cs
@@ -281,9 +280,13 @@ ReferenceSources/SR.cs
 ReferenceSources/SRCategoryAttribute.cs
 ReferenceSources/Win32Exception.cs
 
+../../../external/corefx/src/Common/src/System/Threading/Tasks/TaskToApm.cs
 ../../../external/corefx/src/Common/src/System/Net/ExceptionCheck.cs
 ../../../external/corefx/src/Common/src/System/NotImplemented.cs
 ../../../external/corefx/src/Common/src/System/Net/HttpValidationHelpers.cs
+../../../external/corefx/src/Common/src/System/Net/HttpVersionInternal.cs
+../../../external/corefx/src/Common/src/System/Net/HttpStatusDescription.cs
+../../../external/corefx/src/Common/src/System/IO/StreamHelpers.CopyValidation.cs
 
 ../referencesource/System/regex/system/text/regularexpressions/Regex.cs
 ../referencesource/System/regex/system/text/regularexpressions/RegexBoyerMoore.cs
@@ -797,10 +800,12 @@ ReferenceSources/Win32Exception.cs
 ../referencesource/System/net/System/Net/mail/ContentType.cs
 ../referencesource/System/net/System/Net/mail/DelegatedStream.cs
 ../referencesource/System/net/System/Net/mail/DispositionTypeNames.cs
-../referencesource/System/net/System/Net/mail/EightBitStream.cs
+../referencesource/System/net/System/Net/mail/DomainLiteralReader.cs ../referencesource/System/net/System/Net/mail/DotAtomReader.cs ../referencesource/System/net/System/Net/mail/EightBitStream.cs
 ../referencesource/System/net/System/Net/mail/EncodedStreamFactory.cs
 ../referencesource/System/net/System/Net/mail/HeaderCollection.cs
 ../referencesource/System/net/System/Net/mail/IEncodableStream.cs
+../referencesource/System/net/System/Net/mail/MailAddress.cs
+../referencesource/System/net/System/Net/mail/MailAddressParser.cs
 ../referencesource/System/net/System/Net/mail/MailBnfHelper.cs
 ../referencesource/System/net/System/Net/mail/MailHeaderInfo.cs
 ../referencesource/System/net/System/Net/mail/MimeBasePart.cs
@@ -811,11 +816,14 @@ ReferenceSources/Win32Exception.cs
 ../referencesource/System/net/System/Net/mail/MimeWriter.cs
 ../referencesource/System/net/System/Net/mail/MultiAsyncResult.cs
 ../referencesource/System/net/System/Net/mail/QEncodedStream.cs
+../referencesource/System/net/System/Net/mail/QuotedPairReader.cs
 ../referencesource/System/net/System/Net/mail/QuotedPrintableStream.cs
+../referencesource/System/net/System/Net/mail/QuotedStringFormatReader.cs
 ../referencesource/System/net/System/Net/mail/SmtpDateTime.cs
 ../referencesource/System/net/System/Net/mail/TrackingStringDictionary.cs
 ../referencesource/System/net/System/Net/mail/TrackingValidationObjectDictionary.cs
 ../referencesource/System/net/System/Net/mail/TransferEncoding.cs
+../referencesource/System/net/System/Net/mail/WhiteSpaceReader.cs
 ../referencesource/System/net/System/Net/mail/WriteStateInfoBase.cs
 ../referencesource/System/net/System/Net/mail/mediatypenames.cs
 
