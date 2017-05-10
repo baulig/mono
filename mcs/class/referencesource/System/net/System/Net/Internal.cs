@@ -968,7 +968,6 @@ namespace System.Net {
 
     internal static class ExceptionHelper
     {
-#if MONO_FEATURE_CAS
         internal static readonly KeyContainerPermission KeyContainerPermissionOpen = new KeyContainerPermission(KeyContainerPermissionFlags.Open);
         internal static readonly WebPermission WebPermissionUnrestricted = new WebPermission(NetworkAccess.Connect);
         internal static readonly SecurityPermission UnmanagedPermission = new SecurityPermission(SecurityPermissionFlag.UnmanagedCode);
@@ -976,7 +975,6 @@ namespace System.Net {
         internal static readonly SecurityPermission InfrastructurePermission = new SecurityPermission(SecurityPermissionFlag.Infrastructure);
         internal static readonly SecurityPermission ControlPolicyPermission = new SecurityPermission(SecurityPermissionFlag.ControlPolicy);
         internal static readonly SecurityPermission ControlPrincipalPermission = new SecurityPermission(SecurityPermissionFlag.ControlPrincipal);
-#endif
         internal static NotImplementedException MethodNotImplementedException {
             get {
                 return new NotImplementedException(SR.GetString(SR.net_MethodNotImplementedException));

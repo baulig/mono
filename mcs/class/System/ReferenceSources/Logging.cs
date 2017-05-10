@@ -23,6 +23,16 @@ namespace System.Net {
 			}
 		}
 
+		internal static TraceSource Http {
+			get {
+				return null;
+			}
+		}
+
+		[Conditional ("TRACE")]
+		internal static void Associate(TraceSource traceSource, params object[] args) {
+		}
+
 		[Conditional ("TRACE")]
 		internal static void Enter(TraceSource traceSource, object obj, string method, object paramObject) {
 		}

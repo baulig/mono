@@ -20,7 +20,6 @@ corefx/WebExceptionPal.Mono.cs
 
 ../../../external/corefx/src/System.Net.Requests/src/System/Net/AuthenticationManager.cs
 ../../../external/corefx/src/System.Net.Requests/src/System/Net/Authorization.cs
-../../../external/corefx/src/System.Net.Requests/src/System/Net/ExceptionHelper.cs
 ../../../external/corefx/src/System.Net.Requests/src/System/Net/GlobalProxySelection.cs
 ../../../external/corefx/src/System.Net.Requests/src/System/Net/HttpDateParse.cs
 ../../../external/corefx/src/System.Net.Requests/src/System/Net/HttpRequestHeader.cs
@@ -55,6 +54,7 @@ corefx/WebExceptionPal.Mono.cs
 ../../../external/corefx/src/System.Net.Http/src/System/Net/Http/DelegatingHandler.cs
 ../../../external/corefx/src/System.Net.Http/src/System/Net/Http/FormUrlEncodedContent.cs
 ../../../external/corefx/src/System.Net.Http/src/System/Net/Http/HttpClient.cs
+../../../external/corefx/src/System.Net.Http/src/System/Net/Http/HttpClientHandler.Net46.cs
 ../../../external/corefx/src/System.Net.Http/src/System/Net/Http/HttpCompletionOption.cs
 ../../../external/corefx/src/System.Net.Http/src/System/Net/Http/HttpContent.cs
 ../../../external/corefx/src/System.Net.Http/src/System/Net/Http/HttpMessageHandler.cs
