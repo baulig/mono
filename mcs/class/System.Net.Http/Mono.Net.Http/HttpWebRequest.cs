@@ -59,7 +59,7 @@ using Mono.Net.Security;
 namespace Mono.Net.Http
 {
 	[Serializable]
-	public class HttpWebRequest : WebRequest, IHttpWebRequestInternal, ISerializable {
+	class HttpWebRequest : WebRequest, IHttpWebRequestInternal, ISerializable {
 		Uri requestUri;
 		Uri actualUri;
 		bool hostChanged;

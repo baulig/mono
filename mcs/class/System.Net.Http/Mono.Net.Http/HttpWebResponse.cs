@@ -45,7 +45,7 @@ using System.Text;
 namespace Mono.Net.Http
 {
 	[Serializable]
-	public class HttpWebResponse : WebResponse, ISerializable, IDisposable {
+	class HttpWebResponse : WebResponse, ISerializable, IDisposable {
 		Uri uri;
 		WebHeaderCollection webHeaders;
 		CookieCollection cookieCollection;
