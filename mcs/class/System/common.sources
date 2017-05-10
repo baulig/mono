@@ -281,6 +281,10 @@ ReferenceSources/SR.cs
 ReferenceSources/SRCategoryAttribute.cs
 ReferenceSources/Win32Exception.cs
 
+../../../external/corefx/src/Common/src/System/Net/ExceptionCheck.cs
+../../../external/corefx/src/Common/src/System/NotImplemented.cs
+../../../external/corefx/src/Common/src/System/Net/HttpValidationHelpers.cs
+
 ../referencesource/System/regex/system/text/regularexpressions/Regex.cs
 ../referencesource/System/regex/system/text/regularexpressions/RegexBoyerMoore.cs
 ../referencesource/System/regex/system/text/regularexpressions/RegexCapture.cs

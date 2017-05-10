@@ -67,11 +67,8 @@ corefx/SR.cs
 corefx/SR2.cs
 corefx/WebExceptionPal.Mono.cs
 
-../../../external/corefx/src/Common/src/System/Net/ExceptionCheck.cs
-../../../external/corefx/src/Common/src/System/NotImplemented.cs
-../../../external/corefx/src/Common/src/System/Net/HttpValidationHelpers.cs
-../../../external/corefx/src/Common/src/System/Net/Http/HttpHandlerDefaults.cs
 ../../../external/corefx/src/Common/src/System/Net/Logging/NetEventSource.Common.cs
+../../../external/corefx/src/Common/src/System/Net/Http/HttpHandlerDefaults.cs
 
 ../../../external/corefx/src/System.Net.Requests/src/System/Net/AuthenticationManager.cs
 ../../../external/corefx/src/System.Net.Requests/src/System/Net/Authorization.cs
