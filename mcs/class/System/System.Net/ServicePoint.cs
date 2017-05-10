@@ -382,10 +382,10 @@ namespace System.Net
 			protocolVersion = version;
 		}
 
-		internal EventHandler SendRequest (HttpWebRequest request, string groupName)
+		internal EventHandler SendRequest (IHttpWebRequestInternal request, string groupName)
 		{
-			WebConnection cnc;
-			
+			IHttpConnectionInternal cnc;
+
 			lock (this) {
 				bool created;
 				WebConnectionGroup cncGroup = GetConnectionGroup (groupName);
@@ -396,9 +396,10 @@ namespace System.Net
 						idleTimer = new Timer (IdleTimerCallback, null, maxIdleTime, maxIdleTime);
 				}
 			}
-			
+
 			return cnc.SendRequest (request);
 		}
+
 		public bool CloseConnectionGroup (string connectionGroupName)
 		{
 			WebConnectionGroup cncGroup = null;

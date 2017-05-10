@@ -28,7 +28,9 @@
 // WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //
 
+using System;
 using System.IO;
+using System.Net;
 using System.Collections;
 using System.Net.Sockets;
 using System.Security.Cryptography.X509Certificates;
@@ -37,7 +39,7 @@ using System.Threading;
 using System.Diagnostics;
 using Mono.Net.Security;
 
-namespace System.Net
+namespace Mono.Net.Http
 {
 	enum ReadState
 	{

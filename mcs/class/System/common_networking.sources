@@ -37,6 +37,7 @@ System.Net/HttpListenerTimeoutManager.cs
 System.Net/HttpWebRequest.cs
 System.Net/HttpWebResponse.cs
 System.Net/IWebConnectionState.cs
+System.Net/IHttpWebRequestInternal.cs
 System.Net/ListenerAsyncResult.cs
 System.Net/ResponseStream.cs
 System.Net/ServicePoint.cs

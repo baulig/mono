@@ -56,7 +56,7 @@ using System.Text;
 using System.Threading;
 using Mono.Net.Security;
 
-namespace System.Net 
+namespace Mono.Net.Http
 {
 	[Serializable]
 	public class HttpWebRequest : WebRequest, IHttpWebRequestInternal, ISerializable {
@@ -1053,12 +1053,8 @@ namespace System.Net
 			set { finished_reading = value; }
 		}
 
-		internal bool Aborted {
+		public bool Aborted {
 			get { return Interlocked.CompareExchange (ref aborted, 0, 0) == 1; }
-		}
-
-		bool IHttpWebRequestInternal.Aborted {
-			get { return Aborted; }
 		}
 
 		public override void Abort ()

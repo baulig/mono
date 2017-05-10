@@ -66,7 +66,7 @@ namespace System.Net
 
 		public void Close ()
 		{
-			List<WebConnection> connectionsToClose = null;
+			List<IHttpConnectionInternal> connectionsToClose = null;
 
 			//TODO: what do we do with the queue? Empty it out and abort the requests?
 			//TODO: abort requests or wait for them to finish
@@ -80,7 +80,7 @@ namespace System.Net
 
 					// Closing connections inside the lock leads to a deadlock.
 					if (connectionsToClose == null)
-						connectionsToClose = new List<WebConnection>();
+						connectionsToClose = new List<IHttpConnectionInternal>();
 
 					connectionsToClose.Add (cnc);
 					connections.Remove (node);
@@ -95,14 +95,21 @@ namespace System.Net
 			}
 		}
 
-		public WebConnection GetConnection (HttpWebRequest request, out bool created)
+		public IHttpConnectionInternal GetConnection (HttpWebRequest request, out bool created)
 		{
 			lock (sPoint) {
 				return CreateOrReuseConnection (request, out created);
 			}
 		}
 
-		static void PrepareSharingNtlm (WebConnection cnc, HttpWebRequest request)
+		public IHttpConnectionInternal GetConnection (IHttpWebRequestInternal request, out bool created)
+		{
+			lock (sPoint) {
+				return CreateOrReuseConnection (request, out created);
+			}
+		}
+
+		static void PrepareSharingNtlm (IHttpConnectionInternal cnc, IHttpWebRequestInternal request)
 		{
 			if (!cnc.NtlmAuthenticated)
 				return;
@@ -145,7 +152,7 @@ namespace System.Net
 			return null;
 		}
 
-		WebConnection CreateOrReuseConnection (HttpWebRequest request, out bool created)
+		IHttpConnectionInternal CreateOrReuseConnection (HttpWebRequest request, out bool created)
 		{
 			var cnc = FindIdleConnection ();
 			if (cnc != null) {
@@ -156,7 +163,30 @@ namespace System.Net
 
 			if (sPoint.ConnectionLimit > connections.Count || connections.Count == 0) {
 				created = true;
-				cnc = new ConnectionState (this);
+				cnc = new ConnectionState (this, request);
+				connections.AddFirst (cnc);
+				return cnc.Connection;
+			}
+
+			created = false;
+			cnc = connections.Last.Value;
+			connections.Remove (cnc);
+			connections.AddFirst (cnc);
+			return cnc.Connection;
+		}
+
+		IHttpConnectionInternal CreateOrReuseConnection (IHttpWebRequestInternal request, out bool created)
+		{
+			var cnc = FindIdleConnection ();
+			if (cnc != null) {
+				created = false;
+				PrepareSharingNtlm (cnc.Connection, request);
+				return cnc.Connection;
+			}
+
+			if (sPoint.ConnectionLimit > connections.Count || connections.Count == 0) {
+				created = true;
+				cnc = new ConnectionState (this, request);
 				connections.AddFirst (cnc);
 				return cnc.Connection;
 			}
@@ -182,7 +212,7 @@ namespace System.Net
 
 		again:
 			bool recycled;
-			List<WebConnection> connectionsToClose = null;
+			List<IHttpConnectionInternal> connectionsToClose = null;
 
 			lock (sPoint) {
 				if (closing) {
@@ -214,7 +244,7 @@ namespace System.Net
 					 */
 
 					if (connectionsToClose == null)
-						connectionsToClose = new List<WebConnection> ();
+						connectionsToClose = new List<IHttpConnectionInternal> ();
 					connectionsToClose.Add (cnc.Connection);
 					connections.Remove (node);
 				}
@@ -235,7 +265,7 @@ namespace System.Net
 		}
 
 		class ConnectionState : IWebConnectionState {
-			public WebConnection Connection {
+			public IHttpConnectionInternal Connection {
 				get;
 				private set;
 			}
@@ -279,7 +309,7 @@ namespace System.Net
 				}
 			}
 
-			public ConnectionState (WebConnectionGroup group)
+			public ConnectionState (WebConnectionGroup group, IHttpWebRequestInternal request)
 			{
 				Group = group;
 				idleSince = DateTime.UtcNow;

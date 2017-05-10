@@ -1,4 +1,5 @@
 ../../build/common/Consts.cs
+../../build/common/MonoTODOAttribute.cs
 Assembly/AssemblyInfo.cs
 System.Net.Http/ByteArrayContent.cs
 System.Net.Http/ClientCertificateOption.cs
@@ -52,3 +53,11 @@ System.Net.Http.Headers/TransferCodingHeaderValue.cs
 System.Net.Http.Headers/TransferCodingWithQualityHeaderValue.cs
 System.Net.Http.Headers/ViaHeaderValue.cs
 System.Net.Http.Headers/WarningHeaderValue.cs
+
+Mono.Net.Http/HttpWebRequest.cs
+Mono.Net.Http/HttpWebResponse.cs
+Mono.Net.Http/WebAsyncResult.cs
+Mono.Net.Http/WebConnection.cs
+Mono.Net.Http/WebConnectionData.cs
+Mono.Net.Http/WebConnectionStream.cs
+
