@@ -58,7 +58,6 @@ System.Net/FtpStatus.cs
 System.Net/FtpWebRequest.cs
 System.Net/FtpWebResponse.cs
 System.Net/HttpListener.Mono.cs
-System.Net/HttpListenerResponseHelper.cs
 System.Net/HttpRequestCreator.cs
 System.Net/HttpWebRequest.cs
 System.Net/HttpWebResponse.cs
@@ -897,6 +896,7 @@ corefx/SR.cs
 ../../../external/corefx/src/Common/src/System/Collections/Generic/EnumerableHelpers.cs
 ../../../external/corefx/src/Common/src/System/Collections/Generic/LargeArrayBuilder.cs
 
+../../../external/corefx/src/Common/src/System/Net/HttpStatusDescription.cs
 ../../../external/corefx/src/Common/src/System/Net/SecurityProtocol.cs
 ../../../external/corefx/src/Common/src/System/Net/UriScheme.cs
 
