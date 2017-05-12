@@ -30,11 +30,11 @@ namespace System.Net {
 
 		public HttpListenerBasicIdentity (string username, string password)
 		{
-			throw new PlatformNotSupportedExceptino (EXCEPTION_MESSAGE);
+			throw new PlatformNotSupportedException (EXCEPTION_MESSAGE);
 		}
 
 		public virtual string Password {
-			get { throw new PlatformNotSupportedExceptino (EXCEPTION_MESSAGE); }
+			get { throw new PlatformNotSupportedException (EXCEPTION_MESSAGE); }
 		}
 	}
 }

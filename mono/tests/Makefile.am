@@ -458,6 +458,7 @@ TESTS_CS_SRC=		\
 	appdomain1.cs	\
 	appdomain2.cs	\
 	appdomain-exit.cs	\
+	appdomain-serialize-exception.cs \
 	assemblyresolve_event2.2.cs	\
 	appdomain-unload-callback.cs	\
 	appdomain-unload-doesnot-raise-pending-events.cs	\
@@ -1220,7 +1221,7 @@ tests: compile-tests
 #
 # Test that no symbols are missed in eglib-remap.h
 #
-OK_G_SYMBOLS='g_list\|g_slist\|g_concat_dir_and_file\|g_Ctoc\'
+OK_G_SYMBOLS='g_list\|g_slist\|g_concat_dir_and_file\|g_Ctoc'
 if NACL_CODEGEN
 test-eglib-remap:
 else
