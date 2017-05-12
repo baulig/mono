@@ -16,6 +16,7 @@ Mono.Net.Security/SystemCertificateValidator.cs
 System.Net/MacProxy.cs
 System.Net.Mail/SmtpClient.cs
 System.Net.Security/SslStream.cs
+System.Net/AuthenticationManager.cs
 System.Net/FtpAsyncResult.cs
 System.Net/FtpDataStream.cs
 System.Net/FtpRequestCreator.cs
@@ -38,7 +39,6 @@ System.Net/WebConnectionStream.cs
 ../referencesource/System/net/System/Net/Sockets/TCPListener.cs
 ../referencesource/System/net/System/Net/Sockets/UDPClient.cs
 
-../../../external/corefx/src/System.Net.HttpListener/src/System/Net/AuthenticationSchemeSelector.cs
 ../../../external/corefx/src/System.Net.HttpListener/src/System/Net/AuthenticationTypes.cs
 ../../../external/corefx/src/System.Net.HttpListener/src/System/Net/HttpListener.cs
 ../../../external/corefx/src/System.Net.HttpListener/src/System/Net/HttpListenerBasicIdentity.cs
@@ -69,5 +69,4 @@ System.Net/WebConnectionStream.cs
 ../../../external/corefx/src/System.Net.HttpListener/src/System/Net/Managed/WebSockets/HttpWebSocket.Managed.cs
 ../../../external/corefx/src/System.Net.HttpListener/src/System/Net/NetEventSource.HttpListener.cs
 ../../../external/corefx/src/System.Net.HttpListener/src/System/Net/ServiceNameStore.cs
-../../../external/corefx/src/System.Net.HttpListener/src/System/Net/WebSockets/HttpListenerWebSocketContext.cs
 ../../../external/corefx/src/System.Net.HttpListener/src/System/Net/WebSockets/HttpWebSocket.cs
