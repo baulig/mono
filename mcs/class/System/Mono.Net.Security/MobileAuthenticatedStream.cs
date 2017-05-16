@@ -41,7 +41,6 @@ namespace Mono.Net.Security
 
 		AsyncProtocolRequest asyncHandshakeRequest;
 		AsyncProtocolRequest asyncReadRequest;
-		AsyncProtocolRequest asyncWriteRequest;
 		BufferOffsetSize2 readBuffer;
 		BufferOffsetSize2 writeBuffer;
 
@@ -279,12 +278,12 @@ namespace Mono.Net.Security
 
 		public override IAsyncResult BeginWrite (byte[] buffer, int offset, int count, AsyncCallback asyncCallback, object asyncState)
 		{
-			return BeginReadOrWrite (ref asyncWriteRequest, ref writeBuffer, ProcessWrite, new BufferOffsetSize (buffer, offset, count), asyncCallback, asyncState);
+			return BeginReadOrWrite (ref asyncHandshakeRequest, ref writeBuffer, ProcessWrite, new BufferOffsetSize (buffer, offset, count), asyncCallback, asyncState);
 		}
 
 		public override void EndWrite (IAsyncResult asyncResult)
 		{
-			EndReadOrWrite (asyncResult, ref asyncWriteRequest);
+			EndReadOrWrite (asyncResult, ref asyncHandshakeRequest);
 		}
 
 		public override int Read (byte[] buffer, int offset, int count)
@@ -298,7 +297,7 @@ namespace Mono.Net.Security
 		}
 		public override void Write (byte[] buffer, int offset, int count)
 		{
-			ProcessReadOrWrite (ref asyncWriteRequest, ref writeBuffer, ProcessWrite, new BufferOffsetSize (buffer, offset, count), null);
+			ProcessReadOrWrite (ref asyncHandshakeRequest, ref writeBuffer, ProcessWrite, new BufferOffsetSize (buffer, offset, count), null);
 		}
 
 		IAsyncResult BeginReadOrWrite (ref AsyncProtocolRequest nestedRequest, ref BufferOffsetSize2 internalBuffer, AsyncOperation operation, BufferOffsetSize userBuffer, AsyncCallback asyncCallback, object asyncState)
@@ -354,8 +353,10 @@ namespace Mono.Net.Security
 
 		int StartOperation (ref AsyncProtocolRequest nestedRequest, ref BufferOffsetSize2 internalBuffer, AsyncOperation operation, AsyncProtocolRequest asyncRequest, string name)
 		{
-			if (Interlocked.CompareExchange (ref nestedRequest, asyncRequest, null) != null)
+			if (Interlocked.CompareExchange (ref nestedRequest, asyncRequest, null) != null) {
+				Console.Error.WriteLine ("INVALID NESTED CALL!");
 				throw new InvalidOperationException ("Invalid nested call.");
+			}
 
 			bool failed = false;
 			try {
@@ -452,7 +453,7 @@ namespace Mono.Net.Security
 		{
 			try {
 				Debug ("InternalWrite: {0} {1}", offset, size);
-				var asyncRequest = asyncHandshakeRequest ?? asyncWriteRequest;
+				var asyncRequest = asyncHandshakeRequest;
 				return InternalWrite (asyncRequest, writeBuffer, buffer, offset, size);
 			} catch (Exception ex) {
 				Debug ("InternalWrite failed: {0}", ex);
@@ -722,7 +723,7 @@ namespace Mono.Net.Security
 		{
 			CheckThrow (true);
 			var asyncRequest = new AsyncProtocolRequest (this, null);
-			StartOperation (ref asyncWriteRequest, ref writeBuffer, ProcessFlush, asyncRequest, "flush");
+			StartOperation (ref asyncHandshakeRequest, ref writeBuffer, ProcessFlush, asyncRequest, "flush");
 		}
 
 		public override void Close ()
@@ -739,7 +740,7 @@ namespace Mono.Net.Security
 				return;
 
 			var asyncRequest = new AsyncProtocolRequest (this, null);
-			StartOperation (ref asyncWriteRequest, ref writeBuffer, ProcessClose, asyncRequest, "close");
+			StartOperation (ref asyncHandshakeRequest, ref writeBuffer, ProcessClose, asyncRequest, "close");
 		}
 
 		//
