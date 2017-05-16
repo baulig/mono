@@ -159,7 +159,6 @@ namespace Mono.Btls
 			string file;
 			int line;
 			var error = MonoBtlsError.GetError (out file, out line);
-			Console.WriteLine ("GET EXCEPTION: {0} {1}", status, error);
 			if (error == 0)
 				return new MonoBtlsException (status);
 
