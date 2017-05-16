@@ -46,11 +46,18 @@ namespace Mono.Btls
 			public BoringSslHandle (IntPtr handle)
 				: base (handle, true)
 			{
+#if MARTIN_DEBUG
+			Console.WriteLine ("MonoBtlsSsl.Handle: {0:x}", handle.ToInt64 ());
+#endif
 			}
 
 			protected override bool ReleaseHandle ()
 			{
+#if MARTIN_DEBUG
+				Console.WriteLine ("MonoBtlsSsl.Destroy: {0:x}", handle.ToInt64 ());
+#endif
 				mono_btls_ssl_destroy (handle);
+				handle = IntPtr.Zero;
 				return true;
 			}
 		}
@@ -232,6 +239,10 @@ namespace Mono.Btls
 		{
 			CheckThrow ();
 
+#if MARTIN_DEBUG
+			var handle = Handle.DangerousGetHandle ();
+			Console.WriteLine ("MonoBtlsSsl.Connect(): {0:x}", handle.ToInt64 ());
+#endif
 			var ret = mono_btls_ssl_connect (Handle.DangerousGetHandle ());
 
 			var error = GetError (ret);

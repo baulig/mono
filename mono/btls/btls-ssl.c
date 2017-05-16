@@ -100,7 +100,11 @@ mono_btls_ssl_accept (MonoBtlsSsl *ptr)
 MONO_API int
 mono_btls_ssl_connect (MonoBtlsSsl *ptr)
 {
-	return SSL_connect (ptr->ssl);
+	int ret;
+	fprintf (stderr, "mono_btls_ssl_connect: %p - %p\n", ptr, ptr->ssl);
+	ret = SSL_connect (ptr->ssl);
+	fprintf (stderr, "mono_btls_ssl_connect #1: %p - %p - %d\n", ptr, ptr->ssl, ret);
+	return ret;
 }
 
 MONO_API int
