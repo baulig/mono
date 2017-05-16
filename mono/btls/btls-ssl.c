@@ -8,10 +8,12 @@
 
 #include <btls-ssl.h>
 #include <btls-x509-verify-param.h>
+#include <assert.h>
 
 struct MonoBtlsSsl {
 	MonoBtlsSslCtx *ctx;
 	SSL *ssl;
+	int active;
 };
 
 #define debug_print(ptr,message) \
@@ -42,6 +44,7 @@ mono_btls_ssl_new (MonoBtlsSslCtx *ctx)
 MONO_API void
 mono_btls_ssl_destroy (MonoBtlsSsl *ptr)
 {
+	assert (!ptr->active);
 	mono_btls_ssl_close (ptr);
 	if (ptr->ssl) {
 		SSL_free (ptr->ssl);
@@ -57,7 +60,7 @@ mono_btls_ssl_destroy (MonoBtlsSsl *ptr)
 MONO_API void
 mono_btls_ssl_close (MonoBtlsSsl *ptr)
 {
-	;
+	assert (!ptr->active);
 }
 
 MONO_API void
@@ -101,9 +104,11 @@ MONO_API int
 mono_btls_ssl_connect (MonoBtlsSsl *ptr)
 {
 	int ret;
-	fprintf (stderr, "mono_btls_ssl_connect: %p - %p\n", ptr, ptr->ssl);
+	fprintf (stderr, "mono_btls_ssl_connect: %p - %p - %d\n", ptr, ptr->ssl, ptr->active);
+	ptr->active = 1;
 	ret = SSL_connect (ptr->ssl);
 	fprintf (stderr, "mono_btls_ssl_connect #1: %p - %p - %d\n", ptr, ptr->ssl, ret);
+	ptr->active = 0;
 	return ret;
 }
 
