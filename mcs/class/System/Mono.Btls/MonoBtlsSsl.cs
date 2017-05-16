@@ -27,6 +27,7 @@
 using System;
 using System.IO;
 using System.Text;
+using System.Threading;
 using System.Runtime.InteropServices;
 using System.Runtime.CompilerServices;
 
@@ -47,20 +48,24 @@ namespace Mono.Btls
 				: base (handle, true)
 			{
 #if MARTIN_DEBUG
-			Console.WriteLine ("MonoBtlsSsl.Handle: {0:x}", handle.ToInt64 ());
+				Console.WriteLine ("MonoBtlsSsl.Handle: {0:x}", handle.ToInt64 ());
 #endif
 			}
 
 			protected override bool ReleaseHandle ()
 			{
 #if MARTIN_DEBUG
-				Console.WriteLine ("MonoBtlsSsl.Destroy: {0:x}", handle.ToInt64 ());
+				Console.WriteLine ("MonoBtlsSsl.Destroy: {0:x} {1}", handle.ToInt64 ());
 #endif
 				mono_btls_ssl_destroy (handle);
 				handle = IntPtr.Zero;
 				return true;
 			}
 		}
+
+#if MARTIN_DEBUG
+		int active;
+#endif
 
 		[DllImport (BTLS_DYLIB)]
 		extern static void mono_btls_ssl_destroy (IntPtr handle);
@@ -241,11 +246,20 @@ namespace Mono.Btls
 
 #if MARTIN_DEBUG
 			var handle = Handle.DangerousGetHandle ();
-			Console.WriteLine ("MonoBtlsSsl.Connect(): {0:x}", handle.ToInt64 ());
+			var old = Interlocked.CompareExchange (ref active, 0, 1);
+			Console.WriteLine ("MonoBtlsSsl.Connect(): {0:x} {1}", handle.ToInt64 (), old);
+			if (old != 0)
+				Console.WriteLine ("DANGER ZONE!");
 #endif
 			var ret = mono_btls_ssl_connect (Handle.DangerousGetHandle ());
-
+#if MARTIN_DEBUG
+			Console.WriteLine ("MonoBtlsSsl.Connect() #1: {0:x} {1}", handle.ToInt64 (), ret);
+			Interlocked.Exchange (ref active, 0);
+#endif
 			var error = GetError (ret);
+#if MARTIN_DEBUG
+			Console.WriteLine ("MonoBtlsSsl.Connect() #2: {0}", error);
+#endif
 			return error;
 		}
 
@@ -435,7 +449,18 @@ namespace Mono.Btls
 
 		protected override void Close ()
 		{
+#if MARTIN_DEBUG
+			var handle = Handle.DangerousGetHandle ();
+			var old = Interlocked.CompareExchange (ref active, 0, 1);
+			if (old != 0)
+				Console.WriteLine ("DANGER ZONE!");
+			Console.WriteLine ("MonoBtlsSsl.Close(): {0:x} {1}", handle.ToInt64 (), old);
+#endif
 			mono_btls_ssl_close (Handle.DangerousGetHandle ());
+#if MARTIN_DEBUG
+			Console.WriteLine ("MonoBtlsSsl.Close() #1: {0:x}", handle.ToInt64 ());
+			Interlocked.Exchange (ref active, 0);
+#endif
 		}
 	}
 }
