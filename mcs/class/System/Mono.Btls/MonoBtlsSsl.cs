@@ -231,6 +231,8 @@ namespace Mono.Btls
 
 			var ret = mono_btls_ssl_accept (Handle.DangerousGetHandle ());
 
+			CheckLastError ();
+
 			var error = GetError (ret);
 			return error;
 		}
@@ -245,6 +247,8 @@ namespace Mono.Btls
 #endif
 			var ret = mono_btls_ssl_connect (Handle.DangerousGetHandle ());
 
+			CheckLastError ();
+
 			var error = GetError (ret);
 			return error;
 		}
@@ -254,6 +258,8 @@ namespace Mono.Btls
 			CheckThrow ();
 
 			var ret = mono_btls_ssl_handshake (Handle.DangerousGetHandle ());
+
+			CheckLastError ();
 
 			var error = GetError (ret);
 			return error;
@@ -304,6 +310,8 @@ namespace Mono.Btls
 			var ret = mono_btls_ssl_read (
 				Handle.DangerousGetHandle (), data, dataSize);
 
+			CheckLastError ();
+
 			if (ret >= 0) {
 				dataSize = ret;
 				return MonoBtlsSslError.None;
@@ -320,6 +328,8 @@ namespace Mono.Btls
 			CheckThrow ();
 			var ret = mono_btls_ssl_write (
 				Handle.DangerousGetHandle (), data, dataSize);
+
+			CheckLastError ();
 
 			if (ret >= 0) {
 				dataSize = ret;

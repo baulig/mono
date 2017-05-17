@@ -44,6 +44,11 @@ namespace Mono.Btls
 		{
 		}
 
+		public MonoBtlsException (string message, Exception inner)
+			: base (message, inner)
+		{
+		}
+
 		public MonoBtlsException (string format, params object[] args)
 			: base (string.Format (format, args))
 		{
