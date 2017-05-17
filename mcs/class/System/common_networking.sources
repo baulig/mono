@@ -50,6 +50,7 @@ System.Net/WebConnectionStream.cs
 ../../../external/corefx/src/System.Net.HttpListener/src/System/Net/HttpListenerResponse.cs
 ../../../external/corefx/src/System.Net.HttpListener/src/System/Net/HttpRequestStream.cs
 ../../../external/corefx/src/System.Net.HttpListener/src/System/Net/HttpResponseStream.cs
+../../../external/corefx/src/System.Net.HttpListener/src/System/Net/ListenerClientCertState.cs
 ../../../external/corefx/src/System.Net.HttpListener/src/System/Net/Managed/ChunkedInputStream.cs
 ../../../external/corefx/src/System.Net.HttpListener/src/System/Net/Managed/ChunkStream.cs
 ../../../external/corefx/src/System.Net.HttpListener/src/System/Net/Managed/HttpConnection.cs
