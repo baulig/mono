@@ -142,6 +142,7 @@ namespace Mono.Btls
 			return new BoringSslHandle (handle);
 		}
 
+		MonoBtlsBio bio;
 		PrintErrorsCallbackFunc printErrorsFunc;
 		IntPtr printErrorsFuncPtr;
 
@@ -159,6 +160,7 @@ namespace Mono.Btls
 		public void SetBio (MonoBtlsBio bio)
 		{
 			CheckThrow ();
+			this.bio = bio;
 			mono_btls_ssl_set_bio (
 				Handle.DangerousGetHandle (),
 				bio.Handle.DangerousGetHandle ());
@@ -187,6 +189,8 @@ namespace Mono.Btls
 		MonoBtlsSslError GetError (int ret_code)
 		{
 			CheckThrow ();
+			bio.CheckLastError ();
+
 			var error = mono_btls_ssl_get_error (
 				Handle.DangerousGetHandle (), ret_code);
 			return (MonoBtlsSslError)error;
@@ -231,8 +235,6 @@ namespace Mono.Btls
 
 			var ret = mono_btls_ssl_accept (Handle.DangerousGetHandle ());
 
-			CheckLastError ();
-
 			var error = GetError (ret);
 			return error;
 		}
@@ -247,8 +249,6 @@ namespace Mono.Btls
 #endif
 			var ret = mono_btls_ssl_connect (Handle.DangerousGetHandle ());
 
-			CheckLastError ();
-
 			var error = GetError (ret);
 			return error;
 		}
@@ -258,8 +258,6 @@ namespace Mono.Btls
 			CheckThrow ();
 
 			var ret = mono_btls_ssl_handshake (Handle.DangerousGetHandle ());
-
-			CheckLastError ();
 
 			var error = GetError (ret);
 			return error;
@@ -310,8 +308,6 @@ namespace Mono.Btls
 			var ret = mono_btls_ssl_read (
 				Handle.DangerousGetHandle (), data, dataSize);
 
-			CheckLastError ();
-
 			if (ret >= 0) {
 				dataSize = ret;
 				return MonoBtlsSslError.None;
@@ -328,8 +324,6 @@ namespace Mono.Btls
 			CheckThrow ();
 			var ret = mono_btls_ssl_write (
 				Handle.DangerousGetHandle (), data, dataSize);
-
-			CheckLastError ();
 
 			if (ret >= 0) {
 				dataSize = ret;
