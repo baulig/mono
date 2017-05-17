@@ -258,13 +258,13 @@ namespace Mono.Net.Security
 					targetHost = "?" + Interlocked.Increment (ref uniqueNameInteger).ToString (NumberFormatInfo.InvariantInfo);
 			}
 
-			xobileTlsContext = CreateContext (this, serverMode, targetHost, enabledProtocols, serverCertificate, clientCertificates, clientCertRequired);
+			xobileTlsContext = CreateContext (serverMode, targetHost, enabledProtocols, serverCertificate, clientCertificates, clientCertRequired);
 		}
 
 		protected abstract MobileTlsContext CreateContext (
-			MobileAuthenticatedStream parent, bool serverMode, string targetHost,
-			SSA.SslProtocols enabledProtocols, X509Certificate serverCertificate,
-			X509CertificateCollection clientCertificates, bool askForClientCert);
+			bool serverMode, string targetHost, SSA.SslProtocols enabledProtocols,
+			X509Certificate serverCertificate, X509CertificateCollection clientCertificates,
+			bool askForClientCert);
 
 		public override IAsyncResult BeginRead (byte[] buffer, int offset, int count, AsyncCallback asyncCallback, object asyncState)
 		{

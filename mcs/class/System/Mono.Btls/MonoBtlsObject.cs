@@ -102,7 +102,7 @@ namespace Mono.Btls
 			CheckError (ret == 1, callerName);
 		}
 
-		protected void CheckLastError ([CallerMemberName] string callerName = null)
+		protected internal void CheckLastError ([CallerMemberName] string callerName = null)
 		{
 			var error = Interlocked.Exchange (ref lastError, null);
 			if (error == null)
