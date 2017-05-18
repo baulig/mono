@@ -37,6 +37,13 @@ namespace Mono.Net.Security
 
 		public BufferOffsetSize (byte[] buffer, int offset, int size)
 		{
+			if (buffer == null)
+				throw new ArgumentNullException (nameof (buffer));
+			if (offset < 0)
+				throw new ArgumentOutOfRangeException (nameof (offset));
+			if (size < 0 || offset + size > buffer.Length)
+				throw new ArgumentOutOfRangeException (nameof (size));
+
 			Buffer = buffer;
 			Offset = offset;
 			Size = size;
@@ -103,7 +110,7 @@ namespace Mono.Net.Security
 		FinishWrite
 	}
 
-	class AsyncProtocolRequest
+	abstract class AsyncProtocolRequest
 	{
 		public readonly MobileAuthenticatedStream Parent;
 		public readonly BufferOffsetSize UserBuffer;
@@ -290,5 +297,46 @@ namespace Mono.Net.Security
 			throw new InvalidOperationException ();
 		}
 	}
+
+	class AsyncHandshakeRequest : AsyncProtocolRequest
+	{
+		public AsyncHandshakeRequest (MobileAuthenticatedStream parent, LazyAsyncResult lazyResult)
+			: base (parent, lazyResult)
+		{
+		}
+	}
+
+	class AsyncReadRequest : AsyncProtocolRequest
+	{
+		public AsyncReadRequest (MobileAuthenticatedStream parent, byte[] buffer, int offset, int size, LazyAsyncResult lazyResult)
+			: base (parent, lazyResult, new BufferOffsetSize (buffer, offset, size))
+		{
+		}
+	}
+
+	class AsyncWriteRequest : AsyncProtocolRequest
+	{
+		public AsyncWriteRequest (MobileAuthenticatedStream parent, byte[] buffer, int offset, int size, LazyAsyncResult lazyResult)
+			: base (parent, lazyResult, new BufferOffsetSize (buffer, offset, size))
+		{
+		}
+	}
+
+	class AsyncFlushRequest : AsyncProtocolRequest
+	{
+		public AsyncFlushRequest (MobileAuthenticatedStream parent, LazyAsyncResult lazyResult)
+			: base (parent, lazyResult)
+		{
+		}
+	}
+
+	class AsyncCloseRequest : AsyncProtocolRequest
+	{
+		public AsyncCloseRequest (MobileAuthenticatedStream parent, LazyAsyncResult lazyResult)
+			: base (parent, lazyResult)
+		{
+		}
+	}
+
 }
 // #endif
