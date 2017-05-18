@@ -17,8 +17,6 @@ using System.Threading.Tasks;
 
 namespace Mono.Net.Security
 {
-	delegate AsyncOperationStatus AsyncOperation (AsyncProtocolRequest asyncRequest, AsyncOperationStatus status);
-
 	class BufferOffsetSize
 	{
 		public byte[] Buffer;
@@ -120,7 +118,6 @@ namespace Mono.Net.Security
 		public int CurrentSize;
 		public int UserResult;
 
-		AsyncOperation Operation;
 		int Status;
 
 		public readonly int ID = ++next_id;
@@ -187,23 +184,21 @@ namespace Mono.Net.Security
 				throw new InvalidOperationException ();
 		}
 
-		internal void StartOperation (AsyncOperation operation)
+		internal void StartOperation ()
 		{
-			Debug ("Start Operation: {0} {1}", Status, operation);
+			Debug ("Start Operation: {0} {1}", this, Status);
 			if (Interlocked.CompareExchange (ref Status, (int)AsyncOperationStatus.Initialize, (int)AsyncOperationStatus.NotStarted) != (int)AsyncOperationStatus.NotStarted)
 				throw new InvalidOperationException ();
 
-			Operation = operation;
-
 			if (UserAsyncResult == null) {
-				StartOperation ();
+				StartOperation_internal ();
 				return;
 			}
 
-			ThreadPool.QueueUserWorkItem (_ => StartOperation ());
+			ThreadPool.QueueUserWorkItem (_ => StartOperation_internal ());
 		}
 
-		void StartOperation ()
+		void StartOperation_internal ()
 		{
 			try {
 				ProcessOperation ();
@@ -280,18 +275,12 @@ namespace Mono.Net.Security
 				return AsyncOperationStatus.Continue;
 			} else if (status == AsyncOperationStatus.Initialize || status == AsyncOperationStatus.Continue) {
 				Debug ("ProcessOperation - continue");
-				if (Operation != null)
-					status = Operation (this, status);
-				else
-					status = Run (status);
+				status = Run (status);
 				Debug ("ProcessOperation - continue done: {0}", status);
 				return status;
 			} else if (status == AsyncOperationStatus.ReadDone) {
 				Debug ("ProcessOperation - read done");
-				if (Operation != null)
-					status = Operation (this, status);
-				else
-					status = Run (status);
+				status = Run (status);
 				Debug ("ProcessOperation - read done: {0}", status);
 				return status;
 			} else if (status == AsyncOperationStatus.FinishWrite) {
@@ -324,7 +313,7 @@ namespace Mono.Net.Security
 
 		protected override AsyncOperationStatus Run (AsyncOperationStatus status)
 		{
-			throw new NotImplementedException ();
+			return Parent.ProcessHandshake (status);
 		}
 	}
 
@@ -414,7 +403,7 @@ namespace Mono.Net.Security
 
 		protected override AsyncOperationStatus Run (AsyncOperationStatus status)
 		{
-			throw new NotImplementedException ();
+			return Parent.ProcessFlush (status);
 		}
 	}
 
@@ -427,7 +416,7 @@ namespace Mono.Net.Security
 
 		protected override AsyncOperationStatus Run (AsyncOperationStatus status)
 		{
-			throw new NotImplementedException ();
+			return Parent.ProcessClose (status);
 		}
 	}
 

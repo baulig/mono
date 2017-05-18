@@ -211,7 +211,7 @@ namespace Mono.Net.Security
 				writeBuffer.Reset ();
 
 				try {
-					asyncRequest.StartOperation (ProcessHandshake);
+					asyncRequest.StartOperation ();
 				} catch (Exception ex) {
 					ExceptionDispatchInfo.Capture (SetException (ex)).Throw ();
 				}
@@ -342,10 +342,10 @@ namespace Mono.Net.Security
 			var name = internalBuffer == readBuffer ? "read" : "write";
 			Debug ("ProcessReadOrWrite: {0} {1} {2}", name, asyncRequest, asyncRequest.UserBuffer);
 
-			return StartOperation (ref nestedRequest, ref internalBuffer, null, asyncRequest, name);
+			return StartOperation (ref nestedRequest, ref internalBuffer, asyncRequest, name);
 		}
 
-		int StartOperation (ref AsyncProtocolRequest nestedRequest, ref BufferOffsetSize2 internalBuffer, AsyncOperation operation, AsyncProtocolRequest asyncRequest, string name)
+		int StartOperation (ref AsyncProtocolRequest nestedRequest, ref BufferOffsetSize2 internalBuffer, AsyncProtocolRequest asyncRequest, string name)
 		{
 			if (Interlocked.CompareExchange (ref nestedRequest, asyncRequest, null) != null) {
 				Console.Error.WriteLine ("INVALID NESTED CALL!");
@@ -355,7 +355,7 @@ namespace Mono.Net.Security
 			bool failed = false;
 			try {
 				internalBuffer.Reset ();
-				asyncRequest.StartOperation (operation);
+				asyncRequest.StartOperation ();
 				return asyncRequest.UserResult;
 			} catch (Exception e) {
 				failed = true;
@@ -566,7 +566,7 @@ namespace Mono.Net.Security
 
 		#region Main async I/O loop
 
-		AsyncOperationStatus ProcessHandshake (AsyncProtocolRequest asyncRequest, AsyncOperationStatus status)
+		internal AsyncOperationStatus ProcessHandshake (AsyncOperationStatus status)
 		{
 			Debug ("ProcessHandshake: {0}", status);
 
@@ -618,7 +618,7 @@ namespace Mono.Net.Security
 			}
 		}
 
-		AsyncOperationStatus ProcessClose (AsyncProtocolRequest asyncRequest, AsyncOperationStatus status)
+		internal AsyncOperationStatus ProcessClose (AsyncOperationStatus status)
 		{
 			Debug ("ProcessClose: {0}", status);
 
@@ -632,7 +632,7 @@ namespace Mono.Net.Security
 			}
 		}
 
-		AsyncOperationStatus ProcessFlush (AsyncProtocolRequest asyncRequest, AsyncOperationStatus status)
+		internal AsyncOperationStatus ProcessFlush (AsyncOperationStatus status)
 		{
 			Debug ("ProcessFlush: {0}", status);
 			return AsyncOperationStatus.Complete;
@@ -675,7 +675,7 @@ namespace Mono.Net.Security
 		{
 			CheckThrow (true);
 			var asyncRequest = new AsyncFlushRequest (this, null);
-			StartOperation (ref asyncHandshakeRequest, ref writeBuffer, ProcessFlush, asyncRequest, "flush");
+			StartOperation (ref asyncHandshakeRequest, ref writeBuffer, asyncRequest, "flush");
 		}
 
 		public override void Close ()
@@ -692,7 +692,7 @@ namespace Mono.Net.Security
 				return;
 
 			var asyncRequest = new AsyncCloseRequest (this, null);
-			StartOperation (ref asyncHandshakeRequest, ref writeBuffer, ProcessClose, asyncRequest, "close");
+			StartOperation (ref asyncHandshakeRequest, ref writeBuffer, asyncRequest, "close");
 		}
 
 		//
