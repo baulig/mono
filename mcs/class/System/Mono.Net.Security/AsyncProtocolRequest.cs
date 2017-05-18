@@ -125,6 +125,8 @@ namespace Mono.Net.Security
 
 		public readonly LazyAsyncResult UserAsyncResult;
 
+		public string Name => GetType ().Name;
+
 		public AsyncProtocolRequest (MobileAuthenticatedStream parent, LazyAsyncResult lazyResult, BufferOffsetSize userBuffer = null)
 		{
 			Parent = parent;
@@ -298,9 +300,9 @@ namespace Mono.Net.Security
 		public override string ToString ()
 		{
 			if (UserBuffer != null)
-				return string.Format ("[{0}: {1}]", GetType ().Name, UserBuffer);
+				return string.Format ("[{0}: {1}]", Name, UserBuffer);
 			else
-				return string.Format ("[{0}]", GetType ().Name);
+				return string.Format ("[{0}]", Name);
 		}
 	}
 
