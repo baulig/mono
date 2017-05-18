@@ -279,12 +279,18 @@ namespace Mono.Net.Security
 				return AsyncOperationStatus.Continue;
 			} else if (status == AsyncOperationStatus.Initialize || status == AsyncOperationStatus.Continue) {
 				Debug ("ProcessOperation - continue");
-				status = Operation (this, status);
+				if (Operation != null)
+					status = Operation (this, status);
+				else
+					status = Run (status);
 				Debug ("ProcessOperation - continue done: {0}", status);
 				return status;
 			} else if (status == AsyncOperationStatus.ReadDone) {
 				Debug ("ProcessOperation - read done");
-				status = Operation (this, status);
+				if (Operation != null)
+					status = Operation (this, status);
+				else
+					status = Run (status);
 				Debug ("ProcessOperation - read done: {0}", status);
 				return status;
 			} else if (status == AsyncOperationStatus.FinishWrite) {
@@ -296,6 +302,8 @@ namespace Mono.Net.Security
 
 			throw new InvalidOperationException ();
 		}
+
+		protected abstract AsyncOperationStatus Run (AsyncOperationStatus status);
 
 		public override string ToString ()
 		{
@@ -312,6 +320,11 @@ namespace Mono.Net.Security
 			: base (parent, lazyResult)
 		{
 		}
+
+		protected override AsyncOperationStatus Run (AsyncOperationStatus status)
+		{
+			throw new NotImplementedException ();
+		}
 	}
 
 	class AsyncReadRequest : AsyncProtocolRequest
@@ -321,7 +334,7 @@ namespace Mono.Net.Security
 		{
 		}
 
-		public AsyncOperationStatus ProcessRead (AsyncProtocolRequest asyncRequest, AsyncOperationStatus status)
+		protected override AsyncOperationStatus Run (AsyncOperationStatus status)
 		{
 			Debug ("ProcessRead - read user: {0} {1}", this, status);
 
@@ -344,7 +357,7 @@ namespace Mono.Net.Security
 				return AsyncOperationStatus.WantRead;
 
 			ResetRead ();
-			UserResult = asyncRequest.CurrentSize;
+			UserResult = CurrentSize;
 			return AsyncOperationStatus.Complete;
 		}
 	}
@@ -355,6 +368,11 @@ namespace Mono.Net.Security
 			: base (parent, lazyResult, new BufferOffsetSize (buffer, offset, size))
 		{
 		}
+
+		protected override AsyncOperationStatus Run (AsyncOperationStatus status)
+		{
+			throw new NotImplementedException ();
+		}
 	}
 
 	class AsyncFlushRequest : AsyncProtocolRequest
@@ -363,6 +381,11 @@ namespace Mono.Net.Security
 			: base (parent, lazyResult)
 		{
 		}
+
+		protected override AsyncOperationStatus Run (AsyncOperationStatus status)
+		{
+			throw new NotImplementedException ();
+		}
 	}
 
 	class AsyncCloseRequest : AsyncProtocolRequest
@@ -370,6 +393,11 @@ namespace Mono.Net.Security
 		public AsyncCloseRequest (MobileAuthenticatedStream parent, LazyAsyncResult lazyResult)
 			: base (parent, lazyResult)
 		{
+		}
+
+		protected override AsyncOperationStatus Run (AsyncOperationStatus status)
+		{
+			throw new NotImplementedException ();
 		}
 	}
 

@@ -270,7 +270,7 @@ namespace Mono.Net.Security
 		{
 			var lazyResult = new LazyAsyncResult (this, asyncState, asyncCallback);
 			var asyncRequest = new AsyncReadRequest (this, buffer, offset, count, lazyResult);
-			ProcessReadOrWrite (ref asyncReadRequest, ref readBuffer, ProcessRead, asyncRequest);
+			ProcessReadOrWrite (ref asyncReadRequest, ref readBuffer, null, asyncRequest);
 			return lazyResult;
 		}
 
@@ -295,7 +295,7 @@ namespace Mono.Net.Security
 		public override int Read (byte[] buffer, int offset, int count)
 		{
 			var asyncRequest = new AsyncReadRequest (this, buffer, offset, count, null);
-			return ProcessReadOrWrite (ref asyncReadRequest, ref readBuffer, ProcessRead, asyncRequest);
+			return ProcessReadOrWrite (ref asyncReadRequest, ref readBuffer, null, asyncRequest);
 		}
 
 		public void Write (byte[] buffer)
@@ -607,36 +607,6 @@ namespace Mono.Net.Security
 				var ret = Context.Read (userBuffer.Buffer, userBuffer.Offset, userBuffer.Size, out bool wantMore);
 				return (ret, wantMore);
 			}
-		}
-
-		AsyncOperationStatus ProcessRead (AsyncProtocolRequest asyncRequest, AsyncOperationStatus status)
-		{
-			Debug ("ProcessRead - read user: {0} {1}", status, asyncRequest.UserBuffer);
-
-			int ret;
-			bool wantMore;
-			lock (ioLock) {
-				ret = Context.Read (asyncRequest.UserBuffer.Buffer, asyncRequest.UserBuffer.Offset, asyncRequest.UserBuffer.Size, out wantMore);
-			}
-			Debug ("ProcessRead - read user done: {0} - {1} {2}", asyncRequest.UserBuffer, ret, wantMore);
-
-			if (ret < 0) {
-				asyncRequest.UserResult = -1;
-				return AsyncOperationStatus.Complete;
-			}
-
-			asyncRequest.CurrentSize += ret;
-			asyncRequest.UserBuffer.Offset += ret;
-			asyncRequest.UserBuffer.Size -= ret;
-
-			Debug ("Process Read - read user done #1: {0} - {1} {2}", asyncRequest.UserBuffer, asyncRequest.CurrentSize, wantMore);
-
-			if (wantMore && asyncRequest.CurrentSize == 0)
-				return AsyncOperationStatus.WantRead;
-
-			asyncRequest.ResetRead ();
-			asyncRequest.UserResult = asyncRequest.CurrentSize;
-			return AsyncOperationStatus.Complete;
 		}
 
 		AsyncOperationStatus ProcessWrite (AsyncProtocolRequest asyncRequest, AsyncOperationStatus status)
