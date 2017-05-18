@@ -7,7 +7,7 @@
 // Copyright (c) 2015 Xamarin, Inc.
 //
 
-#if SECURITY_DEP
+// #if SECURITY_DEP
 #if MONO_SECURITY_ALIAS
 extern alias MonoSecurity;
 #endif
@@ -927,4 +927,4 @@ namespace Mono.Net.Security
 		#endregion
 	}
 }
-#endif
+// #endif

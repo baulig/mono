@@ -1,4 +1,4 @@
-#if SECURITY_DEP
+// #if SECURITY_DEP
 //
 // AsyncProtocolRequest.cs
 //
@@ -291,4 +291,4 @@ namespace Mono.Net.Security
 		}
 	}
 }
-#endif
+// #endif
