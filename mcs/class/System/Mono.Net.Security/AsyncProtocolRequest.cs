@@ -111,27 +111,32 @@ namespace Mono.Net.Security
 
 	abstract class AsyncProtocolRequest
 	{
-		public readonly MobileAuthenticatedStream Parent;
-		public readonly BufferOffsetSize UserBuffer;
+		public MobileAuthenticatedStream Parent {
+			get;
+		}
 
-		int RequestedSize;
-		public int CurrentSize;
-		public int UserResult;
+		public LazyAsyncResult UserAsyncResult {
+			get;
+		}
 
-		int Status;
-
-		public readonly int ID = ++next_id;
-		static int next_id;
-
-		public readonly LazyAsyncResult UserAsyncResult;
+		public int ID => ++next_id;
 
 		public string Name => GetType ().Name;
 
-		public AsyncProtocolRequest (MobileAuthenticatedStream parent, LazyAsyncResult lazyResult, BufferOffsetSize userBuffer = null)
+		public int UserResult {
+			get;
+			protected set;
+		}
+
+		int RequestedSize;
+		int Status;
+
+		static int next_id;
+
+		public AsyncProtocolRequest (MobileAuthenticatedStream parent, LazyAsyncResult lazyResult)
 		{
 			Parent = parent;
 			UserAsyncResult = lazyResult;
-			UserBuffer = userBuffer;
 		}
 
 		public bool CompleteWithError (Exception ex)
@@ -147,7 +152,7 @@ namespace Mono.Net.Security
 		[SD.Conditional ("MARTIN_DEBUG")]
 		protected void Debug (string message, params object[] args)
 		{
-			Parent.Debug ("AsyncProtocolRequest({0}:{1}): {2}", Parent.ID, ID, string.Format (message, args));
+			Parent.Debug ("{0}({1}:{2}): {3}", Name, Parent.ID, ID, string.Format (message, args));
 		}
 
 		internal void RequestRead (int size)
@@ -299,10 +304,7 @@ namespace Mono.Net.Security
 
 		public override string ToString ()
 		{
-			if (UserBuffer != null)
-				return string.Format ("[{0}: {1}]", Name, UserBuffer);
-			else
-				return string.Format ("[{0}]", Name);
+			return string.Format ("[{0}]", Name);
 		}
 	}
 
@@ -319,10 +321,32 @@ namespace Mono.Net.Security
 		}
 	}
 
-	class AsyncReadRequest : AsyncProtocolRequest
+	abstract class AsyncReadOrWriteRequest : AsyncProtocolRequest
+	{
+		protected BufferOffsetSize UserBuffer {
+			get;
+		}
+
+		protected int CurrentSize {
+			get; set;
+		}
+
+		public AsyncReadOrWriteRequest (MobileAuthenticatedStream parent, byte[] buffer, int offset, int size, LazyAsyncResult lazyResult)
+			: base (parent, lazyResult)
+		{
+			UserBuffer = new BufferOffsetSize (buffer, offset, size);
+		}
+
+		public override string ToString ()
+		{
+			return string.Format ("[{0}: {1}]", Name, UserBuffer);
+		}
+	}
+
+	class AsyncReadRequest : AsyncReadOrWriteRequest
 	{
 		public AsyncReadRequest (MobileAuthenticatedStream parent, byte[] buffer, int offset, int size, LazyAsyncResult lazyResult)
-			: base (parent, lazyResult, new BufferOffsetSize (buffer, offset, size))
+			: base (parent, buffer, offset, size, lazyResult)
 		{
 		}
 
@@ -354,10 +378,10 @@ namespace Mono.Net.Security
 		}
 	}
 
-	class AsyncWriteRequest : AsyncProtocolRequest
+	class AsyncWriteRequest : AsyncReadOrWriteRequest
 	{
 		public AsyncWriteRequest (MobileAuthenticatedStream parent, byte[] buffer, int offset, int size, LazyAsyncResult lazyResult)
-			: base (parent, lazyResult, new BufferOffsetSize (buffer, offset, size))
+			: base (parent, buffer, offset, size, lazyResult)
 		{
 		}
 
