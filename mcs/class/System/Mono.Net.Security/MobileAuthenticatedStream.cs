@@ -50,7 +50,7 @@ namespace Mono.Net.Security
 		static int uniqueNameInteger = 123;
 
 		public MobileAuthenticatedStream (Stream innerStream, bool leaveInnerStreamOpen, SslStream owner,
-		                                  MSI.MonoTlsSettings settings, MSI.MonoTlsProvider provider)
+						  MSI.MonoTlsSettings settings, MSI.MonoTlsProvider provider)
 			: base (innerStream, leaveInnerStreamOpen)
 		{
 			SslStream = owner;
@@ -173,12 +173,14 @@ namespace Mono.Net.Security
 
 		public Task AuthenticateAsClientAsync (string targetHost)
 		{
-			return Task.Factory.FromAsync (BeginAuthenticateAsClient, EndAuthenticateAsClient, targetHost, null);
+			ValidateCreateContext (false, targetHost, DefaultProtocols, null, null, false);
+			return ProcessAuthenticationAsync ();
 		}
 
 		public Task AuthenticateAsClientAsync (string targetHost, X509CertificateCollection clientCertificates, SslProtocols enabledSslProtocols, bool checkCertificateRevocation)
 		{
-			return Task.Factory.FromAsync ((callback, state) => BeginAuthenticateAsClient (targetHost, clientCertificates, enabledSslProtocols, checkCertificateRevocation, callback, state), EndAuthenticateAsClient, null);
+			ValidateCreateContext (false, targetHost, enabledSslProtocols, null, clientCertificates, false);
+			return ProcessAuthenticationAsync ();
 		}
 
 		public Task AuthenticateAsServerAsync (X509Certificate serverCertificate)
@@ -243,6 +245,33 @@ namespace Mono.Net.Security
 				ExceptionDispatchInfo.Capture (SetException (e)).Throw ();
 		}
 
+		async Task ProcessAuthenticationAsync ()
+		{
+			var asyncRequest = new AsyncHandshakeRequest (this, null);
+			if (Interlocked.CompareExchange (ref asyncHandshakeRequest, asyncRequest, null) != null)
+				throw new InvalidOperationException ("Invalid nested call.");
+
+			try {
+				if (lastException != null)
+					throw lastException;
+				if (xobileTlsContext == null)
+					throw new InvalidOperationException ();
+
+				readBuffer.Reset ();
+				writeBuffer.Reset ();
+
+				try {
+					await asyncRequest.StartOperation ().ConfigureAwait (false);
+				} catch (Exception ex) {
+					ExceptionDispatchInfo.Capture (SetException (ex)).Throw ();
+				}
+			} finally {
+				readBuffer.Reset ();
+				writeBuffer.Reset ();
+				asyncHandshakeRequest = null;
+			}
+		}
+
 		internal void ValidateCreateContext (bool serverMode, string targetHost, SslProtocols enabledProtocols, X509Certificate serverCertificate, X509CertificateCollection clientCertificates, bool clientCertRequired)
 		{
 			if (xobileTlsContext != null)
@@ -251,7 +280,7 @@ namespace Mono.Net.Security
 			if (serverMode) {
 				if (serverCertificate == null)
 					throw new ArgumentException ("serverCertificate");
-			} else {				
+			} else {
 				if (targetHost == null)
 					throw new ArgumentException ("targetHost");
 				if (targetHost.Length == 0)
@@ -270,7 +299,7 @@ namespace Mono.Net.Security
 		{
 			var lazyResult = new LazyAsyncResult (this, asyncState, asyncCallback);
 			var asyncRequest = new AsyncReadRequest (this, buffer, offset, count, lazyResult);
-			StartOperation (ref asyncReadRequest, ref readBuffer, asyncRequest);
+			StartOperation (ref asyncReadRequest, readBuffer, asyncRequest);
 			return lazyResult;
 		}
 
@@ -283,7 +312,7 @@ namespace Mono.Net.Security
 		{
 			var lazyResult = new LazyAsyncResult (this, asyncState, asyncCallback);
 			var asyncRequest = new AsyncWriteRequest (this, buffer, offset, count, lazyResult);
-			StartOperation (ref asyncHandshakeRequest, ref writeBuffer, asyncRequest);
+			StartOperation (ref asyncHandshakeRequest, writeBuffer, asyncRequest);
 			return lazyResult;
 		}
 
@@ -295,7 +324,7 @@ namespace Mono.Net.Security
 		public override int Read (byte[] buffer, int offset, int count)
 		{
 			var asyncRequest = new AsyncReadRequest (this, buffer, offset, count, null);
-			return StartOperation (ref asyncReadRequest, ref readBuffer, asyncRequest);
+			return StartOperation (ref asyncReadRequest, readBuffer, asyncRequest);
 		}
 
 		public void Write (byte[] buffer)
@@ -306,13 +335,13 @@ namespace Mono.Net.Security
 		public override void Write (byte[] buffer, int offset, int count)
 		{
 			var asyncRequest = new AsyncWriteRequest (this, buffer, offset, count, null);
-			StartOperation (ref asyncHandshakeRequest, ref writeBuffer, asyncRequest);
+			StartOperation (ref asyncHandshakeRequest, writeBuffer, asyncRequest);
 		}
 
 		object EndReadOrWrite (IAsyncResult asyncResult, ref AsyncProtocolRequest nestedRequest)
 		{
 			if (asyncResult == null)
-				throw new ArgumentNullException("asyncResult");
+				throw new ArgumentNullException ("asyncResult");
 
 			var lazyResult = (LazyAsyncResult)asyncResult;
 
@@ -335,7 +364,7 @@ namespace Mono.Net.Security
 			return lazyResult.Result;
 		}
 
-		int StartOperation (ref AsyncProtocolRequest nestedRequest, ref BufferOffsetSize2 internalBuffer, AsyncProtocolRequest asyncRequest)
+		int StartOperation (ref AsyncProtocolRequest nestedRequest, BufferOffsetSize2 internalBuffer, AsyncProtocolRequest asyncRequest)
 		{
 			CheckThrow (true);
 			Debug ("StartOperation: {0}", asyncRequest);
@@ -363,6 +392,35 @@ namespace Mono.Net.Security
 			}
 		}
 
+#if FIXME
+		async Task<int> StartOperationAsync (ref AsyncProtocolRequest nestedRequest, ref BufferOffsetSize2 internalBuffer, AsyncProtocolRequest asyncRequest)
+		{
+			CheckThrow (true);
+			Debug ("StartOperationAsync: {0}", asyncRequest);
+
+			if (Interlocked.CompareExchange (ref nestedRequest, asyncRequest, null) != null) {
+				Console.Error.WriteLine ("INVALID NESTED CALL!");
+				throw new InvalidOperationException ("Invalid nested call.");
+			}
+
+			bool failed = false;
+			try {
+				internalBuffer.Reset ();
+				return await asyncRequest.StartOperation ();
+			} catch (Exception e) {
+				failed = true;
+				if (e is IOException)
+					throw;
+				throw new IOException (asyncRequest.Name + " failed", e);
+			} finally {
+				if (asyncRequest.UserAsyncResult == null || failed) {
+					internalBuffer.Reset ();
+					nestedRequest = null;
+				}
+			}
+		}
+#endif
+
 		static int nextId;
 		internal readonly int ID = ++nextId;
 
@@ -372,7 +430,7 @@ namespace Mono.Net.Security
 			Console.Error.WriteLine ("MobileAuthenticatedStream({0}): {1}", ID, string.Format (message, args));
 		}
 
-		#region Called back from native code via SslConnection
+#region Called back from native code via SslConnection
 
 		/*
 		 * Called from within SSLRead() and SSLHandshake().  We only access tha managed byte[] here.
@@ -502,9 +560,9 @@ namespace Mono.Net.Security
 			return true;
 		}
 
-		#endregion
+#endregion
 
-		#region Inner Stream
+#region Inner Stream
 
 		/*
 		 * Read / write data from the inner stream; we're only called from managed code and only manipulate
@@ -555,9 +613,9 @@ namespace Mono.Net.Security
 			}
 		}
 
-		#endregion
+#endregion
 
-		#region Main async I/O loop
+#region Main async I/O loop
 
 		internal AsyncOperationStatus ProcessHandshake (AsyncOperationStatus status)
 		{
@@ -631,7 +689,7 @@ namespace Mono.Net.Security
 			return AsyncOperationStatus.Complete;
 		}
 
-		#endregion
+#endregion
 
 		public override bool IsServer {
 			get { return xobileTlsContext != null && xobileTlsContext.IsServer; }
@@ -668,7 +726,7 @@ namespace Mono.Net.Security
 		{
 			CheckThrow (true);
 			var asyncRequest = new AsyncFlushRequest (this, null);
-			StartOperation (ref asyncHandshakeRequest, ref writeBuffer, asyncRequest);
+			StartOperation (ref asyncHandshakeRequest, writeBuffer, asyncRequest);
 		}
 
 		public override void Close ()
@@ -685,7 +743,7 @@ namespace Mono.Net.Security
 				return;
 
 			var asyncRequest = new AsyncCloseRequest (this, null);
-			StartOperation (ref asyncHandshakeRequest, ref writeBuffer, asyncRequest);
+			StartOperation (ref asyncHandshakeRequest, writeBuffer, asyncRequest);
 		}
 
 		//
@@ -844,7 +902,7 @@ namespace Mono.Net.Security
 			}
 		}
 
-		#region Need to Implement
+#region Need to Implement
 		public int CipherStrength {
 			get {
 				throw new NotImplementedException ();
@@ -866,7 +924,7 @@ namespace Mono.Net.Security
 			}
 		}
 
-		#endregion
+#endregion
 	}
 }
 // #endif

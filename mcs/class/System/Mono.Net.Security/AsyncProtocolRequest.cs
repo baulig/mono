@@ -130,6 +130,7 @@ namespace Mono.Net.Security
 
 		int RequestedSize;
 		int Status;
+		TaskCompletionSource<int> tcs;
 
 		static int next_id;
 
@@ -191,18 +192,17 @@ namespace Mono.Net.Security
 				throw new InvalidOperationException ();
 		}
 
-		internal void StartOperation ()
+		internal Task<int> StartOperation ()
 		{
 			Debug ("Start Operation: {0} {1}", this, Status);
+			if (Interlocked.CompareExchange (ref tcs, new TaskCompletionSource<int> (), null) != null)
+				throw new InvalidOperationException ();
 			if (Interlocked.CompareExchange (ref Status, (int)AsyncOperationStatus.Initialize, (int)AsyncOperationStatus.NotStarted) != (int)AsyncOperationStatus.NotStarted)
 				throw new InvalidOperationException ();
 
-			if (UserAsyncResult == null) {
-				StartOperation_internal ();
-				return;
-			}
-
 			ThreadPool.QueueUserWorkItem (_ => StartOperation_internal ());
+
+			return tcs.Task;
 		}
 
 		void StartOperation_internal ()
@@ -211,7 +211,9 @@ namespace Mono.Net.Security
 				ProcessOperation ();
 				if (UserAsyncResult != null && !UserAsyncResult.InternalPeekCompleted)
 					UserAsyncResult.InvokeCallback (UserResult);
+				tcs.SetResult (UserResult);
 			} catch (Exception ex) {
+				tcs.TrySetException (ex);
 				if (UserAsyncResult == null)
 					throw;
 				if (!UserAsyncResult.InternalPeekCompleted)
