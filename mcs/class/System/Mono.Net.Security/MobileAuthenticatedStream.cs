@@ -600,6 +600,15 @@ namespace Mono.Net.Security
 			return AsyncOperationStatus.Complete;
 		}
 
+		internal (int, bool) ProcessRead (BufferOffsetSize userBuffer)
+		{
+			lock (ioLock) {
+				// This will never block.
+				var ret = Context.Read (userBuffer.Buffer, userBuffer.Offset, userBuffer.Size, out bool wantMore);
+				return (ret, wantMore);
+			}
+		}
+
 		AsyncOperationStatus ProcessRead (AsyncProtocolRequest asyncRequest, AsyncOperationStatus status)
 		{
 			Debug ("ProcessRead - read user: {0} {1}", status, asyncRequest.UserBuffer);

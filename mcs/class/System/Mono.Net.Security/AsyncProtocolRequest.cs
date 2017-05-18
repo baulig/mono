@@ -296,6 +296,14 @@ namespace Mono.Net.Security
 
 			throw new InvalidOperationException ();
 		}
+
+		public override string ToString ()
+		{
+			if (UserBuffer != null)
+				return string.Format ("[{0}: {1}]", GetType ().Name, UserBuffer);
+			else
+				return string.Format ("[{0}]", GetType ().Name);
+		}
 	}
 
 	class AsyncHandshakeRequest : AsyncProtocolRequest
@@ -311,6 +319,33 @@ namespace Mono.Net.Security
 		public AsyncReadRequest (MobileAuthenticatedStream parent, byte[] buffer, int offset, int size, LazyAsyncResult lazyResult)
 			: base (parent, lazyResult, new BufferOffsetSize (buffer, offset, size))
 		{
+		}
+
+		public AsyncOperationStatus ProcessRead (AsyncProtocolRequest asyncRequest, AsyncOperationStatus status)
+		{
+			Debug ("ProcessRead - read user: {0} {1}", this, status);
+
+			var (ret, wantMore) = Parent.ProcessRead (UserBuffer);
+
+			Debug ("ProcessRead - read user done: {0} - {1} {2}", this, ret, wantMore);
+
+			if (ret < 0) {
+				UserResult = -1;
+				return AsyncOperationStatus.Complete;
+			}
+
+			CurrentSize += ret;
+			UserBuffer.Offset += ret;
+			UserBuffer.Size -= ret;
+
+			Debug ("Process Read - read user done #1: {0} - {1} {2}", this, CurrentSize, wantMore);
+
+			if (wantMore && CurrentSize == 0)
+				return AsyncOperationStatus.WantRead;
+
+			ResetRead ();
+			UserResult = asyncRequest.CurrentSize;
+			return AsyncOperationStatus.Complete;
 		}
 	}
 
