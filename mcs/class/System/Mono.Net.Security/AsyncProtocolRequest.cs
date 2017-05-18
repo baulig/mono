@@ -61,7 +61,7 @@ namespace Mono.Net.Security
 		public readonly int InitialSize;
 
 		public BufferOffsetSize2 (int size)
-			: base (new byte [size], 0, 0)
+			: base (new byte[size], 0, 0)
 		{
 			InitialSize = size;
 		}
@@ -70,7 +70,7 @@ namespace Mono.Net.Security
 		{
 			Offset = Size = 0;
 			TotalBytes = 0;
-			Buffer = new byte [InitialSize];
+			Buffer = new byte[InitialSize];
 			Complete = false;
 		}
 
@@ -81,11 +81,11 @@ namespace Mono.Net.Security
 
 			int missing = size - Remaining;
 			if (Offset == 0 && Size == 0) {
-				Buffer = new byte [size];
+				Buffer = new byte[size];
 				return;
 			}
 
-			var buffer = new byte [Buffer.Length + missing];
+			var buffer = new byte[Buffer.Length + missing];
 			Buffer.CopyTo (buffer, 0);
 			Buffer = buffer;
 		}
@@ -98,7 +98,8 @@ namespace Mono.Net.Security
 		}
 	}
 
-	enum AsyncOperationStatus {
+	enum AsyncOperationStatus
+	{
 		NotStarted,
 		Initialize,
 		Continue,
@@ -159,7 +160,7 @@ namespace Mono.Net.Security
 			else if (oldStatus == AsyncOperationStatus.WantRead)
 				RequestedSize += size;
 			else if (oldStatus != AsyncOperationStatus.WantWrite) {
-				Console.Error.WriteLine("APR - REQUEST READ ERROR: {0}", oldStatus);
+				Console.Error.WriteLine ("APR - REQUEST READ ERROR: {0}", oldStatus);
 				throw new InvalidOperationException ();
 			}
 		}
@@ -371,7 +372,36 @@ namespace Mono.Net.Security
 
 		protected override AsyncOperationStatus Run (AsyncOperationStatus status)
 		{
-			throw new NotImplementedException ();
+			Debug ("ProcessWrite - write user: {0} {1}", this, status);
+
+			if (UserBuffer.Size == 0) {
+				UserResult = CurrentSize;
+				return AsyncOperationStatus.Complete;
+			}
+
+			var (ret, wantMore) = Parent.ProcessWrite (UserBuffer);
+
+			Debug ("ProcessWrite - write user done: {0} - {1} {2}", this, ret, wantMore);
+
+			if (ret < 0) {
+				UserResult = -1;
+				return AsyncOperationStatus.Complete;
+			}
+
+			CurrentSize += ret;
+			UserBuffer.Offset += ret;
+			UserBuffer.Size -= ret;
+
+			if (wantMore)
+				return AsyncOperationStatus.WantWrite;
+#if FIXME
+			if (writeBuffer.Size > 0)
+				return AsyncOperationStatus.WantWrite;
+#endif
+
+			ResetWrite ();
+			UserResult = CurrentSize;
+			return AsyncOperationStatus.Complete;
 		}
 	}
 

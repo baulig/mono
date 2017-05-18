@@ -270,7 +270,7 @@ namespace Mono.Net.Security
 		{
 			var lazyResult = new LazyAsyncResult (this, asyncState, asyncCallback);
 			var asyncRequest = new AsyncReadRequest (this, buffer, offset, count, lazyResult);
-			ProcessReadOrWrite (ref asyncReadRequest, ref readBuffer, null, asyncRequest);
+			ProcessReadOrWrite (ref asyncReadRequest, ref readBuffer, asyncRequest);
 			return lazyResult;
 		}
 
@@ -283,7 +283,7 @@ namespace Mono.Net.Security
 		{
 			var lazyResult = new LazyAsyncResult (this, asyncState, asyncCallback);
 			var asyncRequest = new AsyncWriteRequest (this, buffer, offset, count, lazyResult);
-			ProcessReadOrWrite (ref asyncHandshakeRequest, ref writeBuffer, ProcessWrite, asyncRequest);
+			ProcessReadOrWrite (ref asyncHandshakeRequest, ref writeBuffer, asyncRequest);
 			return lazyResult;
 		}
 
@@ -295,7 +295,7 @@ namespace Mono.Net.Security
 		public override int Read (byte[] buffer, int offset, int count)
 		{
 			var asyncRequest = new AsyncReadRequest (this, buffer, offset, count, null);
-			return ProcessReadOrWrite (ref asyncReadRequest, ref readBuffer, null, asyncRequest);
+			return ProcessReadOrWrite (ref asyncReadRequest, ref readBuffer, asyncRequest);
 		}
 
 		public void Write (byte[] buffer)
@@ -306,7 +306,7 @@ namespace Mono.Net.Security
 		public override void Write (byte[] buffer, int offset, int count)
 		{
 			var asyncRequest = new AsyncWriteRequest (this, buffer, offset, count, null);
-			ProcessReadOrWrite (ref asyncHandshakeRequest, ref writeBuffer, ProcessWrite, asyncRequest);
+			ProcessReadOrWrite (ref asyncHandshakeRequest, ref writeBuffer, asyncRequest);
 		}
 
 		object EndReadOrWrite (IAsyncResult asyncResult, ref AsyncProtocolRequest nestedRequest)
@@ -335,14 +335,14 @@ namespace Mono.Net.Security
 			return lazyResult.Result;
 		}
 
-		int ProcessReadOrWrite (ref AsyncProtocolRequest nestedRequest, ref BufferOffsetSize2 internalBuffer, AsyncOperation operation, AsyncProtocolRequest asyncRequest)
+		int ProcessReadOrWrite (ref AsyncProtocolRequest nestedRequest, ref BufferOffsetSize2 internalBuffer, AsyncProtocolRequest asyncRequest)
 		{
 			CheckThrow (true);
 
 			var name = internalBuffer == readBuffer ? "read" : "write";
 			Debug ("ProcessReadOrWrite: {0} {1} {2}", name, asyncRequest, asyncRequest.UserBuffer);
 
-			return StartOperation (ref nestedRequest, ref internalBuffer, operation, asyncRequest, name);
+			return StartOperation (ref nestedRequest, ref internalBuffer, null, asyncRequest, name);
 		}
 
 		int StartOperation (ref AsyncProtocolRequest nestedRequest, ref BufferOffsetSize2 internalBuffer, AsyncOperation operation, AsyncProtocolRequest asyncRequest, string name)
@@ -603,43 +603,19 @@ namespace Mono.Net.Security
 		internal (int, bool) ProcessRead (BufferOffsetSize userBuffer)
 		{
 			lock (ioLock) {
-				// This will never block.
+				// This operates on the internal buffer and will never block.
 				var ret = Context.Read (userBuffer.Buffer, userBuffer.Offset, userBuffer.Size, out bool wantMore);
 				return (ret, wantMore);
 			}
 		}
 
-		AsyncOperationStatus ProcessWrite (AsyncProtocolRequest asyncRequest, AsyncOperationStatus status)
+		internal (int, bool) ProcessWrite (BufferOffsetSize userBuffer)
 		{
-			Debug ("ProcessWrite - write user: {0} {1}", status, asyncRequest.UserBuffer);
-
-			if (asyncRequest.UserBuffer.Size == 0) {
-				asyncRequest.UserResult = asyncRequest.CurrentSize;
-				return AsyncOperationStatus.Complete;
-			}
-
-			int ret;
-			bool wantMore;
 			lock (ioLock) {
-				ret = Context.Write (asyncRequest.UserBuffer.Buffer, asyncRequest.UserBuffer.Offset, asyncRequest.UserBuffer.Size, out wantMore);
+				// This operates on the internal buffer and will never block.
+				var ret = Context.Write (userBuffer.Buffer, userBuffer.Offset, userBuffer.Size, out bool wantMore);
+				return (ret, wantMore);
 			}
-			Debug ("ProcessWrite - write user done: {0} - {1} {2}", asyncRequest.UserBuffer, ret, wantMore);
-
-			if (ret < 0) {
-				asyncRequest.UserResult = -1;
-				return AsyncOperationStatus.Complete;
-			}
-
-			asyncRequest.CurrentSize += ret;
-			asyncRequest.UserBuffer.Offset += ret;
-			asyncRequest.UserBuffer.Size -= ret;
-
-			if (wantMore || writeBuffer.Size > 0)
-				return AsyncOperationStatus.WantWrite;
-
-			asyncRequest.ResetWrite ();
-			asyncRequest.UserResult = asyncRequest.CurrentSize;
-			return AsyncOperationStatus.Complete;
 		}
 
 		AsyncOperationStatus ProcessClose (AsyncProtocolRequest asyncRequest, AsyncOperationStatus status)
