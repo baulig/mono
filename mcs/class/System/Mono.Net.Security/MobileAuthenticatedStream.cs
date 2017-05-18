@@ -393,7 +393,10 @@ namespace Mono.Net.Security
 		internal int InternalRead (byte[] buffer, int offset, int size, out bool wantMore)
 		{
 			try {
-				Debug ("InternalRead: {0} {1} {2} {3}", offset, size, asyncReadRequest != null, readBuffer != null);
+				Debug ("InternalRead: {0} {1} {2} {3} {4}", offset, size,
+				       asyncHandshakeRequest != null ? "handshake" : "",
+				       asyncReadRequest != null ? "async" : "",
+				       readBuffer != null ? readBuffer.ToString () : "");
 				var asyncRequest = asyncHandshakeRequest ?? asyncReadRequest;
 				return InternalRead (asyncRequest, readBuffer, buffer, offset, size, out wantMore);
 			} catch (Exception ex) {
@@ -423,7 +426,7 @@ namespace Mono.Net.Security
 			 * native function again.
 			 */
 			if (internalBuffer.Size == 0 && !internalBuffer.Complete) {
-				Debug ("InternalRead #1: {0} {1}", internalBuffer.Offset, internalBuffer.TotalBytes);
+				Debug ("InternalRead #1: {0} {1} {2}", internalBuffer.Offset, internalBuffer.TotalBytes, size);
 				internalBuffer.Offset = internalBuffer.Size = 0;
 				asyncRequest.RequestRead (size);
 				wantMore = true;

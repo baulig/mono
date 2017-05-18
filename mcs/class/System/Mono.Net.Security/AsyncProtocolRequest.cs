@@ -151,8 +151,10 @@ namespace Mono.Net.Security
 				RequestedSize = size;
 			else if (oldStatus == AsyncOperationStatus.WantRead)
 				RequestedSize += size;
-			else if (oldStatus != AsyncOperationStatus.WantWrite)
+			else if (oldStatus != AsyncOperationStatus.WantWrite) {
+				Console.Error.WriteLine("APR - REQUEST READ ERROR: {0}", oldStatus);
 				throw new InvalidOperationException ();
+			}
 		}
 
 		internal void ResetRead ()
@@ -246,10 +248,11 @@ namespace Mono.Net.Security
 			if (status == AsyncOperationStatus.WantRead) {
 				if (RequestedSize < 0)
 					throw new InvalidOperationException ();
-				else if (RequestedSize == 0)
-					return AsyncOperationStatus.Continue;
 
 				Debug ("ProcessOperation - read inner: {0}", RequestedSize);
+				if (RequestedSize == 0)
+					return AsyncOperationStatus.Continue;
+
 				var ret = Parent.InnerRead (RequestedSize);
 				Debug ("ProcessOperation - read inner done: {0} - {1}", RequestedSize, ret);
 
