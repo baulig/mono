@@ -117,7 +117,9 @@ namespace Mono.Net.Security
 		public void AuthenticateAsClient (string targetHost, X509CertificateCollection clientCertificates, SslProtocols enabledSslProtocols, bool checkCertificateRevocation)
 		{
 			ValidateCreateContext (false, targetHost, enabledSslProtocols, null, clientCertificates, false);
-			ProcessAuthentication (null);
+			var task = ProcessAuthenticationAsync ();
+			task.Wait ();
+			Console.WriteLine (task);
 		}
 
 		public IAsyncResult BeginAuthenticateAsClient (string targetHost, AsyncCallback asyncCallback, object asyncState)
@@ -431,7 +433,7 @@ namespace Mono.Net.Security
 		/*
 		 * Called from within SSLRead() and SSLHandshake().  We only access tha managed byte[] here.
 		 */
-		internal int InternalRead (byte[] buffer, int offset, int size, out bool wantMore)
+		internal int InternalRead (byte[] buffer, int offset, int size, out bool outWantMore)
 		{
 			try {
 				Debug ("InternalRead: {0} {1} {2} {3} {4}", offset, size,
@@ -439,16 +441,18 @@ namespace Mono.Net.Security
 				       asyncReadRequest != null ? "async" : "",
 				       readBuffer != null ? readBuffer.ToString () : "");
 				var asyncRequest = asyncHandshakeRequest ?? asyncReadRequest;
-				return InternalRead (asyncRequest, readBuffer, buffer, offset, size, out wantMore);
+				var (ret, wantMore) = InternalRead (asyncRequest, readBuffer, buffer, offset, size);
+				outWantMore = wantMore;
+				return ret;
 			} catch (Exception ex) {
 				Debug ("InternalRead failed: {0}", ex);
 				SetException_internal (ex);
-				wantMore = false;
+				outWantMore = false;
 				return -1;
 			}
 		}
 
-		int InternalRead (AsyncProtocolRequest asyncRequest, BufferOffsetSize internalBuffer, byte[] buffer, int offset, int size, out bool wantMore)
+		(int, bool) InternalRead (AsyncProtocolRequest asyncRequest, BufferOffsetSize internalBuffer, byte[] buffer, int offset, int size)
 		{
 			if (asyncRequest == null)
 				throw new InvalidOperationException ();
@@ -470,8 +474,7 @@ namespace Mono.Net.Security
 				Debug ("InternalRead #1: {0} {1} {2}", internalBuffer.Offset, internalBuffer.TotalBytes, size);
 				internalBuffer.Offset = internalBuffer.Size = 0;
 				asyncRequest.RequestRead (size);
-				wantMore = true;
-				return 0;
+				return (0, true);
 			}
 
 			/*
@@ -486,8 +489,7 @@ namespace Mono.Net.Security
 			Buffer.BlockCopy (internalBuffer.Buffer, internalBuffer.Offset, buffer, offset, len);
 			internalBuffer.Offset += len;
 			internalBuffer.Size -= len;
-			wantMore = !internalBuffer.Complete && len < size;
-			return len;
+			return (len, !internalBuffer.Complete && len < size);
 		}
 
 		/*
