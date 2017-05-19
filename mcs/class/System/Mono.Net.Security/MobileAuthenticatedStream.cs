@@ -205,6 +205,11 @@ namespace Mono.Net.Security
 			var asyncRequest = new AsyncHandshakeRequest (this);
 			if (Interlocked.CompareExchange (ref asyncHandshakeRequest, asyncRequest, null) != null)
 				throw new InvalidOperationException ("Invalid nested call.");
+			// Make sure no other async requests can be started during the handshake.
+			if (Interlocked.CompareExchange (ref asyncReadRequest, asyncRequest, null) != null)
+				throw new InvalidOperationException ("Invalid nested call.");
+			if (Interlocked.CompareExchange (ref asyncWriteRequest, asyncRequest, null) != null)
+				throw new InvalidOperationException ("Invalid nested call.");
 
 			try {
 				lock (ioLock) {
@@ -229,6 +234,8 @@ namespace Mono.Net.Security
 				lock (ioLock) {
 					readBuffer.Reset ();
 					writeBuffer.Reset ();
+					asyncWriteRequest = null;
+					asyncReadRequest = null;
 					asyncHandshakeRequest = null;
 				}
 			}
@@ -405,7 +412,7 @@ namespace Mono.Net.Security
 		{
 			try {
 				Debug ("InternalWrite: {0} {1}", offset, size);
-				var asyncRequest = asyncHandshakeRequest;
+				var asyncRequest = asyncHandshakeRequest ?? asyncWriteRequest;
 				return InternalWrite (asyncRequest, writeBuffer, buffer, offset, size);
 			} catch (Exception ex) {
 				Debug ("InternalWrite failed: {0}", ex);
