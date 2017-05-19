@@ -636,6 +636,7 @@ namespace Mono.Net.Security
 			try {
 				lastException = new ObjectDisposedException ("MobileAuthenticatedStream");
 				lock (ioLock) {
+					Debug ("Dispose: {0}", xobileTlsContext != null);
 					if (xobileTlsContext != null) {
 						xobileTlsContext.Dispose ();
 						xobileTlsContext = null;

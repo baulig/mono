@@ -723,7 +723,6 @@ ReferenceSources/Win32Exception.cs
 ../referencesource/System/net/System/Net/ServicePointManager.cs
 ../referencesource/System/net/System/Net/SocketAddress.cs
 ../referencesource/System/net/System/Net/SocketException.cs
-../referencesource/System/net/System/Net/webclient.cs
 ../referencesource/System/net/System/Net/WebException.cs
 ../referencesource/System/net/System/Net/WebExceptionStatus.cs
 ../referencesource/System/net/System/Net/WebHeaderCollection.cs
@@ -733,7 +732,10 @@ ReferenceSources/Win32Exception.cs
 ../referencesource/System/net/System/Net/WebRequest.cs
 ../referencesource/System/net/System/Net/WebResponse.cs
 ../referencesource/System/net/System/Net/WebUtility.cs
-../referencesource/System/net/System/Net/WriteStreamClosedEventArgs.cs
+
+../../../external/corefx/src/System.Net.WebClient/src/System/Net/WebClient.cs
+../../../external/corefx/src/Common/src/System/IO/DelegatingStream.cs
+../../../external/corefx/src/Common/src/System/IO/ChunkedMemoryStream.cs
 
 ../referencesource/System/net/System/Net/Cache/RequestCache.cs
 ../referencesource/System/net/System/Net/Cache/RequestCacheEntry.cs
