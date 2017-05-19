@@ -197,7 +197,7 @@ namespace Mono.Net.Security
 
 		internal void ProcessAuthentication (LazyAsyncResult lazyResult)
 		{
-			var asyncRequest = new AsyncHandshakeRequest (this, lazyResult);
+			var asyncRequest = new AsyncHandshakeRequest (this);
 			if (Interlocked.CompareExchange (ref asyncHandshakeRequest, asyncRequest, null) != null)
 				throw new InvalidOperationException ("Invalid nested call.");
 
@@ -245,7 +245,7 @@ namespace Mono.Net.Security
 
 		async Task ProcessAuthenticationAsync ()
 		{
-			var asyncRequest = new AsyncHandshakeRequest (this, null);
+			var asyncRequest = new AsyncHandshakeRequest (this);
 			if (Interlocked.CompareExchange (ref asyncHandshakeRequest, asyncRequest, null) != null)
 				throw new InvalidOperationException ("Invalid nested call.");
 
@@ -296,7 +296,7 @@ namespace Mono.Net.Security
 		public override IAsyncResult BeginRead (byte[] buffer, int offset, int count, AsyncCallback asyncCallback, object asyncState)
 		{
 			var lazyResult = new LazyAsyncResult (this, asyncState, asyncCallback);
-			var asyncRequest = new AsyncReadRequest (this, buffer, offset, count, lazyResult);
+			var asyncRequest = new AsyncReadRequest (this, buffer, offset, count);
 			StartOperation (ref asyncReadRequest, readBuffer, asyncRequest);
 			return lazyResult;
 		}
@@ -309,7 +309,7 @@ namespace Mono.Net.Security
 		public override IAsyncResult BeginWrite (byte[] buffer, int offset, int count, AsyncCallback asyncCallback, object asyncState)
 		{
 			var lazyResult = new LazyAsyncResult (this, asyncState, asyncCallback);
-			var asyncRequest = new AsyncWriteRequest (this, buffer, offset, count, lazyResult);
+			var asyncRequest = new AsyncWriteRequest (this, buffer, offset, count);
 			StartOperation (ref asyncHandshakeRequest, writeBuffer, asyncRequest);
 			return lazyResult;
 		}
@@ -321,7 +321,7 @@ namespace Mono.Net.Security
 
 		public override int Read (byte[] buffer, int offset, int count)
 		{
-			var asyncRequest = new AsyncReadRequest (this, buffer, offset, count, null);
+			var asyncRequest = new AsyncReadRequest (this, buffer, offset, count);
 			return StartOperation (ref asyncReadRequest, readBuffer, asyncRequest);
 		}
 
@@ -332,7 +332,7 @@ namespace Mono.Net.Security
 
 		public override void Write (byte[] buffer, int offset, int count)
 		{
-			var asyncRequest = new AsyncWriteRequest (this, buffer, offset, count, null);
+			var asyncRequest = new AsyncWriteRequest (this, buffer, offset, count);
 			StartOperation (ref asyncHandshakeRequest, writeBuffer, asyncRequest);
 		}
 
@@ -383,7 +383,7 @@ namespace Mono.Net.Security
 					throw;
 				throw new IOException (asyncRequest.Name + " failed", e);
 			} finally {
-				if (asyncRequest.UserAsyncResult == null || failed) {
+				if (failed) {
 					internalBuffer.Reset ();
 					nestedRequest = null;
 				}
@@ -736,7 +736,7 @@ namespace Mono.Net.Security
 		public override void Flush ()
 		{
 			CheckThrow (true);
-			var asyncRequest = new AsyncFlushRequest (this, null);
+			var asyncRequest = new AsyncFlushRequest (this);
 			StartOperation (ref asyncHandshakeRequest, writeBuffer, asyncRequest);
 		}
 
@@ -753,7 +753,7 @@ namespace Mono.Net.Security
 			if (xobileTlsContext == null)
 				return;
 
-			var asyncRequest = new AsyncCloseRequest (this, null);
+			var asyncRequest = new AsyncCloseRequest (this);
 			StartOperation (ref asyncHandshakeRequest, writeBuffer, asyncRequest);
 		}
 

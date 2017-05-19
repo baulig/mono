@@ -109,10 +109,6 @@ namespace Mono.Net.Security
 			get;
 		}
 
-		public LazyAsyncResult UserAsyncResult {
-			get;
-		}
-
 		public int ID => ++next_id;
 
 		public string Name => GetType ().Name;
@@ -129,22 +125,10 @@ namespace Mono.Net.Security
 
 		static int next_id;
 
-		public AsyncProtocolRequest (MobileAuthenticatedStream parent, LazyAsyncResult lazyResult)
+		public AsyncProtocolRequest (MobileAuthenticatedStream parent)
 		{
 			Parent = parent;
-			UserAsyncResult = lazyResult;
 		}
-
-#if FIXME
-		public bool CompleteWithError (Exception ex)
-		{
-			if (UserAsyncResult == null)
-				return true;
-			if (!UserAsyncResult.InternalPeekCompleted)
-				UserAsyncResult.InvokeCallback (ex);
-			return false;
-		}
-#endif
 
 		[SD.Conditional ("MARTIN_DEBUG")]
 		protected void Debug (string message, params object[] args)
@@ -180,15 +164,9 @@ namespace Mono.Net.Security
 		{
 			try {
 				ProcessOperation ();
-				if (UserAsyncResult != null && !UserAsyncResult.InternalPeekCompleted)
-					UserAsyncResult.InvokeCallback (UserResult);
 				tcs.SetResult (UserResult);
 			} catch (Exception ex) {
 				tcs.TrySetException (ex);
-				if (UserAsyncResult == null)
-					throw;
-				if (!UserAsyncResult.InternalPeekCompleted)
-					UserAsyncResult.InvokeCallback (ex);
 			}
 		}
 
@@ -258,8 +236,8 @@ namespace Mono.Net.Security
 
 	class AsyncHandshakeRequest : AsyncProtocolRequest
 	{
-		public AsyncHandshakeRequest (MobileAuthenticatedStream parent, LazyAsyncResult lazyResult)
-			: base (parent, lazyResult)
+		public AsyncHandshakeRequest (MobileAuthenticatedStream parent)
+			: base (parent)
 		{
 		}
 
@@ -279,8 +257,8 @@ namespace Mono.Net.Security
 			get; set;
 		}
 
-		public AsyncReadOrWriteRequest (MobileAuthenticatedStream parent, byte[] buffer, int offset, int size, LazyAsyncResult lazyResult)
-			: base (parent, lazyResult)
+		public AsyncReadOrWriteRequest (MobileAuthenticatedStream parent, byte[] buffer, int offset, int size)
+			: base (parent)
 		{
 			UserBuffer = new BufferOffsetSize (buffer, offset, size);
 		}
@@ -293,8 +271,8 @@ namespace Mono.Net.Security
 
 	class AsyncReadRequest : AsyncReadOrWriteRequest
 	{
-		public AsyncReadRequest (MobileAuthenticatedStream parent, byte[] buffer, int offset, int size, LazyAsyncResult lazyResult)
-			: base (parent, buffer, offset, size, lazyResult)
+		public AsyncReadRequest (MobileAuthenticatedStream parent, byte[] buffer, int offset, int size)
+			: base (parent, buffer, offset, size)
 		{
 		}
 
@@ -327,8 +305,8 @@ namespace Mono.Net.Security
 
 	class AsyncWriteRequest : AsyncReadOrWriteRequest
 	{
-		public AsyncWriteRequest (MobileAuthenticatedStream parent, byte[] buffer, int offset, int size, LazyAsyncResult lazyResult)
-			: base (parent, buffer, offset, size, lazyResult)
+		public AsyncWriteRequest (MobileAuthenticatedStream parent, byte[] buffer, int offset, int size)
+			: base (parent, buffer, offset, size)
 		{
 		}
 
@@ -364,8 +342,8 @@ namespace Mono.Net.Security
 
 	class AsyncFlushRequest : AsyncProtocolRequest
 	{
-		public AsyncFlushRequest (MobileAuthenticatedStream parent, LazyAsyncResult lazyResult)
-			: base (parent, lazyResult)
+		public AsyncFlushRequest (MobileAuthenticatedStream parent)
+			: base (parent)
 		{
 		}
 
@@ -377,8 +355,8 @@ namespace Mono.Net.Security
 
 	class AsyncCloseRequest : AsyncProtocolRequest
 	{
-		public AsyncCloseRequest (MobileAuthenticatedStream parent, LazyAsyncResult lazyResult)
-			: base (parent, lazyResult)
+		public AsyncCloseRequest (MobileAuthenticatedStream parent)
+			: base (parent)
 		{
 		}
 
