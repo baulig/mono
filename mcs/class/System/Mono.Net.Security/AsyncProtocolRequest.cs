@@ -164,23 +164,6 @@ namespace Mono.Net.Security
 			lock (locker) {
 				RequestedSize += size;
 				Debug ("RequestRead: {0}", size);
-				return;
-			}
-
-			var oldStatus = (AsyncOperationStatus)Interlocked.CompareExchange (ref Status, (int)AsyncOperationStatus.WantRead, (int)AsyncOperationStatus.Running);
-			Debug ("RequestRead: {0} {1}", oldStatus, size);
-			if (oldStatus == AsyncOperationStatus.Running)
-				RequestedSize = size;
-			else if (oldStatus == AsyncOperationStatus.WantRead || oldStatus == AsyncOperationStatus.WantReadAndWrite)
-				RequestedSize += size;
-			else if (oldStatus == AsyncOperationStatus.WantWrite) {
-				oldStatus = (AsyncOperationStatus)Interlocked.CompareExchange (ref Status, (int)AsyncOperationStatus.WantReadAndWrite, (int)AsyncOperationStatus.WantWrite);
-				if (oldStatus != AsyncOperationStatus.WantWrite)
-					throw new InvalidOperationException ();
-				RequestedSize = size;
-			} else {
-				Console.Error.WriteLine ("APR - REQUEST READ ERROR: {0}", oldStatus);
-				throw new InvalidOperationException ();
 			}
 		}
 
@@ -190,22 +173,9 @@ namespace Mono.Net.Security
 			Debug ("ResetRead: {0} {1}", oldStatus, Status);
 		}
 
-		protected void ResetWrite ()
-		{
-			var oldStatus = (AsyncOperationStatus)Interlocked.CompareExchange (ref Status, (int)AsyncOperationStatus.Complete, (int)AsyncOperationStatus.WantWrite);
-			Debug ("ResetWrite: {0} {1}", oldStatus, Status);
-		}
-
 		internal void RequestWrite ()
 		{
 			WriteRequested = 1;
-			return;
-			var oldStatus = (AsyncOperationStatus)Interlocked.CompareExchange (ref Status, (int)AsyncOperationStatus.WantWrite, (int)AsyncOperationStatus.Running);
-			Debug ("RequestWrite: {0} {1}", oldStatus, Status);
-			if (oldStatus == AsyncOperationStatus.Running)
-				return;
-			else if (oldStatus != AsyncOperationStatus.WantRead && oldStatus != AsyncOperationStatus.WantWrite)
-				throw new InvalidOperationException ();
 		}
 
 		internal Task<int> StartOperation ()
@@ -273,11 +243,6 @@ namespace Mono.Net.Security
 
 				Debug ("ProcessOperation: {0}", status);
 
-				if (Interlocked.Exchange (ref WriteRequested, 0) != 0) {
-					// Flush the write queue.
-					Parent.InnerWrite ();
-				}
-
 				if (!InnerRead ()) {
 					// FIXME: error
 					return;
@@ -297,6 +262,11 @@ namespace Mono.Net.Security
 					break;
 				default:
 					throw new InvalidOperationException ();
+				}
+
+				if (Interlocked.Exchange (ref WriteRequested, 0) != 0) {
+					// Flush the write queue.
+					Parent.InnerWrite ();
 				}
 
 				Debug ("ProcessOperation done: {0} -> {1}", status, newStatus);
@@ -479,13 +449,8 @@ namespace Mono.Net.Security
 			UserBuffer.Size -= ret;
 
 			if (wantMore)
-				return AsyncOperationStatus.WantWrite;
-#if FIXME
-			if (writeBuffer.Size > 0)
-				return AsyncOperationStatus.WantWrite;
-#endif
+				return AsyncOperationStatus.Continue;
 
-			ResetWrite ();
 			UserResult = CurrentSize;
 			return AsyncOperationStatus.Complete;
 		}
