@@ -628,9 +628,6 @@ namespace Mono.Net.Security
 					xobileTlsContext.StartHandshake ();
 				}
 				return AsyncOperationStatus.Continue;
-			} else if (status == AsyncOperationStatus.ReadDone) {
-				// remote prematurely closed connection.
-				throw new IOException ("Remote prematurely closed connection.");
 			} else if (status != AsyncOperationStatus.Continue) {
 				throw new InvalidOperationException ();
 			}

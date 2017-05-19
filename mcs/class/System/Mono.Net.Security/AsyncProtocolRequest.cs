@@ -98,16 +98,9 @@ namespace Mono.Net.Security
 
 	enum AsyncOperationStatus
 	{
-		NotStarted,
 		Initialize,
 		Continue,
-		Running,
-		Complete,
-		WantRead,
-		WantWrite,
-		WantReadAndWrite,
-		ReadDone,
-		FinishWrite
+		Complete
 	}
 
 	abstract class AsyncProtocolRequest
@@ -130,7 +123,6 @@ namespace Mono.Net.Security
 		}
 
 		int RequestedSize;
-		int Status;
 		int WriteRequested;
 		TaskCompletionSource<int> tcs;
 		readonly object locker = new object ();
@@ -143,15 +135,16 @@ namespace Mono.Net.Security
 			UserAsyncResult = lazyResult;
 		}
 
+#if FIXME
 		public bool CompleteWithError (Exception ex)
 		{
-			Status = (int)AsyncOperationStatus.Complete;
 			if (UserAsyncResult == null)
 				return true;
 			if (!UserAsyncResult.InternalPeekCompleted)
 				UserAsyncResult.InvokeCallback (ex);
 			return false;
 		}
+#endif
 
 		[SD.Conditional ("MARTIN_DEBUG")]
 		protected void Debug (string message, params object[] args)
@@ -167,12 +160,6 @@ namespace Mono.Net.Security
 			}
 		}
 
-		protected void ResetRead ()
-		{
-			var oldStatus = (AsyncOperationStatus)Interlocked.CompareExchange (ref Status, (int)AsyncOperationStatus.Complete, (int)AsyncOperationStatus.WantRead);
-			Debug ("ResetRead: {0} {1}", oldStatus, Status);
-		}
-
 		internal void RequestWrite ()
 		{
 			WriteRequested = 1;
@@ -180,10 +167,8 @@ namespace Mono.Net.Security
 
 		internal Task<int> StartOperation ()
 		{
-			Debug ("Start Operation: {0} {1}", this, Status);
+			Debug ("Start Operation: {0}", this);
 			if (Interlocked.CompareExchange (ref tcs, new TaskCompletionSource<int> (), null) != null)
-				throw new InvalidOperationException ();
-			if (Interlocked.CompareExchange (ref Status, (int)AsyncOperationStatus.Initialize, (int)AsyncOperationStatus.NotStarted) != (int)AsyncOperationStatus.NotStarted)
 				throw new InvalidOperationException ();
 
 			ThreadPool.QueueUserWorkItem (_ => StartOperation_internal ());
@@ -194,7 +179,7 @@ namespace Mono.Net.Security
 		void StartOperation_internal ()
 		{
 			try {
-				NewProcessOperation ();
+				ProcessOperation ();
 				if (UserAsyncResult != null && !UserAsyncResult.InternalPeekCompleted)
 					UserAsyncResult.InvokeCallback (UserResult);
 				tcs.SetResult (UserResult);
@@ -209,43 +194,13 @@ namespace Mono.Net.Security
 
 		void ProcessOperation ()
 		{
-			AsyncOperationStatus status;
-			do {
-				status = (AsyncOperationStatus)Interlocked.Exchange (ref Status, (int)AsyncOperationStatus.Running);
-				var oldStatus = status;
-
-				Debug ("ProcessOperation: {0}", status);
-
-				status = ProcessOperation (status);
-
-				Debug ("ProcessOperation done: {0} -> {1}", oldStatus, status);
-
-				if (Interlocked.Exchange (ref WriteRequested, 0) != 0) {
-					// We are done, but still need to flush the write queue.
-					Parent.InnerWrite ();
-				}
-
-				lock (locker) {
-					if (status == AsyncOperationStatus.Complete) {
-						if (RequestedSize != 0)
-							throw new InvalidOperationException ();
-					}
-
-					Status = (int)status;
-				}
-			} while (status != AsyncOperationStatus.Complete);
-		}
-
-		void NewProcessOperation ()
-		{
 			var status = AsyncOperationStatus.Initialize;
 			while (status != AsyncOperationStatus.Complete) {
-
 				Debug ("ProcessOperation: {0}", status);
 
 				if (!InnerRead ()) {
-					// FIXME: error
-					return;
+					// remote prematurely closed connection.
+					throw new IOException ("Remote prematurely closed connection.");
 				}
 
 				Debug ("ProcessOperation run: {0}", status);
@@ -255,10 +210,6 @@ namespace Mono.Net.Security
 				case AsyncOperationStatus.Initialize:
 				case AsyncOperationStatus.Continue:
 					newStatus = Run (status);
-					break;
-				case AsyncOperationStatus.WantRead:
-				case AsyncOperationStatus.WantWrite:
-					newStatus = AsyncOperationStatus.Continue;
 					break;
 				default:
 					throw new InvalidOperationException ();
@@ -295,50 +246,6 @@ namespace Mono.Net.Security
 			}
 
 			return true;
-		}
-
-		AsyncOperationStatus ProcessOperation (AsyncOperationStatus status)
-		{
-			if (status == AsyncOperationStatus.WantRead) {
-				if (RequestedSize < 0)
-					throw new InvalidOperationException ();
-
-				Debug ("ProcessOperation - read inner: {0}", RequestedSize);
-				if (RequestedSize == 0)
-					return AsyncOperationStatus.Continue;
-
-				var ret = Parent.InnerRead (RequestedSize);
-				Debug ("ProcessOperation - read inner done: {0} - {1}", RequestedSize, ret);
-
-				if (ret < 0)
-					return AsyncOperationStatus.ReadDone;
-
-				RequestedSize -= ret;
-
-				if (ret == 0 || RequestedSize == 0)
-					return AsyncOperationStatus.Continue;
-				else
-					return AsyncOperationStatus.WantRead;
-			} else if (status == AsyncOperationStatus.WantWrite) {
-				Debug ("ProcessOperation - want write");
-				Parent.InnerWrite ();
-				Debug ("ProcessOperation - want write done");
-				return AsyncOperationStatus.Continue;
-			} else if (status == AsyncOperationStatus.Initialize || status == AsyncOperationStatus.Continue) {
-				return Run (status);
-			} else if (status == AsyncOperationStatus.ReadDone) {
-				Debug ("ProcessOperation - read done");
-				status = Run (status);
-				Debug ("ProcessOperation - read done: {0}", status);
-				return status;
-			} else if (status == AsyncOperationStatus.FinishWrite) {
-				Debug ("ProcessOperation - finish write");
-				Parent.InnerWrite ();
-				Debug ("ProcessOperation - finish write done");
-				return AsyncOperationStatus.Complete;
-			}
-
-			throw new InvalidOperationException ();
 		}
 
 		protected abstract AsyncOperationStatus Run (AsyncOperationStatus status);
@@ -411,9 +318,8 @@ namespace Mono.Net.Security
 			Debug ("Process Read - read user done #1: {0} - {1} {2}", this, CurrentSize, wantMore);
 
 			if (wantMore && CurrentSize == 0)
-				return AsyncOperationStatus.WantRead;
+				return AsyncOperationStatus.Continue;
 
-			ResetRead ();
 			UserResult = CurrentSize;
 			return AsyncOperationStatus.Complete;
 		}
