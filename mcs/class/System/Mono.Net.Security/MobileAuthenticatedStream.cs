@@ -97,8 +97,6 @@ namespace Mono.Net.Security
 		Exception SetException (Exception e)
 		{
 			e = SetException_internal (e);
-			if (e != null && xobileTlsContext != null)
-				xobileTlsContext.Dispose ();
 			return e;
 		}
 
@@ -626,7 +624,9 @@ namespace Mono.Net.Security
 			 * start the handshake.
 			*/
 			if (status == AsyncOperationStatus.Initialize) {
-				xobileTlsContext.StartHandshake ();
+				lock (ioLock) {
+					xobileTlsContext.StartHandshake ();
+				}
 				return AsyncOperationStatus.Continue;
 			} else if (status == AsyncOperationStatus.ReadDone) {
 				// remote prematurely closed connection.
@@ -639,16 +639,17 @@ namespace Mono.Net.Security
 			 * SSLHandshake() will return repeatedly with 'SslStatus.WouldBlock', we then need
 			 * to take care of I/O and call it again.
 			*/
-			if (!xobileTlsContext.ProcessHandshake ()) {
-				/*
-				 * Flush the internal write buffer.
-				 */
-				InnerFlush ();
-				return AsyncOperationStatus.Continue;
+			lock (ioLock) {
+				if (xobileTlsContext.ProcessHandshake ()) {
+					xobileTlsContext.FinishHandshake ();
+					return AsyncOperationStatus.Complete;
+				}
 			}
-
-			xobileTlsContext.FinishHandshake ();
-			return AsyncOperationStatus.Complete;
+			/*
+			 * Flush the internal write buffer.
+			 */
+			InnerFlush ();
+			return AsyncOperationStatus.Continue;
 		}
 
 		internal (int, bool) ProcessRead (BufferOffsetSize userBuffer)
