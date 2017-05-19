@@ -83,9 +83,9 @@ namespace Mono.Net.Security
 			get { return xobileTlsContext != null; }
 		}
 
-		internal void CheckThrow (bool authSuccessCheck)
+		internal void CheckThrow (bool authSuccessCheck, bool closing = false)
 		{
-			if (closeRequested != 0)
+			if (!closing && closeRequested != 0)
 				throw new InvalidOperationException ("Stream is closed.");
 			if (lastException != null)
 				throw lastException;
@@ -292,7 +292,7 @@ namespace Mono.Net.Security
 
 		async Task<int> StartOperation (bool write, AsyncProtocolRequest asyncRequest)
 		{
-			CheckThrow (true);
+			CheckThrow (true, asyncRequest is AsyncCloseRequest);
 			Debug ("StartOperationAsync: {0} {1}", asyncRequest, write ? "write" : "read");
 
 			if (write) {
