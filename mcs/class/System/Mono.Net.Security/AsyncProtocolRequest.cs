@@ -105,6 +105,7 @@ namespace Mono.Net.Security
 		Complete,
 		WantRead,
 		WantWrite,
+		WantReadAndWrite,
 		ReadDone,
 		FinishWrite
 	}
@@ -130,7 +131,9 @@ namespace Mono.Net.Security
 
 		int RequestedSize;
 		int Status;
+		int WriteRequested;
 		TaskCompletionSource<int> tcs;
+		readonly object locker = new object ();
 
 		static int next_id;
 
@@ -158,25 +161,36 @@ namespace Mono.Net.Security
 
 		internal void RequestRead (int size)
 		{
+			lock (locker) {
+				RequestedSize += size;
+				Debug ("RequestRead: {0}", size);
+				return;
+			}
+
 			var oldStatus = (AsyncOperationStatus)Interlocked.CompareExchange (ref Status, (int)AsyncOperationStatus.WantRead, (int)AsyncOperationStatus.Running);
 			Debug ("RequestRead: {0} {1}", oldStatus, size);
 			if (oldStatus == AsyncOperationStatus.Running)
 				RequestedSize = size;
-			else if (oldStatus == AsyncOperationStatus.WantRead)
+			else if (oldStatus == AsyncOperationStatus.WantRead || oldStatus == AsyncOperationStatus.WantReadAndWrite)
 				RequestedSize += size;
-			else if (oldStatus != AsyncOperationStatus.WantWrite) {
+			else if (oldStatus == AsyncOperationStatus.WantWrite) {
+				oldStatus = (AsyncOperationStatus)Interlocked.CompareExchange (ref Status, (int)AsyncOperationStatus.WantReadAndWrite, (int)AsyncOperationStatus.WantWrite);
+				if (oldStatus != AsyncOperationStatus.WantWrite)
+					throw new InvalidOperationException ();
+				RequestedSize = size;
+			} else {
 				Console.Error.WriteLine ("APR - REQUEST READ ERROR: {0}", oldStatus);
 				throw new InvalidOperationException ();
 			}
 		}
 
-		internal void ResetRead ()
+		protected void ResetRead ()
 		{
 			var oldStatus = (AsyncOperationStatus)Interlocked.CompareExchange (ref Status, (int)AsyncOperationStatus.Complete, (int)AsyncOperationStatus.WantRead);
 			Debug ("ResetRead: {0} {1}", oldStatus, Status);
 		}
 
-		internal void ResetWrite ()
+		protected void ResetWrite ()
 		{
 			var oldStatus = (AsyncOperationStatus)Interlocked.CompareExchange (ref Status, (int)AsyncOperationStatus.Complete, (int)AsyncOperationStatus.WantWrite);
 			Debug ("ResetWrite: {0} {1}", oldStatus, Status);
@@ -184,6 +198,8 @@ namespace Mono.Net.Security
 
 		internal void RequestWrite ()
 		{
+			WriteRequested = 1;
+			return;
 			var oldStatus = (AsyncOperationStatus)Interlocked.CompareExchange (ref Status, (int)AsyncOperationStatus.WantWrite, (int)AsyncOperationStatus.Running);
 			Debug ("RequestWrite: {0} {1}", oldStatus, Status);
 			if (oldStatus == AsyncOperationStatus.Running)
@@ -208,7 +224,7 @@ namespace Mono.Net.Security
 		void StartOperation_internal ()
 		{
 			try {
-				ProcessOperation ();
+				NewProcessOperation ();
 				if (UserAsyncResult != null && !UserAsyncResult.InternalPeekCompleted)
 					UserAsyncResult.InvokeCallback (UserResult);
 				tcs.SetResult (UserResult);
@@ -226,33 +242,89 @@ namespace Mono.Net.Security
 			AsyncOperationStatus status;
 			do {
 				status = (AsyncOperationStatus)Interlocked.Exchange (ref Status, (int)AsyncOperationStatus.Running);
+				var oldStatus = status;
 
 				Debug ("ProcessOperation: {0}", status);
 
 				status = ProcessOperation (status);
 
-				Debug ("ProcessOperation done: {0}", status);
-
-				AsyncOperationStatus oldStatus;
-				if (status == AsyncOperationStatus.Complete) {
-					oldStatus = (AsyncOperationStatus)Interlocked.CompareExchange (ref Status, (int)AsyncOperationStatus.FinishWrite, (int)AsyncOperationStatus.WantWrite);
-					if (oldStatus == AsyncOperationStatus.WantWrite) {
-						// We are done, but still need to flush the write queue.
-						status = AsyncOperationStatus.FinishWrite;
-						continue;
-					}
-				}
-
-				oldStatus = (AsyncOperationStatus)Interlocked.CompareExchange (ref Status, (int)status, (int)AsyncOperationStatus.Running);
 				Debug ("ProcessOperation done: {0} -> {1}", oldStatus, status);
 
-				if (oldStatus != AsyncOperationStatus.Running) {
-					if (status == oldStatus || status == AsyncOperationStatus.Continue || status == AsyncOperationStatus.Complete)
-						status = oldStatus;
-					else
-						throw new InvalidOperationException ();
+				if (Interlocked.Exchange (ref WriteRequested, 0) != 0) {
+					// We are done, but still need to flush the write queue.
+					Parent.InnerWrite ();
+				}
+
+				lock (locker) {
+					if (status == AsyncOperationStatus.Complete) {
+						if (RequestedSize != 0)
+							throw new InvalidOperationException ();
+					}
+
+					Status = (int)status;
 				}
 			} while (status != AsyncOperationStatus.Complete);
+		}
+
+		void NewProcessOperation ()
+		{
+			var status = AsyncOperationStatus.Initialize;
+			while (status != AsyncOperationStatus.Complete) {
+
+				Debug ("ProcessOperation: {0}", status);
+
+				if (Interlocked.Exchange (ref WriteRequested, 0) != 0) {
+					// Flush the write queue.
+					Parent.InnerWrite ();
+				}
+
+				if (!InnerRead ()) {
+					// FIXME: error
+					return;
+				}
+
+				Debug ("ProcessOperation run: {0}", status);
+
+				AsyncOperationStatus newStatus;
+				switch (status) {
+				case AsyncOperationStatus.Initialize:
+				case AsyncOperationStatus.Continue:
+					newStatus = Run (status);
+					break;
+				case AsyncOperationStatus.WantRead:
+				case AsyncOperationStatus.WantWrite:
+					newStatus = AsyncOperationStatus.Continue;
+					break;
+				default:
+					throw new InvalidOperationException ();
+				}
+
+				Debug ("ProcessOperation done: {0} -> {1}", status, newStatus);
+
+				status = newStatus;
+			}
+		}
+
+		bool InnerRead ()
+		{
+			var requestedSize = Interlocked.Exchange (ref RequestedSize, 0);
+			while (requestedSize > 0) {
+				Debug ("ProcessOperation - read inner: {0}", requestedSize);
+
+				var ret = Parent.InnerRead (requestedSize);
+				Debug ("ProcessOperation - read inner done: {0} - {1}", requestedSize, ret);
+
+				if (ret < 0)
+					return false;
+				if (ret > requestedSize)
+					throw new InvalidOperationException ();
+
+				requestedSize -= ret;
+				var newRequestedSize = Interlocked.Exchange (ref RequestedSize, 0);
+				requestedSize += newRequestedSize;
+			}
+
+			return true;
 		}
 
 		AsyncOperationStatus ProcessOperation (AsyncOperationStatus status)
@@ -283,10 +355,7 @@ namespace Mono.Net.Security
 				Debug ("ProcessOperation - want write done");
 				return AsyncOperationStatus.Continue;
 			} else if (status == AsyncOperationStatus.Initialize || status == AsyncOperationStatus.Continue) {
-				Debug ("ProcessOperation - continue");
-				status = Run (status);
-				Debug ("ProcessOperation - continue done: {0}", status);
-				return status;
+				return Run (status);
 			} else if (status == AsyncOperationStatus.ReadDone) {
 				Debug ("ProcessOperation - read done");
 				status = Run (status);
