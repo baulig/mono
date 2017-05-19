@@ -117,9 +117,8 @@ namespace Mono.Net.Security
 		public void AuthenticateAsClient (string targetHost, X509CertificateCollection clientCertificates, SslProtocols enabledSslProtocols, bool checkCertificateRevocation)
 		{
 			ValidateCreateContext (false, targetHost, enabledSslProtocols, null, clientCertificates, false);
-			var task = ProcessAuthenticationAsync ();
+			var task = ProcessAuthentication (true);
 			task.Wait ();
-			Console.WriteLine (task);
 		}
 
 		public IAsyncResult BeginAuthenticateAsClient (string targetHost, AsyncCallback asyncCallback, object asyncState)
@@ -130,14 +129,13 @@ namespace Mono.Net.Security
 		public IAsyncResult BeginAuthenticateAsClient (string targetHost, X509CertificateCollection clientCertificates, SslProtocols enabledSslProtocols, bool checkCertificateRevocation, AsyncCallback asyncCallback, object asyncState)
 		{
 			ValidateCreateContext (false, targetHost, enabledSslProtocols, null, clientCertificates, false);
-			var result = new LazyAsyncResult (this, asyncState, asyncCallback);
-			ProcessAuthentication (result);
-			return result;
+			var task = ProcessAuthentication (false);
+			return TaskToApm.Begin (task, asyncCallback, asyncState);
 		}
 
 		public void EndAuthenticateAsClient (IAsyncResult asyncResult)
 		{
-			EndProcessAuthentication (asyncResult);
+			TaskToApm.End (asyncResult);
 		}
 
 		public void AuthenticateAsServer (X509Certificate serverCertificate)
@@ -148,7 +146,8 @@ namespace Mono.Net.Security
 		public void AuthenticateAsServer (X509Certificate serverCertificate, bool clientCertificateRequired, SslProtocols enabledSslProtocols, bool checkCertificateRevocation)
 		{
 			ValidateCreateContext (true, string.Empty, enabledSslProtocols, serverCertificate, null, clientCertificateRequired);
-			ProcessAuthentication (null);
+			var task = ProcessAuthentication (true);
+			task.Wait ();
 		}
 
 		public IAsyncResult BeginAuthenticateAsServer (X509Certificate serverCertificate, AsyncCallback asyncCallback, object asyncState)
@@ -159,91 +158,43 @@ namespace Mono.Net.Security
 		public IAsyncResult BeginAuthenticateAsServer (X509Certificate serverCertificate, bool clientCertificateRequired, SslProtocols enabledSslProtocols, bool checkCertificateRevocation, AsyncCallback asyncCallback, object asyncState)
 		{
 			ValidateCreateContext (true, string.Empty, enabledSslProtocols, serverCertificate, null, clientCertificateRequired);
-			var result = new LazyAsyncResult (this, asyncState, asyncCallback);
-			ProcessAuthentication (result);
-			return result;
+			var task = ProcessAuthentication (false);
+			return TaskToApm.Begin (task, asyncCallback, asyncState);
 		}
 
 		public void EndAuthenticateAsServer (IAsyncResult asyncResult)
 		{
-			EndProcessAuthentication (asyncResult);
+			TaskToApm.End (asyncResult);
 		}
 
 		public Task AuthenticateAsClientAsync (string targetHost)
 		{
 			ValidateCreateContext (false, targetHost, DefaultProtocols, null, null, false);
-			return ProcessAuthenticationAsync ();
+			return ProcessAuthentication (false);
 		}
 
 		public Task AuthenticateAsClientAsync (string targetHost, X509CertificateCollection clientCertificates, SslProtocols enabledSslProtocols, bool checkCertificateRevocation)
 		{
 			ValidateCreateContext (false, targetHost, enabledSslProtocols, null, clientCertificates, false);
-			return ProcessAuthenticationAsync ();
+			return ProcessAuthentication (false);
 		}
 
 		public Task AuthenticateAsServerAsync (X509Certificate serverCertificate)
 		{
-			return Task.Factory.FromAsync (BeginAuthenticateAsServer, EndAuthenticateAsServer, serverCertificate, null);
+			return AuthenticateAsServerAsync (serverCertificate, false, DefaultProtocols, false);
 		}
 
 		public Task AuthenticateAsServerAsync (X509Certificate serverCertificate, bool clientCertificateRequired, SslProtocols enabledSslProtocols, bool checkCertificateRevocation)
 		{
-			return Task.Factory.FromAsync ((callback, state) => BeginAuthenticateAsServer (serverCertificate, clientCertificateRequired, enabledSslProtocols, checkCertificateRevocation, callback, state), EndAuthenticateAsServer, null);
+			ValidateCreateContext (true, string.Empty, enabledSslProtocols, serverCertificate, null, clientCertificateRequired);
+			return ProcessAuthentication (false);
 		}
 
 		public AuthenticatedStream AuthenticatedStream {
 			get { return this; }
 		}
 
-		internal void ProcessAuthentication (LazyAsyncResult lazyResult)
-		{
-			var asyncRequest = new AsyncHandshakeRequest (this);
-			if (Interlocked.CompareExchange (ref asyncHandshakeRequest, asyncRequest, null) != null)
-				throw new InvalidOperationException ("Invalid nested call.");
-
-			try {
-				if (lastException != null)
-					throw lastException;
-				if (xobileTlsContext == null)
-					throw new InvalidOperationException ();
-
-				readBuffer.Reset ();
-				writeBuffer.Reset ();
-
-				try {
-					asyncRequest.StartOperation ();
-				} catch (Exception ex) {
-					ExceptionDispatchInfo.Capture (SetException (ex)).Throw ();
-				}
-			} finally {
-				if (lazyResult == null || lastException != null) {
-					readBuffer.Reset ();
-					writeBuffer.Reset ();
-					asyncHandshakeRequest = null;
-				}
-			}
-		}
-
-		internal void EndProcessAuthentication (IAsyncResult result)
-		{
-			if (result == null)
-				throw new ArgumentNullException ("asyncResult");
-
-			var lazyResult = (LazyAsyncResult)result;
-			if (Interlocked.Exchange (ref asyncHandshakeRequest, null) == null)
-				throw new InvalidOperationException ("Invalid end call.");
-
-			lazyResult.InternalWaitForCompletion ();
-
-			readBuffer.Reset ();
-			writeBuffer.Reset ();
-
-			var e = lazyResult.Result as Exception;
-			if (e != null)
-				ExceptionDispatchInfo.Capture (SetException (e)).Throw ();
-		}
-
-		async Task ProcessAuthenticationAsync ()
+		async Task ProcessAuthentication (bool runSynchronously)
 		{
 			var asyncRequest = new AsyncHandshakeRequest (this);
 			if (Interlocked.CompareExchange (ref asyncHandshakeRequest, asyncRequest, null) != null)
