@@ -116,8 +116,7 @@ namespace Mono.Net.Security
 
 		public void AuthenticateAsClient (string targetHost, X509CertificateCollection clientCertificates, SslProtocols enabledSslProtocols, bool checkCertificateRevocation)
 		{
-			ValidateCreateContext (false, targetHost, enabledSslProtocols, null, clientCertificates, false);
-			var task = ProcessAuthentication (true);
+			var task = ProcessAuthentication (true, false, targetHost, enabledSslProtocols, null, clientCertificates, false);
 			task.Wait ();
 		}
 
@@ -128,8 +127,7 @@ namespace Mono.Net.Security
 
 		public IAsyncResult BeginAuthenticateAsClient (string targetHost, X509CertificateCollection clientCertificates, SslProtocols enabledSslProtocols, bool checkCertificateRevocation, AsyncCallback asyncCallback, object asyncState)
 		{
-			ValidateCreateContext (false, targetHost, enabledSslProtocols, null, clientCertificates, false);
-			var task = ProcessAuthentication (false);
+			var task = ProcessAuthentication (false, false, targetHost, enabledSslProtocols, null, clientCertificates, false);
 			return TaskToApm.Begin (task, asyncCallback, asyncState);
 		}
 
@@ -145,8 +143,7 @@ namespace Mono.Net.Security
 
 		public void AuthenticateAsServer (X509Certificate serverCertificate, bool clientCertificateRequired, SslProtocols enabledSslProtocols, bool checkCertificateRevocation)
 		{
-			ValidateCreateContext (true, string.Empty, enabledSslProtocols, serverCertificate, null, clientCertificateRequired);
-			var task = ProcessAuthentication (true);
+			var task = ProcessAuthentication (true, true, string.Empty, enabledSslProtocols, serverCertificate, null, clientCertificateRequired);
 			task.Wait ();
 		}
 
@@ -157,8 +154,7 @@ namespace Mono.Net.Security
 
 		public IAsyncResult BeginAuthenticateAsServer (X509Certificate serverCertificate, bool clientCertificateRequired, SslProtocols enabledSslProtocols, bool checkCertificateRevocation, AsyncCallback asyncCallback, object asyncState)
 		{
-			ValidateCreateContext (true, string.Empty, enabledSslProtocols, serverCertificate, null, clientCertificateRequired);
-			var task = ProcessAuthentication (false);
+			var task = ProcessAuthentication (false, true, string.Empty, enabledSslProtocols, serverCertificate, null, clientCertificateRequired);
 			return TaskToApm.Begin (task, asyncCallback, asyncState);
 		}
 
@@ -169,14 +165,12 @@ namespace Mono.Net.Security
 
 		public Task AuthenticateAsClientAsync (string targetHost)
 		{
-			ValidateCreateContext (false, targetHost, DefaultProtocols, null, null, false);
-			return ProcessAuthentication (false);
+			return ProcessAuthentication (false, false, targetHost, DefaultProtocols, null, null, false);
 		}
 
 		public Task AuthenticateAsClientAsync (string targetHost, X509CertificateCollection clientCertificates, SslProtocols enabledSslProtocols, bool checkCertificateRevocation)
 		{
-			ValidateCreateContext (false, targetHost, enabledSslProtocols, null, clientCertificates, false);
-			return ProcessAuthentication (false);
+			return ProcessAuthentication (false, false, targetHost, enabledSslProtocols, null, clientCertificates, false);
 		}
 
 		public Task AuthenticateAsServerAsync (X509Certificate serverCertificate)
@@ -186,28 +180,44 @@ namespace Mono.Net.Security
 
 		public Task AuthenticateAsServerAsync (X509Certificate serverCertificate, bool clientCertificateRequired, SslProtocols enabledSslProtocols, bool checkCertificateRevocation)
 		{
-			ValidateCreateContext (true, string.Empty, enabledSslProtocols, serverCertificate, null, clientCertificateRequired);
-			return ProcessAuthentication (false);
+			return ProcessAuthentication (false, true, string.Empty, enabledSslProtocols, serverCertificate, null, clientCertificateRequired);
 		}
 
 		public AuthenticatedStream AuthenticatedStream {
 			get { return this; }
 		}
 
-		async Task ProcessAuthentication (bool runSynchronously)
+		async Task ProcessAuthentication (
+			bool runSynchronously, bool serverMode, string targetHost, SslProtocols enabledProtocols,
+			X509Certificate serverCertificate, X509CertificateCollection clientCertificates, bool clientCertRequired)
 		{
+			if (serverMode) {
+				if (serverCertificate == null)
+					throw new ArgumentException (nameof (serverCertificate));
+			} else {
+				if (targetHost == null)
+					throw new ArgumentException (nameof (targetHost));
+				if (targetHost.Length == 0)
+					targetHost = "?" + Interlocked.Increment (ref uniqueNameInteger).ToString (NumberFormatInfo.InvariantInfo);
+			}
+
 			var asyncRequest = new AsyncHandshakeRequest (this);
 			if (Interlocked.CompareExchange (ref asyncHandshakeRequest, asyncRequest, null) != null)
 				throw new InvalidOperationException ("Invalid nested call.");
 
 			try {
-				if (lastException != null)
-					throw lastException;
-				if (xobileTlsContext == null)
-					throw new InvalidOperationException ();
+				lock (ioLock) {
+					if (xobileTlsContext != null)
+						throw new InvalidOperationException ();
+					xobileTlsContext = CreateContext (
+						serverMode, targetHost, enabledProtocols, serverCertificate,
+						clientCertificates, clientCertRequired);
+					if (lastException != null)
+						throw lastException;
 
-				readBuffer.Reset ();
-				writeBuffer.Reset ();
+					readBuffer.Reset ();
+					writeBuffer.Reset ();
+				}
 
 				try {
 					await asyncRequest.StartOperation ().ConfigureAwait (false);
@@ -215,28 +225,12 @@ namespace Mono.Net.Security
 					ExceptionDispatchInfo.Capture (SetException (ex)).Throw ();
 				}
 			} finally {
-				readBuffer.Reset ();
-				writeBuffer.Reset ();
-				asyncHandshakeRequest = null;
+				lock (ioLock) {
+					readBuffer.Reset ();
+					writeBuffer.Reset ();
+					asyncHandshakeRequest = null;
+				}
 			}
-		}
-
-		internal void ValidateCreateContext (bool serverMode, string targetHost, SslProtocols enabledProtocols, X509Certificate serverCertificate, X509CertificateCollection clientCertificates, bool clientCertRequired)
-		{
-			if (xobileTlsContext != null)
-				throw new InvalidOperationException ();
-
-			if (serverMode) {
-				if (serverCertificate == null)
-					throw new ArgumentException ("serverCertificate");
-			} else {
-				if (targetHost == null)
-					throw new ArgumentException ("targetHost");
-				if (targetHost.Length == 0)
-					targetHost = "?" + Interlocked.Increment (ref uniqueNameInteger).ToString (NumberFormatInfo.InvariantInfo);
-			}
-
-			xobileTlsContext = CreateContext (serverMode, targetHost, enabledProtocols, serverCertificate, clientCertificates, clientCertRequired);
 		}
 
 		protected abstract MobileTlsContext CreateContext (
