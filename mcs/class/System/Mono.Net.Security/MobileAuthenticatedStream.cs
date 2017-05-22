@@ -673,11 +673,6 @@ namespace Mono.Net.Security
 			task.Wait ();
 		}
 
-		public override void Close ()
-		{
-			Debug ("Close");
-		}
-
 		public SslProtocols SslProtocol {
 			get {
 				lock (ioLock) {
