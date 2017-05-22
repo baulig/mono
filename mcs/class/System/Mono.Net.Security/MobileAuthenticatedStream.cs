@@ -83,10 +83,8 @@ namespace Mono.Net.Security
 			get { return xobileTlsContext != null; }
 		}
 
-		internal void CheckThrow (bool authSuccessCheck, bool closing = false)
+		internal void CheckThrow (bool authSuccessCheck)
 		{
-			if (!closing && closeRequested != 0)
-				throw new InvalidOperationException ("Stream is closed.");
 			if (lastException != null)
 				throw lastException;
 			if (authSuccessCheck && !IsAuthenticated)
@@ -187,7 +185,21 @@ namespace Mono.Net.Security
 		public Task ShutdownAsync ()
 		{
 			Debug ("ShutdownAsync");
-			return Task.CompletedTask;
+
+			/*
+			 * SSLClose() is a little bit tricky as it might attempt to send a close_notify alert
+			 * and thus call our write callback.
+			 *
+			 * It is also not thread-safe with SSLRead() or SSLWrite(), so we need to take the I/O lock here.
+			 */
+			if (Interlocked.Exchange (ref closeRequested, 1) == 1)
+				return Task.CompletedTask;
+			if (xobileTlsContext == null)
+				return Task.CompletedTask;
+
+			var asyncRequest = new AsyncShutdownRequest (this);
+			var task = StartOperation (true, asyncRequest);
+			return task;
 		}
 
 		public AuthenticatedStream AuthenticatedStream {
@@ -298,7 +310,7 @@ namespace Mono.Net.Security
 
 		async Task<int> StartOperation (bool write, AsyncProtocolRequest asyncRequest)
 		{
-			CheckThrow (true, asyncRequest is AsyncCloseRequest);
+			CheckThrow (true);
 			Debug ("StartOperationAsync: {0} {1}", asyncRequest, write ? "write" : "read");
 
 			if (write) {
@@ -586,15 +598,15 @@ namespace Mono.Net.Security
 			}
 		}
 
-		internal AsyncOperationStatus ProcessClose (AsyncOperationStatus status)
+		internal AsyncOperationStatus ProcessShutdown (AsyncOperationStatus status)
 		{
-			Debug ("ProcessClose: {0}", status);
+			Debug ("ProcessShutdown: {0}", status);
 
 			lock (ioLock) {
 				if (xobileTlsContext == null)
 					return AsyncOperationStatus.Complete;
 
-				xobileTlsContext.Close ();
+				xobileTlsContext.Shutdown ();
 				xobileTlsContext = null;
 				return AsyncOperationStatus.Continue;
 			}
@@ -663,20 +675,7 @@ namespace Mono.Net.Security
 
 		public override void Close ()
 		{
-			/*
-			 * SSLClose() is a little bit tricky as it might attempt to send a close_notify alert
-			 * and thus call our write callback.
-			 *
-			 * It is also not thread-safe with SSLRead() or SSLWrite(), so we need to take the I/O lock here.
-			 */
-			if (Interlocked.Exchange (ref closeRequested, 1) == 1)
-				return;
-			if (xobileTlsContext == null)
-				return;
-
-			var asyncRequest = new AsyncCloseRequest (this);
-			var task = StartOperation (true, asyncRequest);
-			task.Wait ();
+			Debug ("Close");
 		}
 
 		public SslProtocols SslProtocol {

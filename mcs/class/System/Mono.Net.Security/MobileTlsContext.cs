@@ -169,6 +169,8 @@ namespace Mono.Net.Security
 
 		public abstract int Write (byte[] buffer, int offset, int count, out bool wantMore);
 
+		public abstract void Shutdown ();
+
 		public abstract void Close ();
 
 		protected bool ValidateCertificate (X509Certificate leaf, X509Chain chain)

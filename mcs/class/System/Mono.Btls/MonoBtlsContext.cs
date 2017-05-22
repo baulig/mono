@@ -358,6 +358,11 @@ namespace Mono.Btls
 			}
 		}
 
+		public override void Shutdown ()
+		{
+			Debug ("Shutdown!");
+		}
+
 		public override void Close ()
 		{
 			Debug ("Close!");
@@ -397,12 +402,12 @@ namespace Mono.Btls
 		{
 			try {
 				if (disposing) {
+					Dispose (ref ssl);
+					Dispose (ref ctx);
 					Dispose (ref remoteCertificate);
 					Dispose (ref nativeServerCertificate);
 					Dispose (ref nativeClientCertificate);
 					Dispose (ref clientCertificate);
-					Dispose (ref ctx);
-					Dispose (ref ssl);
 					Dispose (ref bio);
 					Dispose (ref errbio);
 				}

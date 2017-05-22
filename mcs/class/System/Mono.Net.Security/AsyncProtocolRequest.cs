@@ -353,16 +353,16 @@ namespace Mono.Net.Security
 		}
 	}
 
-	class AsyncCloseRequest : AsyncProtocolRequest
+	class AsyncShutdownRequest : AsyncProtocolRequest
 	{
-		public AsyncCloseRequest (MobileAuthenticatedStream parent)
+		public AsyncShutdownRequest (MobileAuthenticatedStream parent)
 			: base (parent)
 		{
 		}
 
 		protected override AsyncOperationStatus Run (AsyncOperationStatus status)
 		{
-			return Parent.ProcessClose (status);
+			return Parent.ProcessShutdown (status);
 		}
 	}
 
