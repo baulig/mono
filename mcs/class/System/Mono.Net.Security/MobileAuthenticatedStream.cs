@@ -184,6 +184,12 @@ namespace Mono.Net.Security
 			return ProcessAuthentication (false, true, string.Empty, enabledSslProtocols, serverCertificate, null, clientCertificateRequired);
 		}
 
+		public Task ShutdownAsync ()
+		{
+			Debug ("ShutdownAsync");
+			return Task.CompletedTask;
+		}
+
 		public AuthenticatedStream AuthenticatedStream {
 			get { return this; }
 		}
