@@ -54,7 +54,10 @@ namespace Mono.Btls
 			protected override bool ReleaseHandle ()
 			{
 #if MARTIN_DEBUG
-				Console.WriteLine ("MonoBtlsSsl.Destroy: {0:x}", handle.ToInt64 ());
+				try {
+					Console.WriteLine ("MonoBtlsSsl.Destroy: {0:x}", handle.ToInt64 ());
+				} catch {
+				}
 #endif
 				mono_btls_ssl_destroy (handle);
 				handle = IntPtr.Zero;
