@@ -100,6 +100,7 @@ namespace Mono.Net.Security
 	{
 		Initialize,
 		Continue,
+		ReadDone,
 		Complete
 	}
 
@@ -176,9 +177,16 @@ namespace Mono.Net.Security
 			while (status != AsyncOperationStatus.Complete) {
 				Debug ("ProcessOperation: {0}", status);
 
-				if (!InnerRead ()) {
-					// remote prematurely closed connection.
-					throw new IOException ("Remote prematurely closed connection.");
+				var ret = InnerRead ();
+				if (ret != null) {
+					if (ret == 0) {
+						// End-of-stream
+						Debug ("END OF STREAM!");
+						status = AsyncOperationStatus.ReadDone;
+					} else if (ret < 0) {
+						// remote prematurely closed connection.
+						throw new IOException ("Remote prematurely closed connection.");
+					}
 				}
 
 				Debug ("ProcessOperation run: {0}", status);
@@ -187,6 +195,7 @@ namespace Mono.Net.Security
 				switch (status) {
 				case AsyncOperationStatus.Initialize:
 				case AsyncOperationStatus.Continue:
+				case AsyncOperationStatus.ReadDone:
 					newStatus = Run (status);
 					break;
 				default:
@@ -204,8 +213,9 @@ namespace Mono.Net.Security
 			}
 		}
 
-		bool InnerRead ()
+		int? InnerRead ()
 		{
+			int? totalRead = null;
 			var requestedSize = Interlocked.Exchange (ref RequestedSize, 0);
 			while (requestedSize > 0) {
 				Debug ("ProcessOperation - read inner: {0}", requestedSize);
@@ -213,17 +223,18 @@ namespace Mono.Net.Security
 				var ret = Parent.InnerRead (requestedSize);
 				Debug ("ProcessOperation - read inner done: {0} - {1}", requestedSize, ret);
 
-				if (ret < 0)
-					return false;
+				if (ret <= 0)
+					return ret;
 				if (ret > requestedSize)
 					throw new InvalidOperationException ();
 
+				totalRead += ret;
 				requestedSize -= ret;
 				var newRequestedSize = Interlocked.Exchange (ref RequestedSize, 0);
 				requestedSize += newRequestedSize;
 			}
 
-			return true;
+			return totalRead;
 		}
 
 		protected abstract AsyncOperationStatus Run (AsyncOperationStatus status);

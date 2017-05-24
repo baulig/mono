@@ -314,18 +314,26 @@ namespace Mono.Btls
 		public MonoBtlsSslError Read (IntPtr data, ref int dataSize)
 		{
 			CheckThrow ();
+			Console.WriteLine ("SSL READ: {0}", dataSize);
 			var ret = mono_btls_ssl_read (
 				Handle.DangerousGetHandle (), data, dataSize);
 
-			if (ret >= 0) {
+			Console.WriteLine ("SSL READ DONE: {0}", ret);
+			if (ret > 0) {
 				dataSize = ret;
 				return MonoBtlsSslError.None;
 			}
 
-			var error = mono_btls_ssl_get_error (
-				Handle.DangerousGetHandle (), ret);
+			var error = GetError (ret);
+			Console.WriteLine ("SSL READ DONE #1: {0} {1}", ret, error);
+			if (ret == 0 && error == MonoBtlsSslError.Syscall) {
+				// End-of-stream
+				dataSize = 0;
+				return MonoBtlsSslError.None;
+			}
+
 			dataSize = 0;
-			return (MonoBtlsSslError)error;
+			return error;
 		}
 
 		public MonoBtlsSslError Write (IntPtr data, ref int dataSize)
@@ -452,6 +460,12 @@ namespace Mono.Btls
 			var ret = mono_btls_ssl_shutdown (Handle.DangerousGetHandle ());
 			if (ret < 0)
 				throw ThrowError ();
+		}
+
+		public void SetQuietShutdown ()
+		{
+			CheckThrow ();
+			mono_btls_ssl_set_quiet_shutdown (Handle.DangerousGetHandle (), 1);
 		}
 
 		protected override void Close ()

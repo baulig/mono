@@ -116,10 +116,10 @@ MONO_API int
 mono_btls_ssl_connect (MonoBtlsSsl *ptr)
 {
 	int ret;
-	fprintf (stderr, "mono_btls_ssl_connect: %p - %p - %d\n", ptr, ptr->ssl, ptr->active);
+//	fprintf (stderr, "mono_btls_ssl_connect: %p - %p - %d\n", ptr, ptr->ssl, ptr->active);
 	ptr->active = 1;
 	ret = SSL_connect (ptr->ssl);
-	fprintf (stderr, "mono_btls_ssl_connect #1: %p - %p - %d\n", ptr, ptr->ssl, ret);
+//	fprintf (stderr, "mono_btls_ssl_connect #1: %p - %p - %d\n", ptr, ptr->ssl, ret);
 	ptr->active = 0;
 	return ret;
 }

@@ -607,6 +607,7 @@ namespace Mono.Net.Security
 					return AsyncOperationStatus.Complete;
 
 				xobileTlsContext.Shutdown ();
+				// FIXME: Reading from it is still allowed after shutdown.
 				xobileTlsContext = null;
 				return AsyncOperationStatus.Continue;
 			}
