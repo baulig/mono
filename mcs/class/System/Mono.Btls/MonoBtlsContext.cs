@@ -363,28 +363,6 @@ namespace Mono.Btls
 			Debug ("Shutdown!");
 		}
 
-		public override void Close ()
-		{
-			Debug ("Close!");
-
-			if (ssl != null) {
-				ssl.Dispose ();
-				ssl = null;
-			}
-			if (ctx != null) {
-				ctx.Dispose ();
-				ctx = null;
-			}
-			if (bio != null) {
-				bio.Dispose ();
-				bio = null;
-			}
-			if (errbio != null) {
-				errbio.Dispose ();
-				errbio = null;
-			}
-		}
-
 		void Dispose<T> (ref T disposable)
 			where T : class, IDisposable
 		{

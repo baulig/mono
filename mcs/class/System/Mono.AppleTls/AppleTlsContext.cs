@@ -871,11 +871,6 @@ namespace Mono.AppleTls
 			}
 		}
 
-		public override void Close ()
-		{
-			// FIXME: Replace with Dispose()
-		}
-
 		#endregion
 
 		protected override void Dispose (bool disposing)
