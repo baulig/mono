@@ -23,7 +23,7 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
-#if SECURITY_DEP && MONO_FEATURE_BTLS
+// #if SECURITY_DEP && MONO_FEATURE_BTLS
 using System;
 using System.IO;
 using System.Text;
@@ -91,6 +91,12 @@ namespace Mono.Btls
 
 		[DllImport (BTLS_DYLIB)]
 		extern static void mono_btls_ssl_close (IntPtr handle);
+
+		[DllImport (BTLS_DYLIB)]
+		extern static int mono_btls_ssl_shutdown (IntPtr handle);
+
+		[DllImport (BTLS_DYLIB)]
+		extern static void mono_btls_ssl_set_quiet_shutdown (IntPtr handle, int mode);
 
 		[DllImport (BTLS_DYLIB)]
 		extern static void mono_btls_ssl_set_bio (IntPtr handle, IntPtr bio);
@@ -440,10 +446,19 @@ namespace Mono.Btls
 			return Marshal.PtrToStringAnsi (namePtr);
 		}
 
+		public void Shutdown ()
+		{
+			CheckThrow ();
+			var ret = mono_btls_ssl_shutdown (Handle.DangerousGetHandle ());
+			if (ret < 0)
+				throw ThrowError ();
+		}
+
 		protected override void Close ()
 		{
-			mono_btls_ssl_close (Handle.DangerousGetHandle ());
+			if (!Handle.IsInvalid)
+				mono_btls_ssl_close (Handle.DangerousGetHandle ());
 		}
 	}
 }
-#endif
+// #endif

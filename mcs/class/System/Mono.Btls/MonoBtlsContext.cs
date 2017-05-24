@@ -361,6 +361,7 @@ namespace Mono.Btls
 		public override void Shutdown ()
 		{
 			Debug ("Shutdown!");
+			ssl.Shutdown ();
 		}
 
 		void Dispose<T> (ref T disposable)
