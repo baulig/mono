@@ -88,7 +88,7 @@ namespace Mono.Net.Security
 			if (lastException != null)
 				throw lastException;
 			if (authSuccessCheck && !IsAuthenticated)
-				throw new InvalidOperationException ("Must be authenticated.");
+				throw new InvalidOperationException (SR.net_auth_noauth);
 		}
 
 		Exception SetException (Exception e)
