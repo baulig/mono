@@ -559,6 +559,8 @@ namespace Mono.Net.Security
 					xobileTlsContext.StartHandshake ();
 				}
 				return AsyncOperationStatus.Continue;
+			} else if (status == AsyncOperationStatus.ReadDone) {
+				throw new IOException (SR.net_auth_eof);
 			} else if (status != AsyncOperationStatus.Continue) {
 				throw new InvalidOperationException ();
 			}
