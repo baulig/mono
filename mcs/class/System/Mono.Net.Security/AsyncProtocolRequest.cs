@@ -11,6 +11,7 @@ using System;
 using System.IO;
 using System.Net;
 using System.Net.Security;
+using System.Security.Authentication;
 using SD = System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
@@ -166,8 +167,14 @@ namespace Mono.Net.Security
 			try {
 				ProcessOperation ();
 				tcs.SetResult (UserResult);
-			} catch (Exception ex) {
+			} catch (OperationCanceledException) {
+				tcs.TrySetCanceled ();
+			} catch (IOException ex) {
 				tcs.TrySetException (ex);
+			} catch (ObjectDisposedException ex) {
+				tcs.TrySetException (ex);
+			} catch (Exception ex) {
+				tcs.TrySetException (new AuthenticationException (SR.net_auth_SSPI, ex));
 			}
 		}
 
