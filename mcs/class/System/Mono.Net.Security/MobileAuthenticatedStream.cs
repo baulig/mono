@@ -52,6 +52,7 @@ namespace Mono.Net.Security
 
 		object ioLock = new object ();
 		int closeRequested;
+		bool shutdown;
 
 		static int uniqueNameInteger = 123;
 
@@ -83,12 +84,14 @@ namespace Mono.Net.Security
 			get { return xobileTlsContext != null; }
 		}
 
-		internal void CheckThrow (bool authSuccessCheck)
+		internal void CheckThrow (bool authSuccessCheck, bool shutdownCheck = false)
 		{
 			if (lastException != null)
 				throw lastException;
 			if (authSuccessCheck && !IsAuthenticated)
 				throw new InvalidOperationException (SR.net_auth_noauth);
+			if (shutdownCheck && shutdown)
+				throw new InvalidOperationException (SR.net_ssl_io_already_shutdown);
 		}
 
 		Exception SetException (Exception e)
@@ -106,6 +109,12 @@ namespace Mono.Net.Security
 
 		SslProtocols DefaultProtocols {
 			get { return SslProtocols.Tls12 | SslProtocols.Tls11 | SslProtocols.Tls; }
+		}
+
+		enum OperationType {
+			Read,
+			Write,
+			Shutdown
 		}
 
 		public void AuthenticateAsClient (string targetHost)
@@ -192,13 +201,8 @@ namespace Mono.Net.Security
 			 *
 			 * It is also not thread-safe with SSLRead() or SSLWrite(), so we need to take the I/O lock here.
 			 */
-			if (Interlocked.Exchange (ref closeRequested, 1) == 1)
-				return Task.CompletedTask;
-			if (xobileTlsContext == null)
-				return Task.CompletedTask;
-
 			var asyncRequest = new AsyncShutdownRequest (this);
-			var task = StartOperation (true, asyncRequest);
+			var task = StartOperation (OperationType.Shutdown, asyncRequest);
 			return task;
 		}
 
@@ -267,7 +271,7 @@ namespace Mono.Net.Security
 		public override IAsyncResult BeginRead (byte[] buffer, int offset, int count, AsyncCallback asyncCallback, object asyncState)
 		{
 			var asyncRequest = new AsyncReadRequest (this, buffer, offset, count);
-			var task = StartOperation (false, asyncRequest);
+			var task = StartOperation (OperationType.Read, asyncRequest);
 			return TaskToApm.Begin (task, asyncCallback, asyncState);
 		}
 
@@ -279,7 +283,7 @@ namespace Mono.Net.Security
 		public override IAsyncResult BeginWrite (byte[] buffer, int offset, int count, AsyncCallback asyncCallback, object asyncState)
 		{
 			var asyncRequest = new AsyncWriteRequest (this, buffer, offset, count);
-			var task = StartOperation (true, asyncRequest);
+			var task = StartOperation (OperationType.Write, asyncRequest);
 			return TaskToApm.Begin (task, asyncCallback, asyncState);
 		}
 
@@ -291,7 +295,7 @@ namespace Mono.Net.Security
 		public override int Read (byte[] buffer, int offset, int count)
 		{
 			var asyncRequest = new AsyncReadRequest (this, buffer, offset, count);
-			var task = StartOperation (false, asyncRequest);
+			var task = StartOperation (OperationType.Read, asyncRequest);
 			task.Wait ();
 			return task.Result;
 		}
@@ -304,22 +308,22 @@ namespace Mono.Net.Security
 		public override void Write (byte[] buffer, int offset, int count)
 		{
 			var asyncRequest = new AsyncWriteRequest (this, buffer, offset, count);
-			var task = StartOperation (true, asyncRequest);
+			var task = StartOperation (OperationType.Write, asyncRequest);
 			task.Wait ();
 		}
 
-		async Task<int> StartOperation (bool write, AsyncProtocolRequest asyncRequest)
+		async Task<int> StartOperation (OperationType type, AsyncProtocolRequest asyncRequest)
 		{
-			CheckThrow (true);
-			Debug ("StartOperationAsync: {0} {1}", asyncRequest, write ? "write" : "read");
+			CheckThrow (true, type != OperationType.Read);
+			Debug ("StartOperationAsync: {0} {1}", asyncRequest, type);
 
-			if (write) {
-				if (Interlocked.CompareExchange (ref asyncWriteRequest, asyncRequest, null) != null) {
+			if (type == OperationType.Read) {
+				if (Interlocked.CompareExchange (ref asyncReadRequest, asyncRequest, null) != null) {
 					Console.Error.WriteLine ("INVALID NESTED CALL!");
 					throw new InvalidOperationException ("Invalid nested call.");
 				}
 			} else {
-				if (Interlocked.CompareExchange (ref asyncReadRequest, asyncRequest, null) != null) {
+				if (Interlocked.CompareExchange (ref asyncWriteRequest, asyncRequest, null) != null) {
 					Console.Error.WriteLine ("INVALID NESTED CALL!");
 					throw new InvalidOperationException ("Invalid nested call.");
 				}
@@ -327,10 +331,10 @@ namespace Mono.Net.Security
 
 			try {
 				lock (ioLock) {
-					if (write)
-						writeBuffer.Reset ();
-					else
+					if (type == OperationType.Read)
 						readBuffer.Reset ();
+					else
+						writeBuffer.Reset ();
 				}
 				return await asyncRequest.StartOperation ().ConfigureAwait (false);
 			} catch (Exception e) {
@@ -339,12 +343,12 @@ namespace Mono.Net.Security
 				throw new IOException (asyncRequest.Name + " failed", e);
 			} finally {
 				lock (ioLock) {
-					if (write) {
-						writeBuffer.Reset ();
-						asyncWriteRequest = null;
-					} else {
+					if (type == OperationType.Read) {
 						readBuffer.Reset ();
 						asyncReadRequest = null;
+					} else {
+						writeBuffer.Reset ();
+						asyncWriteRequest = null;
 					}
 				}
 			}
@@ -605,13 +609,9 @@ namespace Mono.Net.Security
 			Debug ("ProcessShutdown: {0}", status);
 
 			lock (ioLock) {
-				if (xobileTlsContext == null)
-					return AsyncOperationStatus.Complete;
-
 				xobileTlsContext.Shutdown ();
-				// FIXME: Reading from it is still allowed after shutdown.
-				xobileTlsContext = null;
-				return AsyncOperationStatus.Continue;
+				shutdown = true;
+				return AsyncOperationStatus.Complete;
 			}
 		}
 
@@ -670,10 +670,7 @@ namespace Mono.Net.Security
 
 		public override void Flush ()
 		{
-			CheckThrow (true);
-			var asyncRequest = new AsyncFlushRequest (this);
-			var task = StartOperation (true, asyncRequest);
-			task.Wait ();
+			// Write() automatically flushes the underlying stream.
 		}
 
 		public SslProtocols SslProtocol {

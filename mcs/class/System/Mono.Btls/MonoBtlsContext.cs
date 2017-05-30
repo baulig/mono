@@ -361,7 +361,7 @@ namespace Mono.Btls
 		public override void Shutdown ()
 		{
 			Debug ("Shutdown!");
-			ssl.SetQuietShutdown ();
+//			ssl.SetQuietShutdown ();
 			ssl.Shutdown ();
 		}
 
