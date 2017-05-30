@@ -730,7 +730,7 @@ namespace Mono.Net.Security
 		}
 
 		public override bool CanWrite {
-			get { return IsAuthenticated & InnerStream.CanWrite; }
+			get { return IsAuthenticated & InnerStream.CanWrite && !shutdown; }
 		}
 
 		public override bool CanSeek {
