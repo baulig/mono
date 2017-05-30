@@ -534,11 +534,7 @@ namespace Mono.Net.Security
 		internal void InnerWrite ()
 		{
 			Debug ("InnerWrite: {0} {1}", writeBuffer.Offset, writeBuffer.Size);
-			InnerFlush ();
-		}
 
-		internal void InnerFlush ()
-		{
 			if (writeBuffer.Size > 0) {
 				InnerStream.Write (writeBuffer.Buffer, writeBuffer.Offset, writeBuffer.Size);
 				writeBuffer.TotalBytes += writeBuffer.Size;
@@ -554,36 +550,30 @@ namespace Mono.Net.Security
 		{
 			Debug ("ProcessHandshake: {0}", status);
 
-			/*
-			 * The first time we're called (AsyncOperationStatus.Initialize), we need to setup the SslContext and
-			 * start the handshake.
-			*/
-			if (status == AsyncOperationStatus.Initialize) {
-				lock (ioLock) {
-					xobileTlsContext.StartHandshake ();
-				}
-				return AsyncOperationStatus.Continue;
-			} else if (status == AsyncOperationStatus.ReadDone) {
-				throw new IOException (SR.net_auth_eof);
-			} else if (status != AsyncOperationStatus.Continue) {
-				throw new InvalidOperationException ();
-			}
-
-			/*
-			 * SSLHandshake() will return repeatedly with 'SslStatus.WouldBlock', we then need
-			 * to take care of I/O and call it again.
-			*/
 			lock (ioLock) {
+				/*
+				 * The first time we're called (AsyncOperationStatus.Initialize), we need to setup the SslContext and
+				 * start the handshake.
+				*/
+				if (status == AsyncOperationStatus.Initialize) {
+					xobileTlsContext.StartHandshake ();
+					return AsyncOperationStatus.Continue;
+				} else if (status == AsyncOperationStatus.ReadDone) {
+					throw new IOException (SR.net_auth_eof);
+				} else if (status != AsyncOperationStatus.Continue) {
+					throw new InvalidOperationException ();
+				}
+
+				/*
+				 * SSLHandshake() will return repeatedly with 'SslStatus.WouldBlock', we then need
+				 * to take care of I/O and call it again.
+				*/
 				if (xobileTlsContext.ProcessHandshake ()) {
 					xobileTlsContext.FinishHandshake ();
 					return AsyncOperationStatus.Complete;
 				}
+				return AsyncOperationStatus.Continue;
 			}
-			/*
-			 * Flush the internal write buffer.
-			 */
-			InnerFlush ();
-			return AsyncOperationStatus.Continue;
 		}
 
 		internal (int, bool) ProcessRead (BufferOffsetSize userBuffer)
@@ -613,12 +603,6 @@ namespace Mono.Net.Security
 				shutdown = true;
 				return AsyncOperationStatus.Complete;
 			}
-		}
-
-		internal AsyncOperationStatus ProcessFlush (AsyncOperationStatus status)
-		{
-			Debug ("ProcessFlush: {0}", status);
-			return AsyncOperationStatus.Complete;
 		}
 
 #endregion

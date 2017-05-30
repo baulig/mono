@@ -358,19 +358,6 @@ namespace Mono.Net.Security
 		}
 	}
 
-	class AsyncFlushRequest : AsyncProtocolRequest
-	{
-		public AsyncFlushRequest (MobileAuthenticatedStream parent)
-			: base (parent)
-		{
-		}
-
-		protected override AsyncOperationStatus Run (AsyncOperationStatus status)
-		{
-			return Parent.ProcessFlush (status);
-		}
-	}
-
 	class AsyncShutdownRequest : AsyncProtocolRequest
 	{
 		public AsyncShutdownRequest (MobileAuthenticatedStream parent)
