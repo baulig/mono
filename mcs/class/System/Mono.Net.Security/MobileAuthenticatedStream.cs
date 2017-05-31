@@ -211,7 +211,7 @@ namespace Mono.Net.Security
 			 * It is also not thread-safe with SSLRead() or SSLWrite(), so we need to take the I/O lock here.
 			 */
 			var asyncRequest = new AsyncShutdownRequest (this);
-			var task = StartOperation (OperationType.Shutdown, asyncRequest);
+			var task = StartOperation (OperationType.Shutdown, asyncRequest, CancellationToken.None);
 			return task;
 		}
 
@@ -260,7 +260,7 @@ namespace Mono.Net.Security
 				}
 
 				try {
-					result = await asyncRequest.StartOperation ().ConfigureAwait (false);
+					result = await asyncRequest.StartOperation (CancellationToken.None).ConfigureAwait (false);
 				} catch (Exception ex) {
 					result = new AsyncProtocolResult (SetException (GetSSPIException (ex)));
 				}
@@ -286,7 +286,7 @@ namespace Mono.Net.Security
 		public override IAsyncResult BeginRead (byte[] buffer, int offset, int count, AsyncCallback asyncCallback, object asyncState)
 		{
 			var asyncRequest = new AsyncReadRequest (this, false, buffer, offset, count);
-			var task = StartOperation (OperationType.Read, asyncRequest);
+			var task = StartOperation (OperationType.Read, asyncRequest, CancellationToken.None);
 			return TaskToApm.Begin (task, asyncCallback, asyncState);
 		}
 
@@ -298,7 +298,7 @@ namespace Mono.Net.Security
 		public override IAsyncResult BeginWrite (byte[] buffer, int offset, int count, AsyncCallback asyncCallback, object asyncState)
 		{
 			var asyncRequest = new AsyncWriteRequest (this, false, buffer, offset, count);
-			var task = StartOperation (OperationType.Write, asyncRequest);
+			var task = StartOperation (OperationType.Write, asyncRequest, CancellationToken.None);
 			return TaskToApm.Begin (task, asyncCallback, asyncState);
 		}
 
@@ -310,7 +310,7 @@ namespace Mono.Net.Security
 		public override int Read (byte[] buffer, int offset, int count)
 		{
 			var asyncRequest = new AsyncReadRequest (this, true, buffer, offset, count);
-			var task = StartOperation (OperationType.Read, asyncRequest);
+			var task = StartOperation (OperationType.Read, asyncRequest, CancellationToken.None);
 			task.Wait ();
 			return task.Result;
 		}
@@ -323,11 +323,23 @@ namespace Mono.Net.Security
 		public override void Write (byte[] buffer, int offset, int count)
 		{
 			var asyncRequest = new AsyncWriteRequest (this, true, buffer, offset, count);
-			var task = StartOperation (OperationType.Write, asyncRequest);
+			var task = StartOperation (OperationType.Write, asyncRequest, CancellationToken.None);
 			task.Wait ();
 		}
 
-		async Task<int> StartOperation (OperationType type, AsyncProtocolRequest asyncRequest)
+		public override Task<int> ReadAsync (byte[] buffer, int offset, int count, CancellationToken cancellationToken)
+		{
+			var asyncRequest = new AsyncReadRequest (this, false, buffer, offset, count);
+			return StartOperation (OperationType.Read, asyncRequest, cancellationToken);
+		}
+
+		public override Task WriteAsync (byte[] buffer, int offset, int count, CancellationToken cancellationToken)
+		{
+			var asyncRequest = new AsyncWriteRequest (this, false, buffer, offset, count);
+			return StartOperation (OperationType.Write, asyncRequest, cancellationToken);
+		}
+
+		async Task<int> StartOperation (OperationType type, AsyncProtocolRequest asyncRequest, CancellationToken cancellationToken)
 		{
 			CheckThrow (true, type != OperationType.Read);
 			Debug ("StartOperationAsync: {0} {1}", asyncRequest, type);
@@ -353,7 +365,7 @@ namespace Mono.Net.Security
 					else
 						writeBuffer.Reset ();
 				}
-				result = await asyncRequest.StartOperation ().ConfigureAwait (false);
+				result = await asyncRequest.StartOperation (cancellationToken).ConfigureAwait (false);
 			} catch (Exception e) {
 				var info = SetException (GetIOException (e, asyncRequest.Name + " failed"));
 				result = new AsyncProtocolResult (info);
@@ -521,17 +533,7 @@ namespace Mono.Net.Security
 		 * Read / write data from the inner stream; we're only called from managed code and only manipulate
 		 * the internal buffers.
 		 */
-		internal int InnerRead (int requestedSize)
-		{
-			return InnerReadAsync (true, requestedSize, CancellationToken.None).Result;
-		}
-
-		internal void InnerWrite ()
-		{
-			InnerWriteAsync (true, CancellationToken.None).Wait ();
-		}
-
-		internal async Task<int> InnerReadAsync (bool sync, int requestedSize, CancellationToken cancellationToken)
+		internal async Task<int> InnerRead (bool sync, int requestedSize, CancellationToken cancellationToken)
 		{
 			cancellationToken.ThrowIfCancellationRequested ();
 			Debug ("InnerRead: {0} {1} {2} {3}", readBuffer.Offset, readBuffer.Size, readBuffer.Remaining, requestedSize);
@@ -569,7 +571,7 @@ namespace Mono.Net.Security
 			return ret;
 		}
 
-		internal async Task InnerWriteAsync (bool sync, CancellationToken cancellationToken)
+		internal async Task InnerWrite (bool sync, CancellationToken cancellationToken)
 		{
 			cancellationToken.ThrowIfCancellationRequested ();
 			Debug ("InnerWrite: {0} {1}", writeBuffer.Offset, writeBuffer.Size);

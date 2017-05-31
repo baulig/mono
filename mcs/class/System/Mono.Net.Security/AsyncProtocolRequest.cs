@@ -145,9 +145,9 @@ namespace Mono.Net.Security
 			protected set;
 		}
 
+		int Started;
 		int RequestedSize;
 		int WriteRequested;
-		TaskCompletionSource<AsyncProtocolResult> tcs;
 		readonly object locker = new object ();
 
 		static int next_id;
@@ -177,35 +177,29 @@ namespace Mono.Net.Security
 			WriteRequested = 1;
 		}
 
-		internal Task<AsyncProtocolResult> StartOperation ()
+		internal async Task<AsyncProtocolResult> StartOperation (CancellationToken cancellationToken)
 		{
 			Debug ("Start Operation: {0}", this);
-			if (Interlocked.CompareExchange (ref tcs, new TaskCompletionSource<AsyncProtocolResult> (), null) != null)
+			if (Interlocked.CompareExchange (ref Started, 1, 0) != 0)
 				throw new InvalidOperationException ();
 
-			ThreadPool.QueueUserWorkItem (_ => StartOperation_internal ());
-
-			return tcs.Task;
-		}
-
-		void StartOperation_internal ()
-		{
 			try {
-				ProcessOperation ();
-				tcs.SetResult (new AsyncProtocolResult (UserResult));
+				await ProcessOperation (cancellationToken).ConfigureAwait (false);
+				return new AsyncProtocolResult (UserResult);
 			} catch (Exception ex) {
 				var info = Parent.SetException (MobileAuthenticatedStream.GetSSPIException (ex));
-				tcs.SetResult (new AsyncProtocolResult (info));
+				return new AsyncProtocolResult (info);
 			}
 		}
 
-		void ProcessOperation ()
+		async Task ProcessOperation (CancellationToken cancellationToken)
 		{
 			var status = AsyncOperationStatus.Initialize;
 			while (status != AsyncOperationStatus.Complete) {
+				cancellationToken.ThrowIfCancellationRequested ();
 				Debug ("ProcessOperation: {0}", status);
 
-				var ret = InnerRead ();
+				var ret = await InnerRead (cancellationToken).ConfigureAwait (false);
 				if (ret != null) {
 					if (ret == 0) {
 						// End-of-stream
@@ -232,7 +226,7 @@ namespace Mono.Net.Security
 
 				if (Interlocked.Exchange (ref WriteRequested, 0) != 0) {
 					// Flush the write queue.
-					Parent.InnerWrite ();
+					await Parent.InnerWrite (RunSynchronously, cancellationToken);
 				}
 
 				Debug ("ProcessOperation done: {0} -> {1}", status, newStatus);
@@ -241,14 +235,14 @@ namespace Mono.Net.Security
 			}
 		}
 
-		int? InnerRead ()
+		async Task<int?> InnerRead (CancellationToken cancellationToken)
 		{
 			int? totalRead = null;
 			var requestedSize = Interlocked.Exchange (ref RequestedSize, 0);
 			while (requestedSize > 0) {
 				Debug ("ProcessOperation - read inner: {0}", requestedSize);
 
-				var ret = Parent.InnerRead (requestedSize);
+				var ret = await Parent.InnerRead (RunSynchronously, requestedSize, cancellationToken).ConfigureAwait (false);
 				Debug ("ProcessOperation - read inner done: {0} - {1}", requestedSize, ret);
 
 				if (ret <= 0)
@@ -265,6 +259,9 @@ namespace Mono.Net.Security
 			return totalRead;
 		}
 
+		/*
+		 * This will operate on the internal buffers and never block.
+		 */
 		protected abstract AsyncOperationStatus Run (AsyncOperationStatus status);
 
 		public override string ToString ()
