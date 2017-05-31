@@ -132,6 +132,10 @@ namespace Mono.Net.Security
 			get;
 		}
 
+		public bool RunSynchronously {
+			get;
+		}
+
 		public int ID => ++next_id;
 
 		public string Name => GetType ().Name;
@@ -148,9 +152,10 @@ namespace Mono.Net.Security
 
 		static int next_id;
 
-		public AsyncProtocolRequest (MobileAuthenticatedStream parent)
+		public AsyncProtocolRequest (MobileAuthenticatedStream parent, bool sync)
 		{
 			Parent = parent;
+			RunSynchronously = sync;
 		}
 
 		[SD.Conditional ("MARTIN_DEBUG")]
@@ -270,8 +275,8 @@ namespace Mono.Net.Security
 
 	class AsyncHandshakeRequest : AsyncProtocolRequest
 	{
-		public AsyncHandshakeRequest (MobileAuthenticatedStream parent)
-			: base (parent)
+		public AsyncHandshakeRequest (MobileAuthenticatedStream parent, bool sync)
+			: base (parent, sync)
 		{
 		}
 
@@ -291,8 +296,8 @@ namespace Mono.Net.Security
 			get; set;
 		}
 
-		public AsyncReadOrWriteRequest (MobileAuthenticatedStream parent, byte[] buffer, int offset, int size)
-			: base (parent)
+		public AsyncReadOrWriteRequest (MobileAuthenticatedStream parent, bool sync, byte[] buffer, int offset, int size)
+			: base (parent, sync)
 		{
 			UserBuffer = new BufferOffsetSize (buffer, offset, size);
 		}
@@ -305,8 +310,8 @@ namespace Mono.Net.Security
 
 	class AsyncReadRequest : AsyncReadOrWriteRequest
 	{
-		public AsyncReadRequest (MobileAuthenticatedStream parent, byte[] buffer, int offset, int size)
-			: base (parent, buffer, offset, size)
+		public AsyncReadRequest (MobileAuthenticatedStream parent, bool sync, byte[] buffer, int offset, int size)
+			: base (parent, sync, buffer, offset, size)
 		{
 		}
 
@@ -339,8 +344,8 @@ namespace Mono.Net.Security
 
 	class AsyncWriteRequest : AsyncReadOrWriteRequest
 	{
-		public AsyncWriteRequest (MobileAuthenticatedStream parent, byte[] buffer, int offset, int size)
-			: base (parent, buffer, offset, size)
+		public AsyncWriteRequest (MobileAuthenticatedStream parent, bool sync, byte[] buffer, int offset, int size)
+			: base (parent, sync, buffer, offset, size)
 		{
 		}
 
@@ -377,7 +382,7 @@ namespace Mono.Net.Security
 	class AsyncShutdownRequest : AsyncProtocolRequest
 	{
 		public AsyncShutdownRequest (MobileAuthenticatedStream parent)
-			: base (parent)
+			: base (parent, false)
 		{
 		}
 

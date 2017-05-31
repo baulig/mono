@@ -236,7 +236,7 @@ namespace Mono.Net.Security
 			if (lastException != null)
 				throw lastException.SourceException;
 
-			var asyncRequest = new AsyncHandshakeRequest (this);
+			var asyncRequest = new AsyncHandshakeRequest (this, runSynchronously);
 			if (Interlocked.CompareExchange (ref asyncHandshakeRequest, asyncRequest, null) != null)
 				throw new InvalidOperationException ("Invalid nested call.");
 			// Make sure no other async requests can be started during the handshake.
@@ -285,7 +285,7 @@ namespace Mono.Net.Security
 
 		public override IAsyncResult BeginRead (byte[] buffer, int offset, int count, AsyncCallback asyncCallback, object asyncState)
 		{
-			var asyncRequest = new AsyncReadRequest (this, buffer, offset, count);
+			var asyncRequest = new AsyncReadRequest (this, false, buffer, offset, count);
 			var task = StartOperation (OperationType.Read, asyncRequest);
 			return TaskToApm.Begin (task, asyncCallback, asyncState);
 		}
@@ -297,7 +297,7 @@ namespace Mono.Net.Security
 
 		public override IAsyncResult BeginWrite (byte[] buffer, int offset, int count, AsyncCallback asyncCallback, object asyncState)
 		{
-			var asyncRequest = new AsyncWriteRequest (this, buffer, offset, count);
+			var asyncRequest = new AsyncWriteRequest (this, false, buffer, offset, count);
 			var task = StartOperation (OperationType.Write, asyncRequest);
 			return TaskToApm.Begin (task, asyncCallback, asyncState);
 		}
@@ -309,7 +309,7 @@ namespace Mono.Net.Security
 
 		public override int Read (byte[] buffer, int offset, int count)
 		{
-			var asyncRequest = new AsyncReadRequest (this, buffer, offset, count);
+			var asyncRequest = new AsyncReadRequest (this, true, buffer, offset, count);
 			var task = StartOperation (OperationType.Read, asyncRequest);
 			task.Wait ();
 			return task.Result;
@@ -322,7 +322,7 @@ namespace Mono.Net.Security
 
 		public override void Write (byte[] buffer, int offset, int count)
 		{
-			var asyncRequest = new AsyncWriteRequest (this, buffer, offset, count);
+			var asyncRequest = new AsyncWriteRequest (this, true, buffer, offset, count);
 			var task = StartOperation (OperationType.Write, asyncRequest);
 			task.Wait ();
 		}
