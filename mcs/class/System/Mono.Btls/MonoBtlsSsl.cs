@@ -186,13 +186,10 @@ namespace Mono.Btls
 				errors = null;
 			}
 
-			if (errors != null) {
-				Console.Error.WriteLine ("ERROR: {0} failed: {1}", callerName, errors);
+			if (errors != null)
 				throw new MonoBtlsException ("{0} failed: {1}.", callerName, errors);
-			} else {
-				Console.Error.WriteLine ("ERROR: {0} failed.", callerName);
+			else
 				throw new MonoBtlsException ("{0} failed.", callerName);
-			}
 		}
 
 		MonoBtlsSslError GetError (int ret_code)
@@ -314,18 +311,15 @@ namespace Mono.Btls
 		public MonoBtlsSslError Read (IntPtr data, ref int dataSize)
 		{
 			CheckThrow ();
-			Console.WriteLine ("SSL READ: {0}", dataSize);
 			var ret = mono_btls_ssl_read (
 				Handle.DangerousGetHandle (), data, dataSize);
 
-			Console.WriteLine ("SSL READ DONE: {0}", ret);
 			if (ret > 0) {
 				dataSize = ret;
 				return MonoBtlsSslError.None;
 			}
 
 			var error = GetError (ret);
-			Console.WriteLine ("SSL READ DONE #1: {0} {1}", ret, error);
 			if (ret == 0 && error == MonoBtlsSslError.Syscall) {
 				// End-of-stream
 				dataSize = 0;
