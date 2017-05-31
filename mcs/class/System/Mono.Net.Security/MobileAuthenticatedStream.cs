@@ -21,6 +21,7 @@ using MSI = Mono.Security.Interface;
 using System;
 using System.IO;
 using System.Net;
+using System.Net.Sockets;
 using System.Net.Security;
 using System.Globalization;
 using System.Security.Authentication;
@@ -232,6 +233,11 @@ namespace Mono.Net.Security
 				if (targetHost.Length == 0)
 					targetHost = "?" + Interlocked.Increment (ref uniqueNameInteger).ToString (NumberFormatInfo.InvariantInfo);
 			}
+
+			var innerSocket = ((NetworkStream)InnerStream).InternalSocket;
+			Console.Error.WriteLine ("MobileAuthenticatedStream({0}): ProcessAuthentication: {1}:{2}:{3}",
+			                         ID, innerSocket.ID, innerSocket.CleanedUp, innerSocket.CleanedUp,
+			                         innerSocket.IsClosed);
 
 			if (lastException != null)
 				throw lastException.SourceException;
@@ -579,13 +585,18 @@ namespace Mono.Net.Security
 			if (writeBuffer.Size == 0)
 				return;
 
-			Task task;
-			if (sync)
-				task = Task.Run (() => InnerStream.Write (writeBuffer.Buffer, writeBuffer.Offset, writeBuffer.Size));
-			else
-				task = InnerStream.WriteAsync (writeBuffer.Buffer, writeBuffer.Offset, writeBuffer.Size);
+			try {
+				Task task;
+				if (sync)
+					task = Task.Run (() => InnerStream.Write (writeBuffer.Buffer, writeBuffer.Offset, writeBuffer.Size));
+				else
+					task = InnerStream.WriteAsync (writeBuffer.Buffer, writeBuffer.Offset, writeBuffer.Size);
 
-			await task.ConfigureAwait (false);
+				await task.ConfigureAwait (false);
+			} catch (Exception ex) {
+				Console.Error.WriteLine ("MobileAuthenticatedStream({0}): {1}", ID, ex);
+				throw;
+			}
 
 			writeBuffer.TotalBytes += writeBuffer.Size;
 			writeBuffer.Offset = writeBuffer.Size = 0;

@@ -2581,6 +2581,9 @@ m_Handle, buffer, offset + sent, size - sent, socketFlags, out nativeError, is_b
 			if (CleanedUp)
 				return;
 
+			Console.Error.WriteLine ("SOCKET DISPOSE: {0}", ID);
+			Console.Error.WriteLine (Environment.StackTrace);
+
 			m_IntCleanedUp = 1;
 			bool was_connected = is_connected;
 			is_connected = false;
@@ -2626,7 +2629,12 @@ m_Handle, buffer, offset + sent, size - sent, socketFlags, out nativeError, is_b
 			}
 		}
 
-#endregion
+		#endregion
+
+		static int nextID;
+		internal readonly int ID = ++nextID;
+
+		internal bool IsClosed => is_closed;
 
 		void ThrowIfDisposedAndClosed (Socket socket)
 		{

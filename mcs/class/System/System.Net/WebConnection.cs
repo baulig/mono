@@ -72,6 +72,9 @@ namespace System.Net
 		bool ntlm_authenticated;
 		bool unsafe_sharing;
 
+		static int nextId;
+		public readonly int ID = ++nextId;
+
 		enum NtlmAuthState
 		{
 			None,
@@ -126,6 +129,7 @@ namespace System.Net
 		
 		void Connect (HttpWebRequest request)
 		{
+			Console.Error.WriteLine ("WC CONNECT: {0} {1}", ID, request.ID);
 			lock (socketLock) {
 				if (socket != null && socket.Connected && status == WebExceptionStatus.Success) {
 					// Take the chunked stream to the expected state (State.None)
@@ -1123,6 +1127,7 @@ namespace System.Net
 
 		internal void Close (bool sendNext)
 		{
+			Console.Error.WriteLine ("WC CLOSE: {0} {1}", ID, sendNext);
 			lock (this) {
 				if (Data != null && Data.request != null && Data.request.ReuseConnection) {
 					Data.request.ReuseConnection = false;

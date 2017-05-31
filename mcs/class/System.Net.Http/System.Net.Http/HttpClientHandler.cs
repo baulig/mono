@@ -304,7 +304,7 @@ namespace System.Net.Http
 
 				headers.AddInternal (header.Key, values_formated);
 			}
-			
+
 			return wr;
 		}
 
@@ -317,7 +317,7 @@ namespace System.Net.Http
 
 			var headers = wr.Headers;
 			for (int i = 0; i < headers.Count; ++i) {
-				var key = headers.GetKey(i);
+				var key = headers.GetKey (i);
 				var value = headers.GetValues (i);
 
 				HttpHeaders item_headers;
@@ -325,7 +325,7 @@ namespace System.Net.Http
 					item_headers = response.Content.Headers;
 				else
 					item_headers = response.Headers;
-					
+
 				item_headers.TryAddWithoutValidation (key, value);
 			}
 
@@ -386,19 +386,21 @@ namespace System.Net.Http
 
 					wresponse = (HttpWebResponse)await wrequest.GetResponseAsync ().ConfigureAwait (false);
 				}
+#if FIXME
 			} catch (WebException we) {
 				if (we.Status != WebExceptionStatus.RequestCanceled)
 					throw new HttpRequestException ("An error occurred while sending the request", we);
 			} catch (System.IO.IOException ex) {
 				throw new HttpRequestException ("An error occurred while sending the request", ex);
+#endif
+			} catch (Exception ex) {
+				cancellationToken.ThrowIfCancellationRequested ();
+				Console.Error.WriteLine ("ERROR: {0} {1}", cancellationToken.IsCancellationRequested, ex);
+				throw;
 			}
 
-			if (cancellationToken.IsCancellationRequested) {
-				var cancelled = new TaskCompletionSource<HttpResponseMessage> ();
-				cancelled.SetCanceled ();
-				return await cancelled.Task;
-			}
-			
+			cancellationToken.ThrowIfCancellationRequested ();
+
 			return CreateResponseMessage (wresponse, request, cancellationToken);
 		}
 

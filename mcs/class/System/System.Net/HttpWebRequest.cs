@@ -158,6 +158,8 @@ namespace System.Net
 			this.webHeaders = new WebHeaderCollection (WebHeaderCollectionType.HttpWebRequest);
 			ThrowOnError = true;
 			ResetAuthorization ();
+
+			Console.Error.WriteLine ("NEW HWR: {0}", ID);
 		}
 
 #if SECURITY_DEP
@@ -1052,8 +1054,12 @@ namespace System.Net
 			get { return Interlocked.CompareExchange (ref aborted, 0, 0) == 1; }
 		}
 
+		static int nextID;
+		internal readonly int ID = ++nextID;
+
 		public override void Abort ()
 		{
+			Console.Error.WriteLine ("ABORT: {0} {1} {2} {3}", ID, aborted, haveRequest, finished_reading);
 			if (Interlocked.CompareExchange (ref aborted, 1, 0) == 1)
 				return;
 

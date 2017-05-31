@@ -390,6 +390,9 @@ namespace System.Net
 				bool created;
 				WebConnectionGroup cncGroup = GetConnectionGroup (groupName);
 				cnc = cncGroup.GetConnection (request, out created);
+				Console.Error.WriteLine ("SP SEND REQUEST: {0} {1} {1}", cnc.ID, created, cnc.socket != null);
+				if (!created && cnc.socket != null)
+					Console.Error.WriteLine ("SP SEND REQUEST #1: {0} {1}", cnc.socket.ID, cnc.socket.IsClosed);
 				if (created) {
 					++currentConnections;
 					if (idleTimer == null)
