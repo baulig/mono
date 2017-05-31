@@ -1059,7 +1059,20 @@ namespace System.Net
 
 		public override void Abort ()
 		{
-			Console.Error.WriteLine ("ABORT: {0} {1} {2} {3}", ID, aborted, haveRequest, finished_reading);
+			Console.Error.WriteLine ("HWR ABORT: {0} {1} {2} {3}", ID, aborted, haveRequest, finished_reading);
+			try {
+				Abort_internal ();
+			} catch (Exception ex) {
+				Console.Error.WriteLine ("HWR ABORT EX: {0} {1}", ID, ex);
+				throw;
+			} finally {
+				Console.Error.WriteLine ("HWR ABORT DONE: {0}", ID);
+			}
+
+		}
+
+		void Abort_internal ()
+		{
 			if (Interlocked.CompareExchange (ref aborted, 1, 0) == 1)
 				return;
 

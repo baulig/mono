@@ -406,6 +406,7 @@ namespace System.Net
 							if (!ok)
 								return false;
 						}
+						Console.Error.WriteLine ("HRW CREATE STREAM: {0}", ID);
 						tlsStream = new MonoTlsStream (request, serverStream);
 						nstream = tlsStream.CreateStream (buffer);
 					}
@@ -420,6 +421,7 @@ namespace System.Net
 					nstream = serverStream;
 				}
 			} catch (Exception ex) {
+				Console.Error.WriteLine ("HRW CREATE STREAM EX: {0} {1}", ID, ex);
 				if (tlsStream != null)
 					status = tlsStream.ExceptionStatus;
 				else if (!request.Aborted)
@@ -460,8 +462,13 @@ namespace System.Net
 		
 		void ReadDone (IAsyncResult result)
 		{
-			WebConnectionData data = Data;
 			Stream ns = nstream;
+			WebConnectionData data = Data;
+			Console.Error.WriteLine ("WC READ DONE: {0} {1}", ID, ns != null);
+
+			var myData = (Tuple<int, int, Stream>)result.AsyncState;
+			Console.Error.WriteLine ("WC READ DONE #1: {0} {1} {2}", myData.Item1, myData.Item2, myData.Item3 == ns);
+
 			if (ns == null) {
 				Close (true);
 				return;
@@ -573,13 +580,18 @@ namespace System.Net
 			return (statusCode >= 200 && statusCode != 204 && statusCode != 304);
 		}
 
+		static int nextReadID;
+
 		internal void InitRead ()
 		{
 			Stream ns = nstream;
 
 			try {
 				int size = buffer.Length - position;
-				ns.BeginRead (buffer, position, size, ReadDone, null);
+				var readId = ++nextReadID;
+				var asyncData = new Tuple<int, int, Stream> (ID, readId, ns);
+				Console.Error.WriteLine ("WC INIT READ: {0} {1}", ID, readId);
+				ns.BeginRead (buffer, position, size, ReadDone, asyncData);
 			} catch (Exception e) {
 				HandleError (WebExceptionStatus.ReceiveFailure, e, "InitRead");
 			}
