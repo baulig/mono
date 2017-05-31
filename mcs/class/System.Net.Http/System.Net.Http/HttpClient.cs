@@ -269,22 +269,28 @@ namespace System.Net.Http
 			using (var lcts = CancellationTokenSource.CreateLinkedTokenSource (cts.Token, cancellationToken)) {
 				lcts.CancelAfter (timeout);
 
-				var task = base.SendAsync (request, lcts.Token);
-				if (task == null)
-					throw new InvalidOperationException ("Handler failed to return a value");
-					
-				var response = await task.ConfigureAwait (false);
-				if (response == null)
-					throw new InvalidOperationException ("Handler failed to return a response");
+				try {
+					var task = base.SendAsync (request, lcts.Token);
+					if (task == null)
+						throw new InvalidOperationException ("Handler failed to return a value");
 
-				//
-				// Read the content when default HttpCompletionOption.ResponseContentRead is set
-				//
-				if (response.Content != null && (completionOption & HttpCompletionOption.ResponseHeadersRead) == 0) {
-					await response.Content.LoadIntoBufferAsync (MaxResponseContentBufferSize).ConfigureAwait (false);
+					var response = await task.ConfigureAwait (false);
+					if (response == null)
+						throw new InvalidOperationException ("Handler failed to return a response");
+
+					//
+					// Read the content when default HttpCompletionOption.ResponseContentRead is set
+					//
+					if (response.Content != null && (completionOption & HttpCompletionOption.ResponseHeadersRead) == 0) {
+						await response.Content.LoadIntoBufferAsync (MaxResponseContentBufferSize).ConfigureAwait (false);
+					}
+
+					return response;
+				} catch (Exception e) {
+					if (lcts.IsCancellationRequested && e is HttpRequestException)
+						throw new OperationCanceledException (lcts.Token);
+					throw;
 				}
-					
-				return response;
 			}
 		}
 
