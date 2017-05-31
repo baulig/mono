@@ -562,9 +562,53 @@ namespace Mono.Net.Security
 			}
 		}
 
-#endregion
+		internal async Task<int> InnerReadAsync (int requestedSize, CancellationToken cancellationToken)
+		{
+			cancellationToken.ThrowIfCancellationRequested ();
+			Debug ("InnerRead: {0} {1} {2} {3}", readBuffer.Offset, readBuffer.Size, readBuffer.Remaining, requestedSize);
 
-#region Main async I/O loop
+			var len = System.Math.Min (readBuffer.Remaining, requestedSize);
+			if (len == 0)
+				throw new InvalidOperationException ();
+			var ret = await InnerStream.ReadAsync (readBuffer.Buffer, readBuffer.EndOffset, len, cancellationToken).ConfigureAwait (false);
+			Debug ("InnerRead done: {0} {1} - {2}", readBuffer.Remaining, len, ret);
+
+			if (ret >= 0) {
+				readBuffer.Size += ret;
+				readBuffer.TotalBytes += ret;
+			}
+
+			if (ret == 0) {
+				readBuffer.Complete = true;
+				Debug ("InnerRead - end of stream!");
+				/*
+				 * Try to distinguish between a graceful close - first Read() returned 0 - and
+				 * the remote prematurely closing the connection without sending us all data.
+				 */
+				if (readBuffer.TotalBytes > 0)
+					ret = -1;
+			}
+
+			Debug ("InnerRead done: {0} - {1} {2}", readBuffer, len, ret);
+			return ret;
+		}
+
+		internal async Task InnerWriteAsync (CancellationToken cancellationToken)
+		{
+			cancellationToken.ThrowIfCancellationRequested ();
+			Debug ("InnerWrite: {0} {1}", writeBuffer.Offset, writeBuffer.Size);
+
+			if (writeBuffer.Size == 0)
+				return;
+
+			await InnerStream.WriteAsync (writeBuffer.Buffer, writeBuffer.Offset, writeBuffer.Size, cancellationToken).ConfigureAwait (false);
+			writeBuffer.TotalBytes += writeBuffer.Size;
+			writeBuffer.Offset = writeBuffer.Size = 0;
+		}
+
+		#endregion
+
+		#region Main async I/O loop
 
 		internal AsyncOperationStatus ProcessHandshake (AsyncOperationStatus status)
 		{
