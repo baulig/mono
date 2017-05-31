@@ -523,46 +523,15 @@ namespace Mono.Net.Security
 		 */
 		internal int InnerRead (int requestedSize)
 		{
-			Debug ("InnerRead: {0} {1} {2} {3}", readBuffer.Offset, readBuffer.Size, readBuffer.Remaining, requestedSize);
-
-			var len = System.Math.Min (readBuffer.Remaining, requestedSize);
-			if (len == 0)
-				throw new InvalidOperationException ();
-			var ret = InnerStream.Read (readBuffer.Buffer, readBuffer.EndOffset, len);
-			Debug ("InnerRead done: {0} {1} - {2}", readBuffer.Remaining, len, ret);
-
-			if (ret >= 0) {
-				readBuffer.Size += ret;
-				readBuffer.TotalBytes += ret;
-			}
-
-			if (ret == 0) {
-				readBuffer.Complete = true;
-				Debug ("InnerRead - end of stream!");
-				/*
-				 * Try to distinguish between a graceful close - first Read() returned 0 - and
-				 * the remote prematurely closing the connection without sending us all data.
-				 */
-				if (readBuffer.TotalBytes > 0)
-					ret = -1;
-			}
-
-			Debug ("InnerRead done: {0} - {1} {2}", readBuffer, len, ret);
-			return ret;
+			return InnerReadAsync (true, requestedSize, CancellationToken.None).Result;
 		}
 
 		internal void InnerWrite ()
 		{
-			Debug ("InnerWrite: {0} {1}", writeBuffer.Offset, writeBuffer.Size);
-
-			if (writeBuffer.Size > 0) {
-				InnerStream.Write (writeBuffer.Buffer, writeBuffer.Offset, writeBuffer.Size);
-				writeBuffer.TotalBytes += writeBuffer.Size;
-				writeBuffer.Offset = writeBuffer.Size = 0;
-			}
+			InnerWriteAsync (true, CancellationToken.None).Wait ();
 		}
 
-		internal async Task<int> InnerReadAsync (int requestedSize, CancellationToken cancellationToken)
+		internal async Task<int> InnerReadAsync (bool sync, int requestedSize, CancellationToken cancellationToken)
 		{
 			cancellationToken.ThrowIfCancellationRequested ();
 			Debug ("InnerRead: {0} {1} {2} {3}", readBuffer.Offset, readBuffer.Size, readBuffer.Remaining, requestedSize);
@@ -570,7 +539,14 @@ namespace Mono.Net.Security
 			var len = System.Math.Min (readBuffer.Remaining, requestedSize);
 			if (len == 0)
 				throw new InvalidOperationException ();
-			var ret = await InnerStream.ReadAsync (readBuffer.Buffer, readBuffer.EndOffset, len, cancellationToken).ConfigureAwait (false);
+
+			Task<int> task;
+			if (sync)
+				task = Task.Run (() => InnerStream.Read (readBuffer.Buffer, readBuffer.EndOffset, len));
+			else
+				task = InnerStream.ReadAsync (readBuffer.Buffer, readBuffer.EndOffset, len, cancellationToken);
+
+			var ret = await task.ConfigureAwait (false);
 			Debug ("InnerRead done: {0} {1} - {2}", readBuffer.Remaining, len, ret);
 
 			if (ret >= 0) {
@@ -593,7 +569,7 @@ namespace Mono.Net.Security
 			return ret;
 		}
 
-		internal async Task InnerWriteAsync (CancellationToken cancellationToken)
+		internal async Task InnerWriteAsync (bool sync, CancellationToken cancellationToken)
 		{
 			cancellationToken.ThrowIfCancellationRequested ();
 			Debug ("InnerWrite: {0} {1}", writeBuffer.Offset, writeBuffer.Size);
@@ -601,7 +577,14 @@ namespace Mono.Net.Security
 			if (writeBuffer.Size == 0)
 				return;
 
-			await InnerStream.WriteAsync (writeBuffer.Buffer, writeBuffer.Offset, writeBuffer.Size, cancellationToken).ConfigureAwait (false);
+			Task task;
+			if (sync)
+				task = Task.Run (() => InnerStream.Write (writeBuffer.Buffer, writeBuffer.Offset, writeBuffer.Size));
+			else
+				task = InnerStream.WriteAsync (writeBuffer.Buffer, writeBuffer.Offset, writeBuffer.Size);
+
+			await task.ConfigureAwait (false);
+
 			writeBuffer.TotalBytes += writeBuffer.Size;
 			writeBuffer.Offset = writeBuffer.Size = 0;
 		}
