@@ -23,6 +23,7 @@ using System.IO;
 using System.Net;
 using System.Net.Security;
 using System.Globalization;
+using System.Security.Authentication;
 using System.Runtime.ExceptionServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -42,7 +43,7 @@ namespace Mono.Net.Security
 		 * where we access it.
 		 */
 		MobileTlsContext xobileTlsContext;
-		Exception lastException;
+		ExceptionDispatchInfo lastException;
 
 		AsyncProtocolRequest asyncHandshakeRequest;
 		AsyncProtocolRequest asyncReadRequest;
@@ -87,24 +88,32 @@ namespace Mono.Net.Security
 		internal void CheckThrow (bool authSuccessCheck, bool shutdownCheck = false)
 		{
 			if (lastException != null)
-				throw lastException;
+				throw lastException.SourceException;
 			if (authSuccessCheck && !IsAuthenticated)
 				throw new InvalidOperationException (SR.net_auth_noauth);
 			if (shutdownCheck && shutdown)
 				throw new InvalidOperationException (SR.net_ssl_io_already_shutdown);
 		}
 
-		Exception SetException (Exception e)
+		internal static Exception GetSSPIException (Exception e)
 		{
-			e = SetException_internal (e);
-			return e;
+			if (e is OperationCanceledException || e is IOException || e is ObjectDisposedException || e is AuthenticationException)
+				return e;
+			return new AuthenticationException (SR.net_auth_SSPI, e);
 		}
 
-		Exception SetException_internal (Exception e)
+		internal static Exception GetIOException (Exception e, string message)
 		{
-			if (lastException == null)
-				lastException = e;
-			return lastException;
+			if (e is OperationCanceledException || e is IOException || e is ObjectDisposedException || e is AuthenticationException)
+				return e;
+			return new IOException (message, e);
+		}
+
+		internal ExceptionDispatchInfo SetException (Exception e)
+		{
+			var info = ExceptionDispatchInfo.Capture (e);
+			var old = Interlocked.CompareExchange (ref lastException, info, null);
+			return old ?? info;
 		}
 
 		SslProtocols DefaultProtocols {
@@ -224,6 +233,9 @@ namespace Mono.Net.Security
 					targetHost = "?" + Interlocked.Increment (ref uniqueNameInteger).ToString (NumberFormatInfo.InvariantInfo);
 			}
 
+			if (lastException != null)
+				throw lastException.SourceException;
+
 			var asyncRequest = new AsyncHandshakeRequest (this);
 			if (Interlocked.CompareExchange (ref asyncHandshakeRequest, asyncRequest, null) != null)
 				throw new InvalidOperationException ("Invalid nested call.");
@@ -233,24 +245,24 @@ namespace Mono.Net.Security
 			if (Interlocked.CompareExchange (ref asyncWriteRequest, asyncRequest, null) != null)
 				throw new InvalidOperationException ("Invalid nested call.");
 
+			AsyncProtocolResult result;
+
 			try {
 				lock (ioLock) {
 					if (xobileTlsContext != null)
 						throw new InvalidOperationException ();
+					readBuffer.Reset ();
+					writeBuffer.Reset ();
+
 					xobileTlsContext = CreateContext (
 						serverMode, targetHost, enabledProtocols, serverCertificate,
 						clientCertificates, clientCertRequired);
-					if (lastException != null)
-						throw lastException;
-
-					readBuffer.Reset ();
-					writeBuffer.Reset ();
 				}
 
 				try {
-					await asyncRequest.StartOperation ().ConfigureAwait (false);
+					result = await asyncRequest.StartOperation ().ConfigureAwait (false);
 				} catch (Exception ex) {
-					ExceptionDispatchInfo.Capture (SetException (ex)).Throw ();
+					result = new AsyncProtocolResult (SetException (GetSSPIException (ex)));
 				}
 			} finally {
 				lock (ioLock) {
@@ -261,6 +273,9 @@ namespace Mono.Net.Security
 					asyncHandshakeRequest = null;
 				}
 			}
+
+			if (result.Error != null)
+				result.Error.Throw ();
 		}
 
 		protected abstract MobileTlsContext CreateContext (
@@ -329,6 +344,8 @@ namespace Mono.Net.Security
 				}
 			}
 
+			AsyncProtocolResult result;
+
 			try {
 				lock (ioLock) {
 					if (type == OperationType.Read)
@@ -336,11 +353,10 @@ namespace Mono.Net.Security
 					else
 						writeBuffer.Reset ();
 				}
-				return await asyncRequest.StartOperation ().ConfigureAwait (false);
+				result = await asyncRequest.StartOperation ().ConfigureAwait (false);
 			} catch (Exception e) {
-				if (e is IOException)
-					throw;
-				throw new IOException (asyncRequest.Name + " failed", e);
+				var info = SetException (GetIOException (e, asyncRequest.Name + " failed"));
+				result = new AsyncProtocolResult (info);
 			} finally {
 				lock (ioLock) {
 					if (type == OperationType.Read) {
@@ -352,6 +368,10 @@ namespace Mono.Net.Security
 					}
 				}
 			}
+
+			if (result.Error != null)
+				result.Error.Throw ();
+			return result.UserResult;
 		}
 
 		static int nextId;
@@ -381,7 +401,7 @@ namespace Mono.Net.Security
 				return ret;
 			} catch (Exception ex) {
 				Debug ("InternalRead failed: {0}", ex);
-				SetException_internal (ex);
+				SetException (GetIOException (ex, "InternalRead() failed"));
 				outWantMore = false;
 				return -1;
 			}
@@ -438,7 +458,7 @@ namespace Mono.Net.Security
 				return InternalWrite (asyncRequest, writeBuffer, buffer, offset, size);
 			} catch (Exception ex) {
 				Debug ("InternalWrite failed: {0}", ex);
-				SetException_internal (ex);
+				SetException (GetIOException (ex, "InternalWrite() failed"));
 				return false;
 			}
 		}
@@ -639,9 +659,9 @@ namespace Mono.Net.Security
 		protected override void Dispose (bool disposing)
 		{
 			try {
-				lastException = new ObjectDisposedException ("MobileAuthenticatedStream");
 				lock (ioLock) {
 					Debug ("Dispose: {0}", xobileTlsContext != null);
+					lastException = ExceptionDispatchInfo.Capture (new ObjectDisposedException ("MobileAuthenticatedStream"));
 					if (xobileTlsContext != null) {
 						xobileTlsContext.Dispose ();
 						xobileTlsContext = null;

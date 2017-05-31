@@ -15,6 +15,7 @@ using System.Security.Authentication;
 using SD = System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Runtime.ExceptionServices;
 
 namespace Mono.Net.Security
 {
@@ -105,6 +106,26 @@ namespace Mono.Net.Security
 		Complete
 	}
 
+	class AsyncProtocolResult
+	{
+		public int UserResult {
+			get;
+		}
+		public ExceptionDispatchInfo Error {
+			get;
+		}
+
+		public AsyncProtocolResult (int result)
+		{
+			UserResult = result;
+		}
+
+		public AsyncProtocolResult (ExceptionDispatchInfo error)
+		{
+			Error = error;
+		}
+	}
+
 	abstract class AsyncProtocolRequest
 	{
 		public MobileAuthenticatedStream Parent {
@@ -122,7 +143,7 @@ namespace Mono.Net.Security
 
 		int RequestedSize;
 		int WriteRequested;
-		TaskCompletionSource<int> tcs;
+		TaskCompletionSource<AsyncProtocolResult> tcs;
 		readonly object locker = new object ();
 
 		static int next_id;
@@ -151,10 +172,10 @@ namespace Mono.Net.Security
 			WriteRequested = 1;
 		}
 
-		internal Task<int> StartOperation ()
+		internal Task<AsyncProtocolResult> StartOperation ()
 		{
 			Debug ("Start Operation: {0}", this);
-			if (Interlocked.CompareExchange (ref tcs, new TaskCompletionSource<int> (), null) != null)
+			if (Interlocked.CompareExchange (ref tcs, new TaskCompletionSource<AsyncProtocolResult> (), null) != null)
 				throw new InvalidOperationException ();
 
 			ThreadPool.QueueUserWorkItem (_ => StartOperation_internal ());
@@ -166,15 +187,10 @@ namespace Mono.Net.Security
 		{
 			try {
 				ProcessOperation ();
-				tcs.SetResult (UserResult);
-			} catch (OperationCanceledException) {
-				tcs.TrySetCanceled ();
-			} catch (IOException ex) {
-				tcs.TrySetException (ex);
-			} catch (ObjectDisposedException ex) {
-				tcs.TrySetException (ex);
+				tcs.SetResult (new AsyncProtocolResult (UserResult));
 			} catch (Exception ex) {
-				tcs.TrySetException (new AuthenticationException (SR.net_auth_SSPI, ex));
+				var info = Parent.SetException (MobileAuthenticatedStream.GetSSPIException (ex));
+				tcs.SetResult (new AsyncProtocolResult (info));
 			}
 		}
 
