@@ -316,6 +316,9 @@ namespace Mono.Btls
 				if (status == MonoBtlsSslError.WantRead) {
 					wantMore = true;
 					return 0;
+				} else if (status == MonoBtlsSslError.ZeroReturn) {
+					wantMore = false;
+					return size;
 				} else if (status != MonoBtlsSslError.None) {
 					throw GetException (status);
 				}
