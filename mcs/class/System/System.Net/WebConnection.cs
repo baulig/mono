@@ -394,6 +394,8 @@ namespace System.Net
 		{
 			try {
 				NetworkStream serverStream = new NetworkStream (socket, false);
+				Console.Error.WriteLine ("WC CREATE STREAM: {0} {1} {2} - {3} {4} {5}", ID, request.ID, Data.ID,
+				                         socket.ID, socket.LocalEndPoint, socket.RemoteEndPoint);
 
 				if (request.Address.Scheme == Uri.UriSchemeHttps) {
 #if SECURITY_DEP
@@ -418,6 +420,8 @@ namespace System.Net
 					Data.NetworkStream = serverStream;
 				}
 			} catch (Exception ex) {
+				Console.Error.WriteLine ("WC CREATE STREAM EX: {0} {1}", ID, ex.GetType ().Name);
+				Console.Error.WriteLine (ex);
 				if (tlsStream != null)
 					status = tlsStream.ExceptionStatus;
 				else if (!request.Aborted)

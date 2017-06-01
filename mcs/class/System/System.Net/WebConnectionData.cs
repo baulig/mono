@@ -43,8 +43,9 @@ namespace System.Net
 		public Version ProxyVersion;
 		public WebConnectionStream Stream;
 		public string[] Challenge;
-		public Stream NetworkStream;
 		public Socket Socket;
+
+		Stream nstream;
 
 		ReadState _readState;
 
@@ -54,11 +55,23 @@ namespace System.Net
 		public WebConnectionData ()
 		{
 			_readState = ReadState.None;
+			Console.Error.WriteLine ("WCD CTOR: {0}", ID);
 		}
 
 		public WebConnectionData (HttpWebRequest request)
 		{
 			this._request = request;
+			Console.Error.WriteLine ("WCD CTOR: {0} {1}", ID, request.ID);
+		}
+
+		public Stream NetworkStream {
+			get {
+				return nstream;
+			}
+			set {
+				Console.Error.WriteLine ("WCD SET STREAM: {0}", ID);
+				nstream = value;
+			}
 		}
 
 		public HttpWebRequest request {
