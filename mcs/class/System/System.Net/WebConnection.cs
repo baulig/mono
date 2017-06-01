@@ -464,7 +464,7 @@ namespace System.Net
 		{
 			Stream ns = nstream;
 			WebConnectionData data = Data;
-			Console.Error.WriteLine ("WC READ DONE: {0} {1}", ID, ns != null);
+			Console.Error.WriteLine ("WC READ DONE: {0} {1} {2}", ID, ns != null, Data.ID);
 
 			var myData = (Tuple<int, int, Stream>)result.AsyncState;
 			Console.Error.WriteLine ("WC READ DONE #1: {0} {1} {2}", myData.Item1, myData.Item2, myData.Item3 == ns);
@@ -565,7 +565,7 @@ namespace System.Net
 				}
 			}
 
-			data.stream = stream;
+			data.Stream = stream;
 			
 			if (!expect_content)
 				stream.ForceCompletion ();
@@ -590,7 +590,7 @@ namespace System.Net
 				int size = buffer.Length - position;
 				var readId = ++nextReadID;
 				var asyncData = new Tuple<int, int, Stream> (ID, readId, ns);
-				Console.Error.WriteLine ("WC INIT READ: {0} {1}", ID, readId);
+				Console.Error.WriteLine ("WC INIT READ: {0} {1} {2}", ID, readId, Data.ID);
 				ns.BeginRead (buffer, position, size, ReadDone, asyncData);
 			} catch (Exception e) {
 				HandleError (WebExceptionStatus.ReceiveFailure, e, "InitRead");

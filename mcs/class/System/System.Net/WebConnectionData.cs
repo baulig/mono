@@ -29,6 +29,7 @@
 //
 
 using System.IO;
+using System.Net.Sockets;
 
 namespace System.Net
 {
@@ -40,9 +41,15 @@ namespace System.Net
 		public WebHeaderCollection Headers;
 		public Version Version;
 		public Version ProxyVersion;
-		public Stream stream;
+		public WebConnectionStream Stream;
 		public string[] Challenge;
+		public Stream nstream;
+		public Socket Socket;
+
 		ReadState _readState;
+
+		static int nextID;
+		public readonly int ID = ++nextID;
 
 		public WebConnectionData ()
 		{

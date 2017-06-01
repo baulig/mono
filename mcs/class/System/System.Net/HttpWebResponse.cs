@@ -69,7 +69,7 @@ namespace System.Net
 			version = data.Version;
 			statusCode = (HttpStatusCode) data.StatusCode;
 			statusDescription = data.StatusDescription;
-			stream = data.stream;
+			stream = data.Stream;
 			contentLength = -1;
 
 			try {

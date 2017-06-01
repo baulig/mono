@@ -1520,8 +1520,10 @@ namespace System.Net
 		{
 			lock (locker) {
 			if (Aborted) {
-				if (data.stream != null)
-					data.stream.Close ();
+				if (data.Stream != null) {
+					data.Stream.Close ();
+					data.Stream = null;
+				}
 				return;
 			}
 
@@ -1529,9 +1531,11 @@ namespace System.Net
 			try {
 				webResponse = new HttpWebResponse (actualUri, method, data, cookieContainer);
 			} catch (Exception e) {
-				wexc = new WebException (e.Message, e, WebExceptionStatus.ProtocolError, null); 
-				if (data.stream != null)
-					data.stream.Close ();
+				wexc = new WebException (e.Message, e, WebExceptionStatus.ProtocolError, null);
+				if (data.Stream != null) {
+					data.Stream.Close ();
+					data.Stream = null;
+				}
 			}
 
 			if (wexc == null && (method == "POST" || method == "PUT")) {
