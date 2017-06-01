@@ -43,7 +43,7 @@ namespace System.Net
 		public Version ProxyVersion;
 		public WebConnectionStream Stream;
 		public string[] Challenge;
-		public Stream nstream;
+		public Stream NetworkStream;
 		public Socket Socket;
 
 		ReadState _readState;

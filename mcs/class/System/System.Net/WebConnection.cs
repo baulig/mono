@@ -51,7 +51,6 @@ namespace System.Net
 	class WebConnection
 	{
 		ServicePoint sPoint;
-		Stream nstream;
 		internal Socket socket;
 		object socketLock = new object ();
 		IWebConnectionState state;
@@ -399,7 +398,7 @@ namespace System.Net
 
 				if (request.Address.Scheme == Uri.UriSchemeHttps) {
 #if SECURITY_DEP
-					if (!reused || nstream == null || tlsStream == null) {
+					if (!reused || Data.NetworkStream == null || tlsStream == null) {
 						byte [] buffer = null;
 						if (sPoint.UseConnect) {
 							bool ok = CreateTunnel (request, sPoint.Address, serverStream, out buffer);
@@ -408,7 +407,7 @@ namespace System.Net
 						}
 						Console.Error.WriteLine ("HRW CREATE STREAM: {0}", ID);
 						tlsStream = new MonoTlsStream (request, serverStream);
-						nstream = tlsStream.CreateStream (buffer);
+						Data.NetworkStream = tlsStream.CreateStream (buffer);
 					}
 					// we also need to set ServicePoint.Certificate 
 					// and ServicePoint.ClientCertificate but this can
@@ -418,7 +417,7 @@ namespace System.Net
 					throw new NotSupportedException ();
 #endif
 				} else {
-					nstream = serverStream;
+					Data.NetworkStream = serverStream;
 				}
 			} catch (Exception ex) {
 				Console.Error.WriteLine ("HRW CREATE STREAM EX: {0} {1}", ID, ex);
@@ -462,8 +461,8 @@ namespace System.Net
 		
 		void ReadDone (IAsyncResult result)
 		{
-			Stream ns = nstream;
 			WebConnectionData data = Data;
+			Stream ns = data.NetworkStream;
 			Console.Error.WriteLine ("WC READ DONE: {0} {1} {2}", ID, ns != null, Data.ID);
 
 			var myData = (Tuple<int, int, Stream>)result.AsyncState;
@@ -584,7 +583,7 @@ namespace System.Net
 
 		internal void InitRead ()
 		{
-			Stream ns = nstream;
+			Stream ns = Data.NetworkStream;
 
 			try {
 				int size = buffer.Length - position;
@@ -885,9 +884,9 @@ namespace System.Net
 			lock (this) {
 				if (Data.request != request)
 					throw new ObjectDisposedException (typeof (NetworkStream).FullName);
-				if (nstream == null)
+				if (Data.NetworkStream == null)
 					return null;
-				s = nstream;
+				s = Data.NetworkStream;
 			}
 
 			IAsyncResult result = null;
@@ -923,9 +922,9 @@ namespace System.Net
 					throw new WebException ("Request aborted", WebExceptionStatus.RequestCanceled);
 				if (Data.request != request)
 					throw new ObjectDisposedException (typeof (NetworkStream).FullName);
-				if (nstream == null)
+				if (Data.NetworkStream == null)
 					throw new ObjectDisposedException (typeof (NetworkStream).FullName);
-				s = nstream;
+				s = Data.NetworkStream;
 			}
 
 			int nbytes = 0;
@@ -982,7 +981,7 @@ namespace System.Net
 				if (morebytes == null || morebytes.Length < localsize)
 					morebytes = new byte [localsize];
 
-				int nread = nstream.Read (morebytes, 0, localsize);
+				int nread = Data.NetworkStream.Read (morebytes, 0, localsize);
 				if (nread <= 0)
 					return 0; // Error
 
@@ -999,7 +998,7 @@ namespace System.Net
 				return true;
 
 			while (chunkStream.WantMore) {
-				int nbytes = nstream.Read (buffer, 0, buffer.Length);
+				int nbytes = Data.NetworkStream.Read (buffer, 0, buffer.Length);
 				if (nbytes <= 0)
 					return false; // Socket was disconnected
 
@@ -1015,9 +1014,9 @@ namespace System.Net
 			lock (this) {
 				if (Data.request != request)
 					throw new ObjectDisposedException (typeof (NetworkStream).FullName);
-				if (nstream == null)
+				if (Data.NetworkStream == null)
 					return null;
-				s = nstream;
+				s = Data.NetworkStream;
 			}
 
 			IAsyncResult result = null;
@@ -1051,9 +1050,9 @@ namespace System.Net
 					return true;
 				if (Data.request != request)
 					throw new ObjectDisposedException (typeof (NetworkStream).FullName);
-				if (nstream == null)
+				if (Data.NetworkStream == null)
 					throw new ObjectDisposedException (typeof (NetworkStream).FullName);
-				s = nstream;
+				s = Data.NetworkStream;
 			}
 
 			try {
@@ -1073,9 +1072,9 @@ namespace System.Net
 			lock (this) {
 				if (Data.request != request)
 					throw new ObjectDisposedException (typeof (NetworkStream).FullName);
-				if (nstream == null)
+				if (Data.NetworkStream == null)
 					return 0;
-				s = nstream;
+				s = Data.NetworkStream;
 			}
 
 			int result = 0;
@@ -1115,7 +1114,7 @@ namespace System.Net
 			lock (this) {
 				if (Data.request != request)
 					throw new ObjectDisposedException (typeof (NetworkStream).FullName);
-				s = nstream;
+				s = Data.NetworkStream;
 				if (s == null)
 					return false;
 			}
@@ -1146,11 +1145,11 @@ namespace System.Net
 					return;
 				}
 
-				if (nstream != null) {
+				if (Data.NetworkStream != null) {
 					try {
-						nstream.Close ();
+						Data.NetworkStream.Close ();
 					} catch {}
-					nstream = null;
+					Data.NetworkStream = null;
 				}
 
 				if (socket != null) {
