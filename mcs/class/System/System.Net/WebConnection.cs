@@ -128,7 +128,6 @@ namespace System.Net
 		
 		void Connect (HttpWebRequest request)
 		{
-			Console.Error.WriteLine ("WC CONNECT: {0} {1}", ID, request.ID);
 			lock (socketLock) {
 				if (socket != null && socket.Connected && status == WebExceptionStatus.Success) {
 					// Take the chunked stream to the expected state (State.None)
@@ -405,7 +404,6 @@ namespace System.Net
 							if (!ok)
 								return false;
 						}
-						Console.Error.WriteLine ("HRW CREATE STREAM: {0}", ID);
 						tlsStream = new MonoTlsStream (request, serverStream);
 						Data.NetworkStream = tlsStream.CreateStream (buffer);
 					}
@@ -420,7 +418,6 @@ namespace System.Net
 					Data.NetworkStream = serverStream;
 				}
 			} catch (Exception ex) {
-				Console.Error.WriteLine ("HRW CREATE STREAM EX: {0} {1}", ID, ex);
 				if (tlsStream != null)
 					status = tlsStream.ExceptionStatus;
 				else if (!request.Aborted)
@@ -1137,7 +1134,6 @@ namespace System.Net
 
 		internal void Close (bool sendNext)
 		{
-			Console.Error.WriteLine ("WC CLOSE: {0} {1}", ID, sendNext);
 			lock (this) {
 				if (Data != null && Data.request != null && Data.request.ReuseConnection) {
 					Data.request.ReuseConnection = false;

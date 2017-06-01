@@ -289,9 +289,9 @@ namespace System.Net.Http
 				} catch (TaskCanceledException) {
 					throw;
 				} catch (Exception e) {
-					Console.Error.WriteLine ("ERROR: {0} {1} {2} {3}\n{2}", lcts.IsCancellationRequested,
+					Console.Error.WriteLine ("ERROR: {0} {1} {2} {3}", lcts.IsCancellationRequested,
 					                         cts.Token.IsCancellationRequested, cancellationToken.IsCancellationRequested,
-					                         e.GetType ().Name, e);
+					                         e.GetType ().Name);
 					if (lcts.IsCancellationRequested && e is HttpRequestException)
 						throw new OperationCanceledException (lcts.Token);
 					throw;

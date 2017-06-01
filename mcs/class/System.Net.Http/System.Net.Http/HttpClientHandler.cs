@@ -395,7 +395,7 @@ namespace System.Net.Http
 #endif
 			} catch (Exception ex) {
 				cancellationToken.ThrowIfCancellationRequested ();
-				Console.Error.WriteLine ("ERROR: {0} {1}", cancellationToken.IsCancellationRequested, ex);
+				Console.Error.WriteLine ("ERROR: {0} {1}", cancellationToken.IsCancellationRequested, ex.Message);
 				throw;
 			}
 
