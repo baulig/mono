@@ -379,24 +379,27 @@ namespace System.Net.Sockets {
         }
 
 
-        /*++
+		/*++
 
-            InitNetworkStream - initialize a network stream.
+		    InitNetworkStream - initialize a network stream.
 
-            This is the common NetworkStream constructor, called whenever a
-            network stream is created. We validate the socket, set a few
-            options, and call our parent's initializer.
+		    This is the common NetworkStream constructor, called whenever a
+		    network stream is created. We validate the socket, set a few
+		    options, and call our parent's initializer.
 
-            Input:
+		    Input:
 
-                S           - Socket to be used.
-                Access      - Access type desired.
+			S           - Socket to be used.
+			Access      - Access type desired.
 
 
-            Returns:
+		    Returns:
 
-                Nothing, but may throw an exception.
-        --*/
+			Nothing, but may throw an exception.
+		--*/
+
+		static int nextID;
+		internal readonly int ID = ++nextID;
 
         internal void InitNetworkStream(Socket socket, FileAccess Access) {
             //
@@ -413,6 +416,8 @@ namespace System.Net.Sockets {
             }
 
             m_StreamSocket = socket;
+
+			Console.Error.WriteLine ("NETWORK STREAM INIT: {0} {1}", ID, socket.ID);
 
             switch (Access) {
                 case FileAccess.Read:
@@ -627,8 +632,9 @@ namespace System.Net.Sockets {
 #if DEBUG
             using (GlobalLog.SetThreadKind(ThreadKinds.User)) {
 #endif
-            // Mark this as disposed before changing anything else.
-            bool cleanedUp = m_CleanedUp;
+			Console.Error.WriteLine ("NETWORK STREAM DISPOSE: {0}", ID);
+			// Mark this as disposed before changing anything else.
+			bool cleanedUp = m_CleanedUp;
             m_CleanedUp = true; 
             if (!cleanedUp && disposing) {
                 //

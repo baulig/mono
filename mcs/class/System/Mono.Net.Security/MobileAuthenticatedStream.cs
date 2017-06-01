@@ -68,6 +68,9 @@ namespace Mono.Net.Security
 
 			readBuffer = new BufferOffsetSize2 (16834);
 			writeBuffer = new BufferOffsetSize2 (16384);
+
+			var ns = innerStream as NetworkStream;
+			Debug ("CTOR: {0} {1}", provider, ns != null ? ns.ID : -1);
 		}
 
 		public SslStream SslStream {
@@ -696,11 +699,17 @@ namespace Mono.Net.Security
 			}
 		}
 
+		public override void Close ()
+		{
+			Debug ("Close");
+			base.Close ();
+		}
+
 		protected override void Dispose (bool disposing)
 		{
 			try {
 				lock (ioLock) {
-					Debug ("Dispose: {0}", xobileTlsContext != null);
+					Debug ("Dispose: {0} {1}", disposing, xobileTlsContext != null);
 					lastException = ExceptionDispatchInfo.Capture (new ObjectDisposedException ("MobileAuthenticatedStream"));
 					if (xobileTlsContext != null) {
 						xobileTlsContext.Dispose ();
