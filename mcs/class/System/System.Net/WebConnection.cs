@@ -461,12 +461,14 @@ namespace System.Net
 		
 		void ReadDone (IAsyncResult result)
 		{
-			WebConnectionData data = Data;
-			Stream ns = data.NetworkStream;
-			Console.Error.WriteLine ("WC READ DONE: {0} {1} {2}", ID, ns != null, Data.ID);
+			var data = (WebConnectionData)result.AsyncState;
+			if (data != Data) {
+				Console.Error.WriteLine ("WRONG DATA!");
+				return;
+			}
 
-			var myData = (Tuple<int, int, Stream>)result.AsyncState;
-			Console.Error.WriteLine ("WC READ DONE #1: {0} {1} {2}", myData.Item1, myData.Item2, myData.Item3 == ns);
+			var ns = data.NetworkStream;
+			Console.Error.WriteLine ("WC READ DONE: {0} {1} {2}", ID, ns != null, data.ID);
 
 			if (ns == null) {
 				Close (true);
@@ -579,18 +581,15 @@ namespace System.Net
 			return (statusCode >= 200 && statusCode != 204 && statusCode != 304);
 		}
 
-		static int nextReadID;
-
 		internal void InitRead ()
 		{
-			Stream ns = Data.NetworkStream;
+			var data = Data;
+			var ns = data.NetworkStream;
 
 			try {
 				int size = buffer.Length - position;
-				var readId = ++nextReadID;
-				var asyncData = new Tuple<int, int, Stream> (ID, readId, ns);
-				Console.Error.WriteLine ("WC INIT READ: {0} {1} {2}", ID, readId, Data.ID);
-				ns.BeginRead (buffer, position, size, ReadDone, asyncData);
+				Console.Error.WriteLine ("WC INIT READ: {0} {1}", ID, data.ID);
+				ns.BeginRead (buffer, position, size, ReadDone, data);
 			} catch (Exception e) {
 				HandleError (WebExceptionStatus.ReceiveFailure, e, "InitRead");
 			}
