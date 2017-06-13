@@ -106,7 +106,7 @@ namespace System.Net
 			abortHandler = new EventHandler (abortHelper.Abort);
 		}
 
-		Socket socket {
+		Socket xsocket {
 			get { return _socket; }
 			set {
 				Console.Error.WriteLine ($"WC SET SOCKET: {ID} {_socket?.ID ?? 0} -> {value?.ID ?? 0}");
@@ -131,7 +131,7 @@ namespace System.Net
 			}
 		}
 
-		bool CanReuse ()
+		bool CanReuse (Socket socket)
 		{
 			// The real condition is !(socket.Poll (0, SelectMode.SelectRead) || socket.Available != 0)
 			// but if there's data pending to read (!) we won't reuse the socket.
@@ -142,18 +142,18 @@ namespace System.Net
 		{
 			lock (socketLock) {
 				WebConnectionData data = Data;
-				if (socket != null && socket.Connected && status == WebExceptionStatus.Success) {
+				if (data.Socket != null && data.Socket.Connected && status == WebExceptionStatus.Success) {
 					// Take the chunked stream to the expected state (State.None)
-					if (CanReuse () && CompleteChunkedRead (data)) {
+					if (CanReuse (data.Socket) && CompleteChunkedRead (data)) {
 						reused = true;
 						return;
 					}
 				}
 
 				reused = false;
-				if (socket != null) {
-					socket.Close();
-					socket = null;
+				if (data.Socket != null) {
+					data.Socket.Close();
+					data.Socket = null;
 				}
 
 				chunkStream = null;
@@ -175,6 +175,7 @@ namespace System.Net
 
 				//WebConnectionData data = Data;
 				foreach (IPAddress address in hostEntry.AddressList) {
+					Socket socket;
 					try {
 						socket = new Socket (address.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
 					} catch (Exception se) {
@@ -201,8 +202,6 @@ namespace System.Net
 							if (request.Aborted)
 								return;
 							socket.Connect (remote);
-							status = WebExceptionStatus.Success;
-							break;
 						} catch (ThreadAbortException) {
 							// program exiting...
 							Socket s = socket;
@@ -223,11 +222,17 @@ namespace System.Net
 							connect_exception = exc;
 						}
 					}
+
+					if (socket != null) {
+						status = WebExceptionStatus.Success;
+						data.Socket = socket;
+						break;
+					}
 				}
 			}
 		}
 
-		bool CreateTunnel (HttpWebRequest request, Uri connectUri,
+		bool CreateTunnel (WebConnectionData data, HttpWebRequest request, Uri connectUri,
 		                   Stream stream, out byte[] buffer)
 		{
 			StringBuilder sb = new StringBuilder ();
@@ -245,15 +250,15 @@ namespace System.Net
 			sb.Append (request.Address.Authority);
 
 			bool ntlm = false;
-			var challenge = Data.Challenge;
-			Data.Challenge = null;
+			var challenge = data.Challenge;
+			data.Challenge = null;
 			var auth_header = request.Headers ["Proxy-Authorization"];
 			bool have_auth = auth_header != null;
 			if (have_auth) {
 				sb.Append ("\r\nProxy-Authorization: ");
 				sb.Append (auth_header);
 				ntlm = auth_header.ToUpper ().Contains ("NTLM");
-			} else if (challenge != null && Data.StatusCode == 407) {
+			} else if (challenge != null && data.StatusCode == 407) {
 				ICredentials creds = request.Proxy.Credentials;
 				have_auth = true;
 
@@ -285,7 +290,7 @@ namespace System.Net
 
 			sb.Append ("\r\n\r\n");
 
-			Data.StatusCode = 0;
+			data.StatusCode = 0;
 			byte [] connectBytes = Encoding.Default.GetBytes (sb.ToString ());
 			stream.Write (connectBytes, 0, connectBytes.Length);
 
@@ -294,22 +299,22 @@ namespace System.Net
 			if ((!have_auth || connect_ntlm_auth_state == NtlmAuthState.Challenge) &&
 			    result != null && status == 407) { // Needs proxy auth
 				var connectionHeader = result ["Connection"];
-				if (socket != null && !string.IsNullOrEmpty (connectionHeader) &&
+				if (data.Socket != null && !string.IsNullOrEmpty (connectionHeader) &&
 				    connectionHeader.ToLower() == "close") {
 					// The server is requesting that this connection be closed
-					socket.Close();
-					socket = null;
+					data.Socket.Close();
+					data.Socket = null;
 				}
 
-				Data.StatusCode = status;
-				Data.Challenge = result.GetValues ("Proxy-Authenticate");
-				Data.Headers = result;
+				data.StatusCode = status;
+				data.Challenge = result.GetValues ("Proxy-Authenticate");
+				data.Headers = result;
 				return false;
 			}
 
 			if (status != 200) {
-				Data.StatusCode = status;
-				Data.Headers = result;
+				data.StatusCode = status;
+				data.Headers = result;
 				return false;
 			}
 
@@ -410,21 +415,20 @@ namespace System.Net
 		bool CreateStream (HttpWebRequest request)
 		{
 			var requestID = ++nextRequestID;
-			var theSocket = socket;
 			var data = Data;
 
 			try {
 				csActive = true;
-				NetworkStream serverStream = new NetworkStream (socket, false);
+				NetworkStream serverStream = new NetworkStream (data.Socket, false);
 
-				Console.Error.WriteLine ($"WC CREATE STREAM: {ID} {requestID} {socket.ID}");
+				Console.Error.WriteLine ($"WC CREATE STREAM: {ID} {requestID}");
 
 				if (request.Address.Scheme == Uri.UriSchemeHttps) {
 #if SECURITY_DEP
 					if (!reused || data.NetworkStream == null || data.MonoTlsStream == null) {
 						byte [] buffer = null;
 						if (sPoint.UseConnect) {
-							bool ok = CreateTunnel (request, sPoint.Address, serverStream, out buffer);
+							bool ok = CreateTunnel (data, request, sPoint.Address, serverStream, out buffer);
 							if (!ok)
 								return false;
 						}
@@ -447,14 +451,12 @@ namespace System.Net
 					status = WebExceptionStatus.ConnectFailure;
 				else if (data.MonoTlsStream != null) {
 					status = data.MonoTlsStream.ExceptionStatus;
-					Console.Error.WriteLine ($"WC CREATE STREAM EX: {ID} {requestID} {socket.ID} {theSocket.ID} - {status} {socket.CleanedUp} - {ex.Message}");
+					Console.Error.WriteLine ($"WC CREATE STREAM EX: {ID} {requestID} - {status} - {ex.Message}");
 				}
 				connect_exception = ex;
 				return false;
 			} finally {
-				Console.Error.WriteLine ($"WC CREATE STREAM DONE: {ID} {requestID} {socket.ID} {theSocket.ID}");
-				if (socket != theSocket)
-					Console.Error.WriteLine ($"WC CREATE STREAM - SOCKET CHANGED!");
+				Console.Error.WriteLine ($"WC CREATE STREAM DONE: {ID} {requestID}");
 				csActive = false;
 			}
 
@@ -840,7 +842,7 @@ namespace System.Net
 					keepAlive = (this.keepAlive && cncHeader.IndexOf ("keep-alive", StringComparison.Ordinal) != -1);
 				}
 
-				if ((socket != null && !socket.Connected) ||
+				if ((Data.Socket != null && !Data.Socket.Connected) ||
 				   (!keepAlive || (cncHeader != null && cncHeader.IndexOf ("close", StringComparison.Ordinal) != -1))) {
 					Close (false);
 				}
@@ -1192,13 +1194,6 @@ namespace System.Net
 
 				Data.Close ();
 
-				if (socket != null) {
-					try {
-						socket.Close ();
-					} catch {}
-					socket = null;
-				}
-
 				if (ntlm_authenticated)
 					ResetNtlm ();
 				state.SetIdle ();
@@ -1254,7 +1249,7 @@ namespace System.Net
 		internal bool Connected {
 			get {
 				lock (this) {
-					return (socket != null && socket.Connected);
+					return (Data.Socket != null && Data.Socket.Connected);
 				}
 			}
 		}

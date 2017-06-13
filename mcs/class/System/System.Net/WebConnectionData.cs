@@ -91,6 +91,11 @@ namespace System.Net
 			}
 		}
 
+		public Socket Socket {
+			get { return socket; }
+			set { socket = value; }
+		}
+
 		public void Close ()
 		{
 			lock (this) {
