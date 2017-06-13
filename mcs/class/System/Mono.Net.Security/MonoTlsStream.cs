@@ -51,7 +51,7 @@ namespace Mono.Net.Security
 {
 	class MonoTlsStream
 	{
-#if SECURITY_DEP		
+#if SECURITY_DEP
 		readonly MonoTlsProvider provider;
 		readonly NetworkStream networkStream;		
 		readonly HttpWebRequest request;
@@ -95,6 +95,8 @@ namespace Mono.Net.Security
 
 		internal Stream CreateStream (byte[] buffer)
 		{
+			var socket = networkStream.InternalSocket;
+			Console.Error.WriteLine ($"MONO TLS STREAM CREATE STREAM: {socket.ID}");
 			sslStream = provider.CreateSslStream (networkStream, false, settings);
 
 			try {
@@ -111,10 +113,16 @@ namespace Mono.Net.Security
 					ServicePointManager.CheckCertificateRevocationList);
 
 				status = WebExceptionStatus.Success;
-			} catch (Exception) {
-				status = WebExceptionStatus.SecureChannelFailure;
+			} catch (Exception ex) {
+				Console.Error.WriteLine ($"MONO TLS STREAM ERROR: {socket.ID} {socket.CleanedUp} {ex.Message}");
+				Console.Error.WriteLine (ex);
+				if (socket.CleanedUp)
+					status = WebExceptionStatus.RequestCanceled;
+				else
+					status = WebExceptionStatus.SecureChannelFailure;
 				throw;
 			} finally {
+				Console.Error.WriteLine ($"MONO TLS STREAM CREATE STREAM DONE: {socket.ID} {socket.CleanedUp}");
 				if (CertificateValidationFailed)
 					status = WebExceptionStatus.TrustFailure;
 

@@ -52,7 +52,7 @@ namespace System.Net
 	{
 		ServicePoint sPoint;
 		Stream nstream;
-		internal Socket socket;
+		internal Socket _socket;
 		object socketLock = new object ();
 		IWebConnectionState state;
 		WebExceptionStatus status;
@@ -103,6 +103,19 @@ namespace System.Net
 			abortHelper = new AbortHelper ();
 			abortHelper.Connection = this;
 			abortHandler = new EventHandler (abortHelper.Abort);
+		}
+
+		internal Socket socket {
+			get { return _socket; }
+			set {
+				Console.Error.WriteLine ($"WC SET SOCKET: {ID} {_socket?.ID ?? 0} -> {value?.ID ?? 0}");
+				if (csActive) {
+					Console.Error.WriteLine ($"WC SET SOCKET - MID-AIR COLLISSION!");
+					Console.Error.WriteLine (Environment.StackTrace);
+					Console.Error.WriteLine ($"WC SET SOCKET - MID-AIR COLLISSION DONE!");
+				}
+				_socket = value;
+			}
 		}
 
 		class AbortHelper {
@@ -388,10 +401,20 @@ namespace System.Net
 			}
 		}
 
+		static int nextID, nextRequestID;
+		public readonly int ID = ++nextID;
+		bool csActive;
+
 		bool CreateStream (HttpWebRequest request)
 		{
+			var requestID = ++nextRequestID;
+			var theSocket = socket;
+
 			try {
+				csActive = true;
 				NetworkStream serverStream = new NetworkStream (socket, false);
+
+				Console.Error.WriteLine ($"WC CREATE STREAM: {ID} {requestID} {socket.ID}");
 
 				if (request.Address.Scheme == Uri.UriSchemeHttps) {
 #if SECURITY_DEP
@@ -416,12 +439,19 @@ namespace System.Net
 					nstream = serverStream;
 				}
 			} catch (Exception ex) {
-				if (tlsStream != null)
-					status = tlsStream.ExceptionStatus;
-				else if (!request.Aborted)
+				if (request.Aborted)
 					status = WebExceptionStatus.ConnectFailure;
+				else if (tlsStream != null) {
+					status = tlsStream.ExceptionStatus;
+					Console.Error.WriteLine ($"WC CREATE STREAM EX: {ID} {requestID} {socket.ID} {theSocket.ID} - {status} {socket.CleanedUp}\n{ex}");
+				}
 				connect_exception = ex;
 				return false;
+			} finally {
+				Console.Error.WriteLine ($"WC CREATE STREAM DONE: {ID} {requestID} {socket.ID} {theSocket.ID}");
+				if (socket != theSocket)
+					Console.Error.WriteLine ($"WC CREATE STREAM - SOCKET CHANGED!");
+				csActive = false;
 			}
 
 			return true;

@@ -91,6 +91,9 @@ namespace System.Net.Sockets
 		int m_IntCleanedUp;
 		internal bool connect_in_progress;
 
+		static int nextId;
+		public readonly int ID = ++nextId;
+
 #region Constructors
 
 
@@ -2559,6 +2562,8 @@ m_Handle, buffer, offset + sent, size - sent, socketFlags, out nativeError, is_b
 
 		protected virtual void Dispose (bool disposing)
 		{
+			Console.Error.WriteLine ("SOCKET DISPOSE: {0} {1}", ID, m_IntCleanedUp);
+			Console.Error.WriteLine (Environment.StackTrace);
 			if (CleanedUp)
 				return;
 
