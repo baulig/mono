@@ -51,8 +51,7 @@ namespace System.Net
 	class WebConnection
 	{
 		ServicePoint sPoint;
-		Stream nstream;
-		internal Socket _socket;
+		Socket _socket;
 		object socketLock = new object ();
 		IWebConnectionState state;
 		WebExceptionStatus status;
@@ -85,7 +84,6 @@ namespace System.Net
 		HttpWebRequest connect_request;
 
 		Exception connect_exception;
-		MonoTlsStream tlsStream;
 
 #if MONOTOUCH && !MONOTOUCH_TV && !MONOTOUCH_WATCH
 		[System.Runtime.InteropServices.DllImport ("__Internal")]
@@ -430,8 +428,8 @@ namespace System.Net
 							if (!ok)
 								return false;
 						}
-						tlsStream = new MonoTlsStream (request, serverStream);
-						nstream = tlsStream.CreateStream (buffer);
+						var tlsStream = new MonoTlsStream (request, serverStream);
+						var nstream = tlsStream.CreateStream (buffer);
 						data.Initialize (nstream, tlsStream);
 					}
 					// we also need to set ServicePoint.Certificate 
@@ -442,7 +440,6 @@ namespace System.Net
 					throw new NotSupportedException ();
 #endif
 				} else {
-					nstream = serverStream;
 					data.Initialize (serverStream, null);
 				}
 			} catch (Exception ex) {
@@ -941,7 +938,7 @@ namespace System.Net
 		internal int EndRead (HttpWebRequest request, IAsyncResult result)
 		{
 			Console.Error.WriteLine ($"WC END READ: {ID}");
-			var webAsyncResult = (WebAsyncResult)result;
+			var webAsyncResult = (WebAsyncResult)result.AsyncState;
 			WebConnectionData data;
 			Stream s;
 			lock (this) {
@@ -1080,7 +1077,7 @@ namespace System.Net
 		internal bool EndWrite (HttpWebRequest request, bool throwOnError, IAsyncResult result)
 		{
 			Console.Error.WriteLine ($"WC END WRITE: {ID}");
-			var webAsyncResult = (WebAsyncResult)result;
+			var webAsyncResult = (WebAsyncResult)result.AsyncState;
 			WebConnectionData data;
 			Stream s;
 			lock (this) {
@@ -1094,10 +1091,12 @@ namespace System.Net
 				s = data.NetworkStream;
 				if (s == null)
 					throw new ObjectDisposedException (typeof (NetworkStream).FullName);
+				if (result is WebAsyncResult wr)
+					result = wr.InnerAsyncResult;
 			}
 
 			try {
-				s.EndWrite (webAsyncResult.InnerAsyncResult);
+				s.EndWrite (result);
 				return true;
 			} catch (Exception exc) {
 				status = WebExceptionStatus.SendFailure;
@@ -1192,13 +1191,6 @@ namespace System.Net
 				}
 
 				Data.Close ();
-
-				if (nstream != null) {
-					try {
-						nstream.Close ();
-					} catch {}
-					nstream = null;
-				}
 
 				if (socket != null) {
 					try {
