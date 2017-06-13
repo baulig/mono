@@ -143,9 +143,10 @@ namespace System.Net
 		void Connect (HttpWebRequest request)
 		{
 			lock (socketLock) {
+				WebConnectionData data = Data;
 				if (socket != null && socket.Connected && status == WebExceptionStatus.Success) {
 					// Take the chunked stream to the expected state (State.None)
-					if (CanReuse () && CompleteChunkedRead ()) {
+					if (CanReuse () && CompleteChunkedRead (data)) {
 						reused = true;
 						return;
 					}
@@ -412,6 +413,7 @@ namespace System.Net
 		{
 			var requestID = ++nextRequestID;
 			var theSocket = socket;
+			var data = Data;
 
 			try {
 				csActive = true;
@@ -421,7 +423,7 @@ namespace System.Net
 
 				if (request.Address.Scheme == Uri.UriSchemeHttps) {
 #if SECURITY_DEP
-					if (!reused || nstream == null || tlsStream == null) {
+					if (!reused || data.NetworkStream == null || data.MonoTlsStream == null) {
 						byte [] buffer = null;
 						if (sPoint.UseConnect) {
 							bool ok = CreateTunnel (request, sPoint.Address, serverStream, out buffer);
@@ -430,6 +432,7 @@ namespace System.Net
 						}
 						tlsStream = new MonoTlsStream (request, serverStream);
 						nstream = tlsStream.CreateStream (buffer);
+						data.Initialize (nstream, tlsStream);
 					}
 					// we also need to set ServicePoint.Certificate 
 					// and ServicePoint.ClientCertificate but this can
@@ -440,12 +443,13 @@ namespace System.Net
 #endif
 				} else {
 					nstream = serverStream;
+					data.Initialize (serverStream, null);
 				}
 			} catch (Exception ex) {
 				if (request.Aborted)
 					status = WebExceptionStatus.ConnectFailure;
-				else if (tlsStream != null) {
-					status = tlsStream.ExceptionStatus;
+				else if (data.MonoTlsStream != null) {
+					status = data.MonoTlsStream.ExceptionStatus;
 					Console.Error.WriteLine ($"WC CREATE STREAM EX: {ID} {requestID} {socket.ID} {theSocket.ID} - {status} {socket.CleanedUp} - {ex.Message}");
 				}
 				connect_exception = ex;
@@ -489,8 +493,8 @@ namespace System.Net
 		
 		void ReadDone (IAsyncResult result)
 		{
-			WebConnectionData data = Data;
-			Stream ns = nstream;
+			WebConnectionData data = (WebConnectionData)result.AsyncState;
+			Stream ns = data.NetworkStream;
 			if (ns == null) {
 				Close (true);
 				return;
@@ -604,11 +608,12 @@ namespace System.Net
 
 		internal void InitRead ()
 		{
-			Stream ns = nstream;
+			WebConnectionData data = Data;
+			Stream ns = data.NetworkStream;
 
 			try {
 				int size = buffer.Length - position;
-				ns.BeginRead (buffer, position, size, ReadDone, null);
+				ns.BeginRead (buffer, position, size, ReadDone, data);
 			} catch (Exception e) {
 				HandleError (WebExceptionStatus.ReceiveFailure, e, "InitRead");
 			}
@@ -900,7 +905,7 @@ namespace System.Net
 		{
 			Console.Error.WriteLine ($"WC BEGIN READ: {ID}");
 			WebConnectionData data;
-			NetworkStream s;
+			Stream s;
 			lock (this) {
 				if (Data.request != request)
 					throw new ObjectDisposedException (typeof (NetworkStream).FullName);
@@ -937,7 +942,8 @@ namespace System.Net
 		{
 			Console.Error.WriteLine ($"WC END READ: {ID}");
 			var webAsyncResult = (WebAsyncResult)result;
-			NetworkStream s;
+			WebConnectionData data;
+			Stream s;
 			lock (this) {
 				if (request.Aborted)
 					throw new WebException ("Request aborted", WebExceptionStatus.RequestCanceled);
@@ -945,7 +951,8 @@ namespace System.Net
 					throw new ObjectDisposedException (typeof (NetworkStream).FullName);
 				if (Data.request != request)
 					throw new ObjectDisposedException (typeof (NetworkStream).FullName);
-				s = webAsyncResult.Data.NetworkStream;
+				data = webAsyncResult.Data;
+				s = data.NetworkStream;
 				if (s == null)
 					throw new ObjectDisposedException (typeof (NetworkStream).FullName);
 			}
@@ -970,7 +977,7 @@ namespace System.Net
 				try {
 					chunkStream.WriteAndReadBack (wr.Buffer, wr.Offset, wr.Size, ref nbytes);
 					if (!done && nbytes == 0 && chunkStream.WantMore)
-						nbytes = EnsureRead (wr.Buffer, wr.Offset, wr.Size);
+						nbytes = EnsureRead (data, wr.Buffer, wr.Offset, wr.Size);
 				} catch (Exception e) {
 					if (e is WebException)
 						throw e;
@@ -989,7 +996,7 @@ namespace System.Net
 		}
 
 		// To be called on chunkedRead when we can read no data from the MonoChunkStream yet
-		int EnsureRead (byte [] buffer, int offset, int size)
+		int EnsureRead (WebConnectionData data, byte [] buffer, int offset, int size)
 		{
 			byte [] morebytes = null;
 			int nbytes = 0;
@@ -1003,7 +1010,7 @@ namespace System.Net
 				if (morebytes == null || morebytes.Length < localsize)
 					morebytes = new byte [localsize];
 
-				int nread = nstream.Read (morebytes, 0, localsize);
+				int nread = data.NetworkStream.Read (morebytes, 0, localsize);
 				if (nread <= 0)
 					return 0; // Error
 
@@ -1014,13 +1021,13 @@ namespace System.Net
 			return nbytes;
 		}
 
-		bool CompleteChunkedRead()
+		bool CompleteChunkedRead (WebConnectionData data)
 		{
 			if (!chunkedRead || chunkStream == null)
 				return true;
 
 			while (chunkStream.WantMore) {
-				int nbytes = nstream.Read (buffer, 0, buffer.Length);
+				int nbytes = data.NetworkStream.Read (buffer, 0, buffer.Length);
 				if (nbytes <= 0)
 					return false; // Socket was disconnected
 
@@ -1032,20 +1039,26 @@ namespace System.Net
 
 		internal IAsyncResult BeginWrite (HttpWebRequest request, byte [] buffer, int offset, int size, AsyncCallback cb, object state)
 		{
-			Stream s = null;
+			Console.Error.WriteLine ($"WC BEGIN WRITE: {ID}");
+			WebConnectionData data;
+			Stream s;
 			lock (this) {
 				if (Data.request != request)
 					throw new ObjectDisposedException (typeof (NetworkStream).FullName);
-				if (nstream == null)
+				data = Data;
+				s = data.NetworkStream;
+				if (s == null)
 					return null;
-				s = nstream;
 			}
 
-			IAsyncResult result = null;
+			var result = new WebAsyncResult (cb, state, data, buffer, offset, size);
+
 			try {
-				result = s.BeginWrite (buffer, offset, size, cb, state);
+				result.InnerAsyncResult = s.BeginWrite (buffer, offset, size, cb, result);
 			} catch (ObjectDisposedException) {
 				lock (this) {
+					if (Data != result.Data)
+						return null;
 					if (Data.request != request)
 						return null;
 				}
@@ -1066,19 +1079,25 @@ namespace System.Net
 
 		internal bool EndWrite (HttpWebRequest request, bool throwOnError, IAsyncResult result)
 		{
-			Stream s = null;
+			Console.Error.WriteLine ($"WC END WRITE: {ID}");
+			var webAsyncResult = (WebAsyncResult)result;
+			WebConnectionData data;
+			Stream s;
 			lock (this) {
 				if (status == WebExceptionStatus.RequestCanceled)
 					return true;
+				if (Data != webAsyncResult.Data)
+					throw new ObjectDisposedException (typeof (NetworkStream).FullName);
 				if (Data.request != request)
 					throw new ObjectDisposedException (typeof (NetworkStream).FullName);
-				if (nstream == null)
+				data = webAsyncResult.Data;
+				s = data.NetworkStream;
+				if (s == null)
 					throw new ObjectDisposedException (typeof (NetworkStream).FullName);
-				s = nstream;
 			}
 
 			try {
-				s.EndWrite (result);
+				s.EndWrite (webAsyncResult.InnerAsyncResult);
 				return true;
 			} catch (Exception exc) {
 				status = WebExceptionStatus.SendFailure;
@@ -1091,13 +1110,15 @@ namespace System.Net
 		internal int Read (HttpWebRequest request, byte [] buffer, int offset, int size)
 		{
 			Console.Error.WriteLine ($"WC READ: {ID}");
-			Stream s = null;
+			WebConnectionData data;
+			Stream s;
 			lock (this) {
 				if (Data.request != request)
 					throw new ObjectDisposedException (typeof (NetworkStream).FullName);
-				if (nstream == null)
+				data = Data;
+				s = data.NetworkStream;
+				if (s == null)
 					return 0;
-				s = nstream;
 			}
 
 			int result = 0;
@@ -1112,7 +1133,7 @@ namespace System.Net
 					try {
 						chunkStream.WriteAndReadBack (buffer, offset, size, ref result);
 						if (!done && result == 0 && chunkStream.WantMore)
-							result = EnsureRead (buffer, offset, size);
+							result = EnsureRead (data, buffer, offset, size);
 					} catch (Exception e) {
 						HandleError (WebExceptionStatus.ReceiveFailure, e, "chunked Read1");
 						throw;
@@ -1132,12 +1153,15 @@ namespace System.Net
 
 		internal bool Write (HttpWebRequest request, byte [] buffer, int offset, int size, ref string err_msg)
 		{
+			Console.Error.WriteLine ($"WC WRITE: {ID}");
 			err_msg = null;
-			Stream s = null;
+			WebConnectionData data;
+			Stream s;
 			lock (this) {
 				if (Data.request != request)
 					throw new ObjectDisposedException (typeof (NetworkStream).FullName);
-				s = nstream;
+				data = Data;
+				s = data.NetworkStream;
 				if (s == null)
 					return false;
 			}

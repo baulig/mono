@@ -30,6 +30,7 @@
 
 using System.IO;
 using System.Net.Sockets;
+using Mono.Net.Security;
 
 namespace System.Net
 {
@@ -44,8 +45,9 @@ namespace System.Net
 		public Stream stream;
 		public string[] Challenge;
 		ReadState _readState;
-		NetworkStream nstream;
+		Stream nstream;
 		Socket socket;
+		MonoTlsStream tlsStream;
 
 		public WebConnectionData ()
 		{
@@ -79,7 +81,7 @@ namespace System.Net
 			}
 		}
 
-		public NetworkStream NetworkStream {
+		public Stream NetworkStream {
 			get {
 				lock (this) {
 					if (ReadState == ReadState.Aborted)
@@ -107,6 +109,18 @@ namespace System.Net
 				}
 
 				_readState = ReadState.Aborted;
+			}
+		}
+
+		public MonoTlsStream MonoTlsStream {
+			get { return tlsStream; }
+		}
+
+		public void Initialize (Stream networkStream, MonoTlsStream tlsStream)
+		{
+			lock (this) {
+				this.nstream = networkStream;
+				this.tlsStream = tlsStream;
 			}
 		}
 	}
