@@ -29,6 +29,7 @@
 //
 
 using System.IO;
+using System.Net.Sockets;
 
 namespace System.Net
 {
@@ -43,6 +44,8 @@ namespace System.Net
 		public Stream stream;
 		public string[] Challenge;
 		ReadState _readState;
+		NetworkStream nstream;
+		Socket socket;
 
 		public WebConnectionData ()
 		{
@@ -73,6 +76,37 @@ namespace System.Net
 						throw new WebException ("Aborted", WebExceptionStatus.RequestCanceled);
 					_readState = value;
 				}
+			}
+		}
+
+		public NetworkStream NetworkStream {
+			get {
+				lock (this) {
+					if (ReadState == ReadState.Aborted)
+						throw new WebException ("Aborted", WebExceptionStatus.RequestCanceled);
+					return nstream;
+				}
+			}
+		}
+
+		public void Close ()
+		{
+			lock (this) {
+				if (nstream != null) {
+					try {
+						nstream.Close ();
+					} catch { }
+					nstream = null;
+				}
+
+				if (socket != null) {
+					try {
+						socket.Close ();
+					} catch { }
+					socket = null;
+				}
+
+				_readState = ReadState.Aborted;
 			}
 		}
 	}

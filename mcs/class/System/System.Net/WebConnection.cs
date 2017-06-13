@@ -61,7 +61,6 @@ namespace System.Net
 		byte [] buffer;
 		EventHandler abortHandler;
 		AbortHelper abortHelper;
-		internal WebConnectionData Data;
 		bool chunkedRead;
 		MonoChunkStream chunkStream;
 		Queue queue;
@@ -71,6 +70,10 @@ namespace System.Net
 		NetworkCredential ntlm_credentials;
 		bool ntlm_authenticated;
 		bool unsafe_sharing;
+
+		internal WebConnectionData Data {
+			get; private set;
+		}
 
 		enum NtlmAuthState
 		{
@@ -105,7 +108,7 @@ namespace System.Net
 			abortHandler = new EventHandler (abortHelper.Abort);
 		}
 
-		internal Socket socket {
+		Socket socket {
 			get { return _socket; }
 			set {
 				Console.Error.WriteLine ($"WC SET SOCKET: {ID} {_socket?.ID ?? 0} -> {value?.ID ?? 0}");
@@ -895,19 +898,23 @@ namespace System.Net
 
 		internal IAsyncResult BeginRead (HttpWebRequest request, byte [] buffer, int offset, int size, AsyncCallback cb, object state)
 		{
-			Stream s = null;
+			Console.Error.WriteLine ($"WC BEGIN READ: {ID}");
+			WebConnectionData data;
+			NetworkStream s;
 			lock (this) {
 				if (Data.request != request)
 					throw new ObjectDisposedException (typeof (NetworkStream).FullName);
-				if (nstream == null)
+				data = Data;
+				s = data.NetworkStream;
+				if (s == null)
 					return null;
-				s = nstream;
 			}
 
-			IAsyncResult result = null;
+			var result = new WebAsyncResult (cb, state, data, buffer, offset, size);
+
 			if (!chunkedRead || (!chunkStream.DataAvailable && chunkStream.WantMore)) {
 				try {
-					result = s.BeginRead (buffer, offset, size, cb, state);
+					result.InnerAsyncResult = s.BeginRead (buffer, offset, size, cb, result);
 					cb = null;
 				} catch (Exception) {
 					HandleError (WebExceptionStatus.ReceiveFailure, null, "chunked BeginRead");
@@ -916,14 +923,11 @@ namespace System.Net
 			}
 
 			if (chunkedRead) {
-				WebAsyncResult wr = new WebAsyncResult (cb, state, buffer, offset, size);
-				wr.InnerAsyncResult = result;
-				if (result == null) {
+				if (result.InnerAsyncResult == null) {
 					// Will be completed from the data in MonoChunkStream
-					wr.SetCompleted (true, (Exception) null);
-					wr.DoCallback ();
+					result.SetCompleted (true, (Exception) null);
+					result.DoCallback ();
 				}
-				return wr;
 			}
 
 			return result;
@@ -931,21 +935,25 @@ namespace System.Net
 		
 		internal int EndRead (HttpWebRequest request, IAsyncResult result)
 		{
-			Stream s = null;
+			Console.Error.WriteLine ($"WC END READ: {ID}");
+			var webAsyncResult = (WebAsyncResult)result;
+			NetworkStream s;
 			lock (this) {
 				if (request.Aborted)
 					throw new WebException ("Request aborted", WebExceptionStatus.RequestCanceled);
+				if (Data != webAsyncResult.Data)
+					throw new ObjectDisposedException (typeof (NetworkStream).FullName);
 				if (Data.request != request)
 					throw new ObjectDisposedException (typeof (NetworkStream).FullName);
-				if (nstream == null)
+				s = webAsyncResult.Data.NetworkStream;
+				if (s == null)
 					throw new ObjectDisposedException (typeof (NetworkStream).FullName);
-				s = nstream;
 			}
 
 			int nbytes = 0;
 			bool done = false;
-			WebAsyncResult wr = null;
-			IAsyncResult nsAsync = ((WebAsyncResult) result).InnerAsyncResult;
+			WebAsyncResult wr = webAsyncResult;
+			IAsyncResult nsAsync = webAsyncResult.InnerAsyncResult;
 			if (chunkedRead && (nsAsync is WebAsyncResult)) {
 				wr = (WebAsyncResult) nsAsync;
 				IAsyncResult inner = wr.InnerAsyncResult;
@@ -955,7 +963,6 @@ namespace System.Net
 				}
 			} else if (!(nsAsync is WebAsyncResult)) {
 				nbytes = s.EndRead (nsAsync);
-				wr = (WebAsyncResult) result;
 				done = nbytes == 0;
 			}
 
@@ -1083,6 +1090,7 @@ namespace System.Net
 
 		internal int Read (HttpWebRequest request, byte [] buffer, int offset, int size)
 		{
+			Console.Error.WriteLine ($"WC READ: {ID}");
 			Stream s = null;
 			lock (this) {
 				if (Data.request != request)
@@ -1154,10 +1162,12 @@ namespace System.Net
 		internal void Close (bool sendNext)
 		{
 			lock (this) {
-				if (Data != null && Data.request != null && Data.request.ReuseConnection) {
+				if (Data.request != null && Data.request.ReuseConnection) {
 					Data.request.ReuseConnection = false;
 					return;
 				}
+
+				Data.Close ();
 
 				if (nstream != null) {
 					try {
@@ -1175,11 +1185,6 @@ namespace System.Net
 
 				if (ntlm_authenticated)
 					ResetNtlm ();
-				if (Data != null) {
-					lock (Data) {
-						Data.ReadState = ReadState.Aborted;
-					}
-				}
 				state.SetIdle ();
 				Data = new WebConnectionData ();
 				if (sendNext)

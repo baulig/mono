@@ -45,6 +45,7 @@ namespace System.Net
 		public bool EndCalled;
 		public bool AsyncWriteAll;
 		public HttpWebRequest AsyncObject;
+		public WebConnectionData Data;
 
 		public WebAsyncResult (AsyncCallback cb, object state)
 			: base (cb, state)
@@ -57,9 +58,19 @@ namespace System.Net
 			this.AsyncObject = request;
 		}
 
-		public WebAsyncResult (AsyncCallback cb, object state, byte [] buffer, int offset, int size)
+		public WebAsyncResult (AsyncCallback cb, object state, byte[] buffer, int offset, int size)
 			: base (cb, state)
 		{
+			this.buffer = buffer;
+			this.offset = offset;
+			this.size = size;
+
+		}
+
+		public WebAsyncResult (AsyncCallback cb, object state, WebConnectionData data, byte [] buffer, int offset, int size)
+			: base (cb, state)
+		{
+			Data = data;
 			this.buffer = buffer;
 			this.offset = offset;
 			this.size = size;
