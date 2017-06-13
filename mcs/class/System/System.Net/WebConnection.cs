@@ -443,7 +443,7 @@ namespace System.Net
 					status = WebExceptionStatus.ConnectFailure;
 				else if (tlsStream != null) {
 					status = tlsStream.ExceptionStatus;
-					Console.Error.WriteLine ($"WC CREATE STREAM EX: {ID} {requestID} {socket.ID} {theSocket.ID} - {status} {socket.CleanedUp}\n{ex}");
+					Console.Error.WriteLine ($"WC CREATE STREAM EX: {ID} {requestID} {socket.ID} {theSocket.ID} - {status} {socket.CleanedUp} - {ex.Message}");
 				}
 				connect_exception = ex;
 				return false;

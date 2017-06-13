@@ -115,7 +115,6 @@ namespace Mono.Net.Security
 				status = WebExceptionStatus.Success;
 			} catch (Exception ex) {
 				Console.Error.WriteLine ($"MONO TLS STREAM ERROR: {socket.ID} {socket.CleanedUp} {ex.Message}");
-				Console.Error.WriteLine (ex);
 				if (socket.CleanedUp)
 					status = WebExceptionStatus.RequestCanceled;
 				else
