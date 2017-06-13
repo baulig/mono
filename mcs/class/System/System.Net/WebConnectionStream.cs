@@ -409,7 +409,7 @@ namespace System.Net
 			if (!result.IsCompleted) {
 				int nbytes = -1;
 				try {
-					nbytes = cnc.EndRead (request, result);
+					nbytes = cnc.EndRead (request, result.InnerAsyncResult);
 				} catch (Exception exc) {
 					lock (locker) {
 						pendingReads--;
