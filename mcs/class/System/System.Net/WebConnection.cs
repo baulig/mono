@@ -897,7 +897,8 @@ namespace System.Net
 		}
 
 
-		internal IAsyncResult BeginRead (HttpWebRequest request, byte[] buffer, int offset, int size, AsyncCallback cb, object state)
+		internal IAsyncResult BeginRead (HttpWebRequest request, byte[] buffer, int offset, int size,
+						 AsyncCallback cb, WebAsyncResult result)
 		{
 			Console.Error.WriteLine ($"WC BEGIN READ: {ID}");
 			WebConnectionData data;
@@ -911,91 +912,80 @@ namespace System.Net
 					return null;
 			}
 
-			var result = new WebAsyncResult (cb, state, data, buffer, offset, size);
-
 			if (!chunkedRead || (!chunkStream.DataAvailable && chunkStream.WantMore)) {
 				try {
-					result.InnerAsyncResult = s.BeginRead (buffer, offset, size, cb, result);
-					cb = null;
+					var innerResult = new WebConnectionAsyncResult (null, null, data, request, result, s);
+					innerResult.InnerAsyncResult = s.BeginRead (buffer, offset, size, ReadAsyncCB, innerResult);
+					return innerResult;
 				} catch (Exception) {
 					HandleError (WebExceptionStatus.ReceiveFailure, null, "chunked BeginRead");
 					throw;
 				}
 			}
 
-			if (chunkedRead) {
-				if (result.InnerAsyncResult == null) {
-					// Will be completed from the data in MonoChunkStream
-					result.SetCompleted (true, (Exception)null);
-					result.DoCallback ();
-				}
-			}
-
-			return result;
+			return null;
 		}
 
-		internal int EndRead (HttpWebRequest request, IAsyncResult result)
+		void ReadAsyncCB (IAsyncResult r)
 		{
-			Console.Error.WriteLine ($"WC END READ: {ID}");
-			var wr = (WebAsyncResult)result;
-			WebConnectionData data;
-			Stream s;
-			lock (this) {
-				if (request.Aborted)
-					throw new WebException ("Request aborted", WebExceptionStatus.RequestCanceled);
-				if (Data != wr.Data)
-					throw new ObjectDisposedException (typeof (NetworkStream).FullName);
-				if (Data.request != request)
-					throw new ObjectDisposedException (typeof (NetworkStream).FullName);
-				data = wr.Data;
-				s = data.NetworkStream;
-				if (s == null)
-					throw new ObjectDisposedException (typeof (NetworkStream).FullName);
-			}
+			var result = (WebConnectionAsyncResult)r.AsyncState;
 
-			int nbytes = 0;
-			bool done = false;
-			if (wr.InnerAsyncResult != null) {
-				nbytes = s.EndRead (wr.InnerAsyncResult);
-				done = nbytes == 0;
-			}
+			int nbytes;
+			bool done;
 
-#if FIXME
-			WebAsyncResult wr = webAsyncResult;
-			IAsyncResult nsAsync = webAsyncResult.InnerAsyncResult;
-			if (chunkedRead && (nsAsync is WebAsyncResult)) {
-				wr = (WebAsyncResult) nsAsync;
-				IAsyncResult inner = wr.InnerAsyncResult;
-				if (inner != null && !(inner is WebAsyncResult)) {
-					nbytes = s.EndRead (inner);
-					done = nbytes == 0;
+			try {
+				lock (this) {
+					if (result.Request.Aborted)
+						throw new WebException ("Request aborted", WebExceptionStatus.RequestCanceled);
+					if (Data != result.Data || result.Data.request != result.Request)
+						throw new ObjectDisposedException (typeof (NetworkStream).FullName);
 				}
-			} else if (!(nsAsync is WebAsyncResult)) {
-				nbytes = s.EndRead (nsAsync);
+
+				nbytes = result.Stream.EndRead (r);
 				done = nbytes == 0;
+			} catch (Exception e) {
+				result.SetCompleted (false, e);
+				result.DoCallback ();
+				return;
 			}
-#endif
 
-			if (chunkedRead) {
-				try {
-					chunkStream.WriteAndReadBack (wr.Buffer, wr.Offset, wr.Size, ref nbytes);
-					if (!done && nbytes == 0 && chunkStream.WantMore)
-						nbytes = EnsureRead (data, wr.Buffer, wr.Offset, wr.Size);
-				} catch (Exception e) {
-					if (e is WebException)
-						throw e;
+			if (!chunkedRead) {
+				result.SetCompleted (false, nbytes);
+				result.DoCallback ();
+				return;
+			}
 
-					throw new WebException ("Invalid chunked data.", e,
-								WebExceptionStatus.ServerProtocolViolation, null);
-				}
+			try {
+				chunkStream.WriteAndReadBack (result.Result.Buffer, result.Result.Offset, result.Result.Size, ref nbytes);
+				if (!done && nbytes == 0 && chunkStream.WantMore)
+					nbytes = EnsureRead (result.Data, result.Result.Buffer, result.Result.Offset, result.Result.Size);
 
 				if ((done || nbytes == 0) && chunkStream.ChunkLeft != 0) {
 					HandleError (WebExceptionStatus.ReceiveFailure, null, "chunked EndRead");
 					throw new WebException ("Read error", null, WebExceptionStatus.ReceiveFailure, null);
 				}
+
+				result.SetCompleted (false, nbytes);
+			} catch (Exception e) {
+				var wexc = e as WebException;
+				if (wexc == null)
+					wexc = new WebException ("Invalid chunked data.", e, WebExceptionStatus.ServerProtocolViolation, null);
+				result.SetCompleted (false, wexc);
 			}
 
-			return (nbytes != 0) ? nbytes : -1;
+			result.DoCallback ();
+		}
+
+		internal int EndRead (HttpWebRequest request, IAsyncResult r)
+		{
+			Console.Error.WriteLine ($"WC END READ: {ID}");
+
+			var result = (WebConnectionAsyncResult)r.AsyncState;
+			result.WaitUntilComplete ();
+
+			if (result.GotException)
+				throw result.Exception;
+			return result.NBytes;
 		}
 
 		// To be called on chunkedRead when we can read no data from the MonoChunkStream yet
@@ -1054,13 +1044,13 @@ namespace System.Net
 					return null;
 			}
 
-			var result = new WebAsyncResult (cb, state, data, buffer, offset, size);
+			var innerResult = new WebConnectionAsyncResult (null, null, data, request, null, s);
 
 			try {
-				result.InnerAsyncResult = s.BeginWrite (buffer, offset, size, cb, result);
+				innerResult.InnerAsyncResult = s.BeginWrite (buffer, offset, size, cb, innerResult);
 			} catch (ObjectDisposedException) {
 				lock (this) {
-					if (Data != result.Data)
+					if (Data != innerResult.Data)
 						return null;
 					if (Data.request != request)
 						return null;
@@ -1077,13 +1067,13 @@ namespace System.Net
 				throw;
 			}
 
-			return result;
+			return innerResult;
 		}
 
 		internal bool EndWrite (HttpWebRequest request, bool throwOnError, IAsyncResult result)
 		{
 			Console.Error.WriteLine ($"WC END WRITE: {ID}");
-			var webAsyncResult = (WebAsyncResult)result.AsyncState;
+			var webAsyncResult = (WebConnectionAsyncResult)result.AsyncState;
 			WebConnectionData data;
 			Stream s;
 			lock (this) {

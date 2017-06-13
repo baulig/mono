@@ -44,8 +44,7 @@ namespace System.Net
 		int size;
 		public bool EndCalled;
 		public bool AsyncWriteAll;
-		public HttpWebRequest AsyncObject;
-		public WebConnectionData Data;
+		public readonly HttpWebRequest AsyncObject;
 
 		public WebAsyncResult (AsyncCallback cb, object state)
 			: base (cb, state)
@@ -65,15 +64,6 @@ namespace System.Net
 			this.offset = offset;
 			this.size = size;
 
-		}
-
-		public WebAsyncResult (AsyncCallback cb, object state, WebConnectionData data, byte [] buffer, int offset, int size)
-			: base (cb, state)
-		{
-			Data = data;
-			this.buffer = buffer;
-			this.offset = offset;
-			this.size = size;
 		}
 
 		internal void Reset ()
@@ -137,6 +127,43 @@ namespace System.Net
 
 		internal int Size {
 			get { return size; }
+		}
+	}
+
+	class WebConnectionAsyncResult : SimpleAsyncResult
+	{
+		public readonly WebConnectionData Data;
+		public readonly HttpWebRequest Request;
+		public readonly WebAsyncResult Result;
+		public readonly Stream Stream;
+
+		public IAsyncResult InnerAsyncResult;
+
+		int nbytes;
+
+		public WebConnectionAsyncResult (AsyncCallback cb, object state, WebConnectionData data,
+		                                 HttpWebRequest request, WebAsyncResult result, Stream stream)
+			: base (cb, state)
+		{
+			Data = data;
+			Request = request;
+			Result = result;
+			Stream = stream;
+		}
+
+		internal void SetCompleted (bool synch, int nbytes)
+		{
+			this.nbytes = nbytes;
+			SetCompleted_internal (synch);
+		}
+
+		internal void DoCallback ()
+		{
+			DoCallback_internal ();
+		}
+
+		public int NBytes {
+			get { return nbytes; }
 		}
 	}
 }

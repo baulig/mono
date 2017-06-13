@@ -387,9 +387,9 @@ namespace System.Net
 			if (contentLength != Int64.MaxValue && contentLength - totalRead < size)
 				size = (int)(contentLength - totalRead);
 
-			if (!read_eof) {
+			if (!read_eof)
 				result.InnerAsyncResult = cnc.BeginRead (request, buffer, offset, size, cb, result);
-			} else {
+			if (result.InnerAsyncResult == null) {
 				result.SetCompleted (true, result.NBytes);
 				result.DoCallback ();
 			}
@@ -477,7 +477,7 @@ namespace System.Net
 		}
 
 		public override IAsyncResult BeginWrite (byte [] buffer, int offset, int size,
-							AsyncCallback cb, object state)
+		                                         AsyncCallback cb, object state)
 		{
 			if (request.Aborted)
 				throw new WebException ("The request was canceled.", WebExceptionStatus.RequestCanceled);
