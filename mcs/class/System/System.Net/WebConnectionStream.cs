@@ -358,7 +358,7 @@ namespace System.Net
 				pending.Reset ();
 			}
 
-			WebAsyncResult result = new WebAsyncResult (cb, state, buffer, offset, size);
+			WebAsyncResult result = cnc.StartAsyncOperation (request, buffer, offset, size, cb, state);
 			if (totalRead >= contentLength) {
 				result.SetCompleted (true, -1);
 				result.DoCallback ();
@@ -387,9 +387,7 @@ namespace System.Net
 			if (contentLength != Int64.MaxValue && contentLength - totalRead < size)
 				size = (int)(contentLength - totalRead);
 
-			if (!read_eof)
-				result.InnerAsyncResult = cnc.BeginRead (request, buffer, offset, size, cb, result);
-			if (result.InnerAsyncResult == null) {
+			if (read_eof || cnc.ProcessRead (result)) {
 				result.SetCompleted (true, result.NBytes);
 				result.DoCallback ();
 			}

@@ -46,6 +46,10 @@ namespace System.Net
 		public bool AsyncWriteAll;
 		public readonly HttpWebRequest AsyncObject;
 
+		public readonly HttpWebRequest Request;
+		public readonly WebConnectionData Data;
+		public readonly Stream Stream;
+
 		public WebAsyncResult (AsyncCallback cb, object state)
 			: base (cb, state)
 		{
@@ -64,6 +68,19 @@ namespace System.Net
 			this.offset = offset;
 			this.size = size;
 
+		}
+
+		public WebAsyncResult (HttpWebRequest request, WebConnectionData data, Stream stream,
+		                       byte[] buffer, int offset, int size, AsyncCallback cb, object state)
+			: base (cb, state)
+		{
+			Request = request;
+			Data = data;
+			Stream = stream;
+
+			this.buffer = buffer;
+			this.offset = offset;
+			this.size = size;
 		}
 
 		internal void Reset ()

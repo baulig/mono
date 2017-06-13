@@ -896,6 +896,81 @@ namespace System.Net
 			return true;
 		}
 
+		internal WebAsyncResult StartAsyncOperation (HttpWebRequest request, byte[] buffer, int offset, int size,
+		                                             AsyncCallback callback, object state)
+		{
+			WebConnectionData data;
+			Stream s;
+			lock (this) {
+				if (Data.request != request)
+					throw new ObjectDisposedException (typeof (NetworkStream).FullName);
+				data = Data;
+				s = data.NetworkStream;
+				if (s == null)
+					return null;
+			}
+
+			return new WebAsyncResult (request, data, s, buffer, offset, size, callback, state);
+		}
+
+		internal bool ProcessRead (WebAsyncResult result)
+		{
+			Console.Error.WriteLine ($"WC PROCESS READ: {ID}");
+
+			if (chunkedRead && (chunkStream.DataAvailable || !chunkStream.WantMore))
+				return true;
+
+			try {
+				result.InnerAsyncResult = result.Stream.BeginRead (result.Buffer, result.Offset, result.Size, r => {
+					try {
+						var nbytes = ProcessRead_complete (result, r);
+						result.SetCompleted (false, nbytes);
+					} catch (Exception ex) {
+						result.SetCompleted (false, ex);
+					}
+					result.DoCallback ();
+				}, result);
+				return false;
+			} catch (Exception) {
+				HandleError (WebExceptionStatus.ReceiveFailure, null, "chunked BeginRead");
+				throw;
+			}
+		}
+
+		int ProcessRead_complete (WebAsyncResult result, IAsyncResult inner)
+		{
+			Console.Error.WriteLine ($"WC READ ASYNC CB: {ID}");
+
+			lock (this) {
+				if (result.Request.Aborted)
+					throw new WebException ("Request aborted", WebExceptionStatus.RequestCanceled);
+				if (Data != result.Data || result.Data.request != result.Request)
+					throw new ObjectDisposedException (typeof (NetworkStream).FullName);
+			}
+
+			var nbytes = result.Stream.EndRead (inner);
+			var done = nbytes == 0;
+
+			if (!chunkedRead)
+				return nbytes;
+
+			try {
+				chunkStream.WriteAndReadBack (result.Buffer, result.Offset, result.Size, ref nbytes);
+				if (!done && nbytes == 0 && chunkStream.WantMore)
+					nbytes = EnsureRead (result.Data, result.Buffer, result.Offset, result.Size);
+			} catch (Exception e) {
+				if (e is WebException)
+					throw;
+				throw new WebException ("Invalid chunked data.", e, WebExceptionStatus.ServerProtocolViolation, null);
+			}
+
+			if ((done || nbytes == 0) && chunkStream.ChunkLeft != 0) {
+				HandleError (WebExceptionStatus.ReceiveFailure, null, "chunked EndRead");
+				throw new WebException ("Read error", null, WebExceptionStatus.ReceiveFailure, null);
+			}
+
+			return (nbytes != 0) ? nbytes : -1;
+		}
 
 		internal IAsyncResult BeginRead (HttpWebRequest request, byte[] buffer, int offset, int size,
 						 AsyncCallback cb, WebAsyncResult result)
@@ -928,6 +1003,7 @@ namespace System.Net
 
 		void ReadAsyncCB (IAsyncResult r)
 		{
+			Console.Error.WriteLine ($"WC READ ASYNC CB: {ID}");
 			var result = (WebConnectionAsyncResult)r.AsyncState;
 
 			int nbytes;
