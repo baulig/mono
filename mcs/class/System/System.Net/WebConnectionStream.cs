@@ -373,74 +373,6 @@ namespace System.Net
 			ReadAllAsync (CancellationToken.None).Wait ();
 		}
 
-		void OldReadAll ()
-		{
-			if (!isRead || read_eof || totalRead >= contentLength || nextReadCalled) {
-				if (isRead && !nextReadCalled) {
-					nextReadCalled = true;
-					cnc.NextRead ();
-				}
-				return;
-			}
-
-			if (!pending.WaitOne (ReadTimeout))
-				throw new WebException ("The operation has timed out.", WebExceptionStatus.Timeout);
-			lock (locker) {
-				if (totalRead >= contentLength)
-					return;
-
-				byte[] b = null;
-				int diff = readBufferSize - readBufferOffset;
-				int new_size;
-
-				if (contentLength == Int64.MaxValue) {
-					MemoryStream ms = new MemoryStream ();
-					byte[] buffer = null;
-					if (readBuffer != null && diff > 0) {
-						ms.Write (readBuffer, readBufferOffset, diff);
-						if (readBufferSize >= 8192)
-							buffer = readBuffer;
-					}
-
-					if (buffer == null)
-						buffer = new byte[8192];
-
-					int read;
-					while ((read = cnc.Read (request, buffer, 0, buffer.Length)) != 0)
-						ms.Write (buffer, 0, read);
-
-					b = ms.GetBuffer ();
-					new_size = (int)ms.Length;
-					contentLength = new_size;
-				} else {
-					new_size = (int)(contentLength - totalRead);
-					b = new byte[new_size];
-					if (readBuffer != null && diff > 0) {
-						if (diff > new_size)
-							diff = new_size;
-
-						Buffer.BlockCopy (readBuffer, readBufferOffset, b, 0, diff);
-					}
-
-					int remaining = new_size - diff;
-					int r = -1;
-					while (remaining > 0 && r != 0) {
-						r = cnc.Read (request, b, diff, remaining);
-						remaining -= r;
-						diff += r;
-					}
-				}
-
-				readBuffer = b;
-				readBufferOffset = 0;
-				readBufferSize = new_size;
-				totalRead = 0;
-				nextReadCalled = true;
-			}
-
-			cnc.NextRead ();
-		}
-
 		void WriteCallbackWrapper (IAsyncResult r)
 		{
 			WebAsyncResult result = r as WebAsyncResult;
@@ -478,16 +410,6 @@ namespace System.Net
 		{
 			WebConnection.Debug ($"WCS READ: {cnc.ID}");
 			return ReadAsync (buffer, offset, size, CancellationToken.None).Result;
-
-			AsyncCallback cb = cb_wrapper;
-			WebAsyncResult res = (WebAsyncResult)BeginRead (buffer, offset, size, cb, null);
-			if (!res.IsCompleted && !res.WaitUntilComplete (ReadTimeout, false)) {
-				nextReadCalled = true;
-				cnc.Close (true);
-				throw new WebException ("The operation has timed out.", WebExceptionStatus.Timeout);
-			}
-
-			return EndRead (res);
 		}
 
 		public override async Task<int> ReadAsync (byte[] buffer, int offset, int size, CancellationToken cancellationToken)
@@ -605,125 +527,16 @@ namespace System.Net
 		public override IAsyncResult BeginRead (byte[] buffer, int offset, int size,
 							AsyncCallback cb, object state)
 		{
-			if (!isRead)
-				throw new NotSupportedException ("this stream does not allow reading");
-
-			if (buffer == null)
-				throw new ArgumentNullException ("buffer");
-
-			int length = buffer.Length;
-			if (offset < 0 || length < offset)
-				throw new ArgumentOutOfRangeException ("offset");
-			if (size < 0 || (length - offset) < size)
-				throw new ArgumentOutOfRangeException ("size");
-
-			lock (locker) {
-				pendingReads++;
-				pending.Reset ();
-			}
-
-			WebAsyncResult result = new WebAsyncResult (cb, state, buffer, offset, size);
-			if (totalRead >= contentLength) {
-				result.SetCompleted (true, -1);
-				result.DoCallback ();
-				return result;
-			}
-
-			int remaining = readBufferSize - readBufferOffset;
-			if (remaining > 0) {
-				int copy = (remaining > size) ? size : remaining;
-				Buffer.BlockCopy (readBuffer, readBufferOffset, buffer, offset, copy);
-				readBufferOffset += copy;
-				offset += copy;
-				size -= copy;
-				totalRead += copy;
-				if (size == 0 || totalRead >= contentLength) {
-					result.SetCompleted (true, copy);
-					result.DoCallback ();
-					return result;
-				}
-				result.NBytes = copy;
-			}
-
-			if (cb != null)
-				cb = cb_wrapper;
-
-			if (contentLength != Int64.MaxValue && contentLength - totalRead < size)
-				size = (int)(contentLength - totalRead);
-
 			WebConnection.Debug ($"WCS BEGIN READ: {cnc.ID}");
 
-			if (!read_eof)
-				result.InnerAsyncResult = cnc.AsyncRead (request, buffer, offset, size, ReadAsyncCB, result);
-			if (result.InnerAsyncResult == null) {
-				result.SetCompleted (true, result.NBytes);
-				result.DoCallback ();
-			}
-			return result;
-		}
-
-		void ReadAsyncCB (IAsyncResult r)
-		{
-			WebConnection.Debug ($"WCS READ ASYNC CB: {cnc.ID}");
-
-			var innerResult = (WebConnectionAsyncResult)r;
-			var result = (WebAsyncResult)innerResult.AsyncState;
-
-			if (innerResult.GotException) {
-				lock (locker) {
-					pendingReads--;
-					if (pendingReads == 0)
-						pending.Set ();
-				}
-
-				nextReadCalled = true;
-				cnc.Close (true);
-				result.SetCompleted (false, innerResult.Exception);
-				result.DoCallback ();
-				return;
-			}
-
-			var nbytes = innerResult.NBytes;
-
-			if (nbytes < 0) {
-				nbytes = 0;
-				read_eof = true;
-			}
-
-			totalRead += nbytes;
-			if (nbytes == 0)
-				contentLength = totalRead;
-			result.SetCompleted (false, nbytes + result.NBytes);
-			result.DoCallback ();
+			var task = ReadAsync (buffer, offset, size, CancellationToken.None);
+			return TaskToApm.Begin (task, cb, state);
 		}
 
 		public override int EndRead (IAsyncResult r)
 		{
-			WebAsyncResult result = (WebAsyncResult)r;
-			WebConnection.Debug ($"WCS END READ: {cnc.ID} {result.EndCalled}");
-
-			if (result.EndCalled) {
-				int xx = result.NBytes;
-				return (xx >= 0) ? xx : 0;
-			}
-
-			result.EndCalled = true;
-
-			result.WaitUntilComplete ();
-			if (result.GotException)
-				throw result.Exception;
-
-			lock (locker) {
-				pendingReads--;
-				if (pendingReads == 0)
-					pending.Set ();
-			}
-
-			if (totalRead >= contentLength && !nextReadCalled)
-				ReadAll ();
-
-			int nb = result.NBytes;
-			return (nb >= 0) ? nb : 0;
+			WebConnection.Debug ($"WCS END READ: {cnc.ID}");
+			return TaskToApm.End<int> (r);
 		}
 
 	   	void WriteAsyncCB (IAsyncResult r)
