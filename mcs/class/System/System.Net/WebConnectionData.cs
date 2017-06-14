@@ -45,7 +45,7 @@ namespace System.Net
 		public Stream stream;
 		public string[] Challenge;
 		ReadState _readState;
-		Stream nstream;
+		Stream networkStream;
 		Socket socket;
 		MonoTlsStream tlsStream;
 
@@ -86,7 +86,7 @@ namespace System.Net
 				lock (this) {
 					if (false && ReadState == ReadState.Aborted)
 						throw new WebException ("Aborted", WebExceptionStatus.RequestCanceled);
-					return nstream;
+					return networkStream;
 				}
 			}
 		}
@@ -99,11 +99,11 @@ namespace System.Net
 		public void Close ()
 		{
 			lock (this) {
-				if (nstream != null) {
+				if (networkStream != null) {
 					try {
-						nstream.Close ();
+						networkStream.Close ();
 					} catch { }
-					nstream = null;
+					networkStream = null;
 				}
 
 				if (socket != null) {
@@ -121,13 +121,18 @@ namespace System.Net
 			get { return tlsStream; }
 		}
 
-		public void Initialize (Stream networkStream, MonoTlsStream tlsStream)
+		public void Initialize (NetworkStream stream)
 		{
-			lock (this) {
-				this.nstream = networkStream;
-				this.tlsStream = tlsStream;
-			}
+			networkStream = stream;
 		}
+
+#if SECURITY_DEP
+		public void Initialize (HttpWebRequest request, NetworkStream stream, byte[] buffer)
+		{
+			tlsStream = new MonoTlsStream (request, stream);
+			networkStream = tlsStream.CreateStream (buffer);
+		}
+#endif
 	}
 }
 

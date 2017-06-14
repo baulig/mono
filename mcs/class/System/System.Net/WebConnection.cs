@@ -429,9 +429,7 @@ namespace System.Net
 							if (!ok)
 								return false;
 						}
-						var tlsStream = new MonoTlsStream (request, serverStream);
-						var nstream = tlsStream.CreateStream (buffer);
-						data.Initialize (nstream, tlsStream);
+						data.Initialize (request, serverStream, buffer);
 					}
 					// we also need to set ServicePoint.Certificate 
 					// and ServicePoint.ClientCertificate but this can
@@ -441,12 +439,12 @@ namespace System.Net
 					throw new NotSupportedException ();
 #endif
 				} else {
-					data.Initialize (serverStream, null);
+					data.Initialize (serverStream);
 				}
 			} catch (Exception ex) {
-				if (request.Aborted)
+				if (request.Aborted || data.MonoTlsStream == null)
 					status = WebExceptionStatus.ConnectFailure;
-				else if (data.MonoTlsStream != null) {
+				else {
 					status = data.MonoTlsStream.ExceptionStatus;
 					Debug ($"WC CREATE STREAM EX: {ID} {requestID} - {status} - {ex.Message}");
 				}
