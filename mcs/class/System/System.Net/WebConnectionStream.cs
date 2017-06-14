@@ -387,6 +387,8 @@ namespace System.Net
 			if (contentLength != Int64.MaxValue && contentLength - totalRead < size)
 				size = (int)(contentLength - totalRead);
 
+			Console.Error.WriteLine ($"WCS BEGIN READ: {cnc.ID}");
+
 			if (!read_eof)
 				result.InnerAsyncResult = cnc.ProcessRead (request, buffer, offset, size, ReadAsyncCB, result);
 			if (result.InnerAsyncResult == null) {
@@ -398,12 +400,12 @@ namespace System.Net
 
 		void ReadAsyncCB (IAsyncResult r)
 		{
-			WebAsyncResult result = (WebAsyncResult)r.AsyncState;
+			Console.Error.WriteLine ($"WCS READ ASYNC CB: {cnc.ID}");
 
-			int nbytes = -1;
-			try {
-				nbytes = cnc.EndRead (request, result.InnerAsyncResult);
-			} catch (Exception exc) {
+			var innerResult = (WebConnectionAsyncResult)r;
+			var result = (WebAsyncResult)innerResult.AsyncState;
+
+			if (innerResult.GotException) {
 				lock (locker) {
 					pendingReads--;
 					if (pendingReads == 0)
@@ -412,10 +414,12 @@ namespace System.Net
 
 				nextReadCalled = true;
 				cnc.Close (true);
-				result.SetCompleted (false, exc);
+				result.SetCompleted (false, innerResult.Exception);
 				result.DoCallback ();
 				return;
 			}
+
+			var nbytes = innerResult.NBytes;
 
 			if (nbytes < 0) {
 				nbytes = 0;
@@ -432,6 +436,8 @@ namespace System.Net
 		public override int EndRead (IAsyncResult r)
 		{
 			WebAsyncResult result = (WebAsyncResult)r;
+			Console.Error.WriteLine ($"WCS END READ: {cnc.ID} {result.EndCalled}");
+
 			if (result.EndCalled) {
 				int xx = result.NBytes;
 				return (xx >= 0) ? xx : 0;

@@ -917,10 +917,18 @@ namespace System.Net
 		{
 			Console.Error.WriteLine ($"WC PROCESS READ: {ID}");
 
-			if (chunkedRead && (chunkStream.DataAvailable || !chunkStream.WantMore))
-				return null;
-
 			var result = StartAsyncOperation (request, callback, state);
+
+			if (chunkedRead && (chunkStream.DataAvailable || !chunkStream.WantMore)) {
+				try {
+					var nbytes = ProcessRead_complete (result, null, buffer, offset, size);
+					result.SetCompleted (false, nbytes);
+				} catch (Exception ex) {
+					result.SetCompleted (false, ex);
+				}
+				result.DoCallback ();
+				return result;
+			}
 
 			try {
 				result.InnerAsyncResult = result.Stream.BeginRead (buffer, offset, size, r => {
@@ -950,11 +958,15 @@ namespace System.Net
 					throw new ObjectDisposedException (typeof (NetworkStream).FullName);
 			}
 
-			var nbytes = result.Stream.EndRead (inner);
-			var done = nbytes == 0;
+			int nbytes = 0;
+			bool done = false;
 
-			if (!chunkedRead)
-				return nbytes;
+			if (inner != null) {
+				nbytes = result.Stream.EndRead (inner);
+				done = nbytes == 0;
+				if (!chunkedRead)
+					return nbytes;
+			}
 
 			try {
 				chunkStream.WriteAndReadBack (buffer, offset, size, ref nbytes);
