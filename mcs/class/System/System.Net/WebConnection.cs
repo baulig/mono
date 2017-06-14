@@ -896,8 +896,7 @@ namespace System.Net
 			return true;
 		}
 
-		internal WebConnectionAsyncResult StartAsyncOperation (HttpWebRequest request, WebAsyncResult parent,
-		                                                       AsyncCallback callback, object state)
+		internal WebConnectionAsyncResult StartAsyncOperation (HttpWebRequest request, AsyncCallback callback, object state)
 		{
 			WebConnectionData data;
 			Stream s;
@@ -910,10 +909,10 @@ namespace System.Net
 					throw new ObjectDisposedException (typeof (NetworkStream).FullName);
 			}
 
-			return new WebConnectionAsyncResult (callback, state, data, request, parent, s);
+			return new WebConnectionAsyncResult (callback, state, data, request, s);
 		}
 
-		internal WebConnectionAsyncResult ProcessRead (HttpWebRequest request, WebAsyncResult parent,
+		internal WebConnectionAsyncResult ProcessRead (HttpWebRequest request, byte[] buffer, int offset, int size,
 		                                               AsyncCallback callback, object state)
 		{
 			Console.Error.WriteLine ($"WC PROCESS READ: {ID}");
@@ -921,12 +920,12 @@ namespace System.Net
 			if (chunkedRead && (chunkStream.DataAvailable || !chunkStream.WantMore))
 				return null;
 
-			var result = StartAsyncOperation (request, parent, callback, state);
+			var result = StartAsyncOperation (request, callback, state);
 
 			try {
-				result.InnerAsyncResult = result.Stream.BeginRead (parent.Buffer, parent.Offset, parent.Size, r => {
+				result.InnerAsyncResult = result.Stream.BeginRead (buffer, offset, size, r => {
 					try {
-						var nbytes = ProcessRead_complete (result, r);
+						var nbytes = ProcessRead_complete (result, r, buffer, offset, size);
 						result.SetCompleted (false, nbytes);
 					} catch (Exception ex) {
 						result.SetCompleted (false, ex);
@@ -940,7 +939,7 @@ namespace System.Net
 			}
 		}
 
-		int ProcessRead_complete (WebConnectionAsyncResult result, IAsyncResult inner)
+		int ProcessRead_complete (WebConnectionAsyncResult result, IAsyncResult inner, byte[] buffer, int offset, int size)
 		{
 			Console.Error.WriteLine ($"WC READ ASYNC CB: {ID}");
 
@@ -958,9 +957,9 @@ namespace System.Net
 				return nbytes;
 
 			try {
-				chunkStream.WriteAndReadBack (result.Parent.Buffer, result.Parent.Offset, result.Parent.Size, ref nbytes);
+				chunkStream.WriteAndReadBack (buffer, offset, size, ref nbytes);
 				if (!done && nbytes == 0 && chunkStream.WantMore)
-					nbytes = EnsureRead (result.Data, result.Parent.Buffer, result.Parent.Offset, result.Parent.Size);
+					nbytes = EnsureRead (result.Data, buffer, offset, size);
 			} catch (Exception e) {
 				if (e is WebException)
 					throw;
@@ -1029,6 +1028,78 @@ namespace System.Net
 			return true;
   		}
 
+		internal WebConnectionAsyncResult ProcessWrite (HttpWebRequest request, byte[] buffer, int offset, int size,
+		                                                AsyncCallback callback, object state)
+		{
+			Console.Error.WriteLine ($"WC PROCESS WRITE: {ID}");
+
+			var result = StartAsyncOperation (request, callback, state);
+
+			try {
+				result.InnerAsyncResult = result.Stream.BeginWrite (buffer, offset, size, r => {
+					try {
+						var ok = ProcessWrite_complete (result, r);
+						result.SetCompleted (false, ok ? 1 : 0);
+					} catch (Exception ex) {
+						result.SetCompleted (false, ex);
+					}
+					result.DoCallback ();
+				}, result);
+				return result;
+			} catch (ObjectDisposedException) {
+				lock (this) {
+					if (Data != result.Data)
+						return null;
+					if (Data.request != request)
+						return null;
+				}
+				throw;
+			} catch (IOException e) {
+				SocketException se = e.InnerException as SocketException;
+				if (se != null && se.SocketErrorCode == SocketError.NotConnected) {
+					return null;
+				}
+				throw;
+			} catch (Exception) {
+				status = WebExceptionStatus.SendFailure;
+				throw;
+			}
+		}
+
+		bool ProcessWrite_complete (WebConnectionAsyncResult result, IAsyncResult inner)
+		{
+			Console.Error.WriteLine ($"WC WRITE ASYNC CB: {ID}");
+
+			lock (this) {
+				if (status == WebExceptionStatus.RequestCanceled)
+					return true;
+				if (Data != result.Data || result.Data.request != result.Request)
+					throw new ObjectDisposedException (typeof (NetworkStream).FullName);
+			}
+
+			try {
+				result.Stream.EndWrite (inner);
+				return true;
+			} catch (Exception exc) {
+				status = WebExceptionStatus.SendFailure;
+				if (exc.InnerException != null)
+					throw exc.InnerException;
+				return false;
+			}
+		}
+
+		internal bool EndWrite (IAsyncResult r, bool throwOnError)
+		{
+			Console.Error.WriteLine ($"WC END WRITE: {ID}");
+
+			var result = (WebConnectionAsyncResult)r;
+			result.WaitUntilComplete ();
+
+			if (result.GotException)
+				throw result.Exception;
+			return result.NBytes > 0;
+		}
+
 		internal IAsyncResult BeginWrite (HttpWebRequest request, byte [] buffer, int offset, int size, AsyncCallback cb, object state)
 		{
 			Console.Error.WriteLine ($"WC BEGIN WRITE: {ID}");
@@ -1043,7 +1114,7 @@ namespace System.Net
 					return null;
 			}
 
-			var innerResult = new WebConnectionAsyncResult (null, null, data, request, null, s);
+			var innerResult = new WebConnectionAsyncResult (null, null, data, request, s);
 
 			try {
 				innerResult.InnerAsyncResult = s.BeginWrite (buffer, offset, size, cb, innerResult);

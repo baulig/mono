@@ -388,7 +388,7 @@ namespace System.Net
 				size = (int)(contentLength - totalRead);
 
 			if (!read_eof)
-				result.InnerAsyncResult = cnc.ProcessRead (request, result, ReadAsyncCB, result);
+				result.InnerAsyncResult = cnc.ProcessRead (request, buffer, offset, size, ReadAsyncCB, result);
 			if (result.InnerAsyncResult == null) {
 				result.SetCompleted (true, result.NBytes);
 				result.DoCallback ();
@@ -494,7 +494,7 @@ namespace System.Net
 			result.InnerAsyncResult = null;
 
 			try {
-				cnc.EndWrite (request, true, r);
+				cnc.EndWrite (r, true);
 				result.SetCompleted (false, 0);
 				if (!initRead) {
 					initRead = true;
@@ -588,7 +588,7 @@ namespace System.Net
 			}
 
 			try {
-				result.InnerAsyncResult = cnc.BeginWrite (request, buffer, offset, size, callback, result);
+				result.InnerAsyncResult = cnc.ProcessWrite (request, buffer, offset, size, callback, result);
 				if (result.InnerAsyncResult == null) {
 					if (!result.IsCompleted)
 						result.SetCompleted (true, 0);
@@ -700,9 +700,9 @@ namespace System.Net
 			headersSent = true;
 			headers = request.GetRequestHeaders ();
 
-			var innerResult = cnc.BeginWrite (request, headers, 0, headers.Length, r => {
+			var innerResult = cnc.ProcessWrite (request, headers, 0, headers.Length, r => {
 				try {
-					cnc.EndWrite (request, true, r);
+					cnc.EndWrite (r, true);
 					if (!initRead) {
 						initRead = true;
 						cnc.InitRead ();
@@ -778,9 +778,9 @@ namespace System.Net
 					return;
 				}
 
-				cnc.BeginWrite (request, bytes, 0, length, r => {
+				cnc.ProcessWrite (request, bytes, 0, length, r => {
 					try {
-						complete_request_written = cnc.EndWrite (request, false, r);
+						complete_request_written = cnc.EndWrite (r, false);
 						result.SetCompleted (false);
 					} catch (Exception exc) {
 						result.SetCompleted (false, exc);

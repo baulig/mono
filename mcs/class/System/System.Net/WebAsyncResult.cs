@@ -151,7 +151,6 @@ namespace System.Net
 	{
 		public readonly WebConnectionData Data;
 		public readonly HttpWebRequest Request;
-		public readonly WebAsyncResult Parent;
 		public readonly Stream Stream;
 
 		public IAsyncResult InnerAsyncResult;
@@ -159,12 +158,11 @@ namespace System.Net
 		int nbytes;
 
 		public WebConnectionAsyncResult (AsyncCallback cb, object state, WebConnectionData data,
-		                                 HttpWebRequest request, WebAsyncResult parent, Stream stream)
+		                                 HttpWebRequest request, Stream stream)
 			: base (cb, state)
 		{
 			Data = data;
 			Request = request;
-			Parent = parent;
 			Stream = stream;
 		}
 
