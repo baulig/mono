@@ -37,6 +37,50 @@ using System.Runtime.ExceptionServices;
 
 namespace System.Net
 {
+	// https://blogs.msdn.microsoft.com/pfxteam/2012/02/11/building-async-coordination-primitives-part-1-asyncmanualresetevent/
+	class AsyncManualResetEvent
+	{
+		volatile TaskCompletionSource<bool> m_tcs = new TaskCompletionSource<bool> ();
+
+		public Task WaitAsync () { return m_tcs.Task; }
+
+		public bool WaitOne (int millisecondTimeout)
+		{
+			return m_tcs.Task.Wait (millisecondTimeout); 
+		}
+
+		public async Task<bool> WaitAsync (int millisecondTimeout)
+		{
+			var timeoutTask = Task.Delay (millisecondTimeout);
+			var ret = await Task.WhenAny (m_tcs.Task, timeoutTask).ConfigureAwait (false);
+			return ret != timeoutTask;
+		}
+
+		public void Set ()
+		{
+			var tcs = m_tcs;
+			Task.Factory.StartNew (s => ((TaskCompletionSource<bool>)s).TrySetResult (true),
+			    tcs, CancellationToken.None, TaskCreationOptions.PreferFairness, TaskScheduler.Default);
+			tcs.Task.Wait ();
+		}
+
+		public void Reset ()
+		{
+			while (true) {
+				var tcs = m_tcs;
+				if (!tcs.Task.IsCompleted ||
+				    Interlocked.CompareExchange (ref m_tcs, new TaskCompletionSource<bool> (), tcs) == tcs)
+					return;
+			}
+		}
+
+		public AsyncManualResetEvent (bool state)
+		{
+			if (state)
+				Set ();
+		}
+	}
+
 	class WebConnectionStream : Stream
 	{
 		static byte[] crlf = new byte[] { 13, 10 };
@@ -53,7 +97,7 @@ namespace System.Net
 		bool nextReadCalled;
 		int pendingReads;
 		int pendingWrites;
-		ManualResetEvent pending;
+		AsyncManualResetEvent pending;
 		bool allowBuffering;
 		bool sendChunked;
 		MemoryStream writeBuffer;
@@ -62,6 +106,8 @@ namespace System.Net
 		bool disposed;
 		bool headersSent;
 		object locker = new object ();
+		TaskCompletionSource<int> readTcs;
+		int nestedRead;
 		bool initRead;
 		bool read_eof;
 		bool complete_request_written;
@@ -80,7 +126,7 @@ namespace System.Net
 				throw new InvalidOperationException ("data.request was not initialized");
 			isRead = true;
 			cb_wrapper = new AsyncCallback (ReadCallbackWrapper);
-			pending = new ManualResetEvent (true);
+			pending = new AsyncManualResetEvent (true);
 			this.request = data.request;
 			read_timeout = request.ReadWriteTimeout;
 			write_timeout = read_timeout;
@@ -117,7 +163,7 @@ namespace System.Net
 			allowBuffering = request.InternalAllowBuffering;
 			sendChunked = request.SendChunked;
 			if (sendChunked)
-				pending = new ManualResetEvent (true);
+				pending = new AsyncManualResetEvent (true);
 			else if (allowBuffering)
 				writeBuffer = new MemoryStream ();
 		}
@@ -226,7 +272,108 @@ namespace System.Net
 			}
 		}
 
+		async Task ReadAllAsync (CancellationToken cancellationToken)
+		{
+			WebConnection.Debug ($"WCS READ ALL ASYNC: {cnc.ID}");
+			if (!isRead || read_eof || totalRead >= contentLength || nextReadCalled) {
+				if (isRead && !nextReadCalled) {
+					nextReadCalled = true;
+					cnc.NextRead ();
+				}
+				return;
+			}
+
+			var timeoutTask = Task.Delay (ReadTimeout);
+			var myReadTcs = new TaskCompletionSource<int> ();
+			while (true) {
+				/*
+				 * 'readTcs' is set by ReadAsync().
+				 */
+				cancellationToken.ThrowIfCancellationRequested ();
+				var oldReadTcs = Interlocked.CompareExchange (ref readTcs, myReadTcs, null);
+				if (oldReadTcs == null)
+					break;
+
+				// ReadAsync() is in progress.
+				var anyTask = await Task.WhenAny (oldReadTcs.Task, timeoutTask).ConfigureAwait (false);
+				if (anyTask == timeoutTask)
+					throw new WebException ("The operation has timed out.", WebExceptionStatus.Timeout);
+			}
+
+			WebConnection.Debug ($"WCS READ ALL ASYNC #1: {cnc.ID}");
+
+			cancellationToken.ThrowIfCancellationRequested ();
+
+			try {
+				if (totalRead >= contentLength)
+					return;
+
+				byte[] b = null;
+				int diff = readBufferSize - readBufferOffset;
+				int new_size;
+
+				if (contentLength == Int64.MaxValue) {
+					MemoryStream ms = new MemoryStream ();
+					byte[] buffer = null;
+					if (readBuffer != null && diff > 0) {
+						ms.Write (readBuffer, readBufferOffset, diff);
+						if (readBufferSize >= 8192)
+							buffer = readBuffer;
+					}
+
+					if (buffer == null)
+						buffer = new byte[8192];
+
+					int read;
+					while ((read = await cnc.ReadAsync (request, buffer, 0, buffer.Length, cancellationToken)) != 0)
+						ms.Write (buffer, 0, read);
+
+					b = ms.GetBuffer ();
+					new_size = (int)ms.Length;
+					contentLength = new_size;
+				} else {
+					new_size = (int)(contentLength - totalRead);
+					b = new byte[new_size];
+					if (readBuffer != null && diff > 0) {
+						if (diff > new_size)
+							diff = new_size;
+
+						Buffer.BlockCopy (readBuffer, readBufferOffset, b, 0, diff);
+					}
+
+					int remaining = new_size - diff;
+					int r = -1;
+					while (remaining > 0 && r != 0) {
+						r = await cnc.ReadAsync (request, b, diff, remaining, cancellationToken);
+						remaining -= r;
+						diff += r;
+					}
+				}
+
+				readBuffer = b;
+				readBufferOffset = 0;
+				readBufferSize = new_size;
+				totalRead = 0;
+				nextReadCalled = true;
+				myReadTcs.TrySetResult (new_size);
+			} catch (Exception ex) {
+				WebConnection.Debug ($"WCS READ ALL ASYNC EX: {cnc.ID} {ex.Message}");
+				myReadTcs.TrySetException (ex);
+				throw;
+			} finally {
+				WebConnection.Debug ($"WCS READ ALL #2: {cnc.ID}");
+				readTcs = null;
+			}
+
+			cnc.NextRead ();
+		}
+
 		internal void ReadAll ()
+		{
+			ReadAllAsync (CancellationToken.None).Wait ();
+		}
+
+		void OldReadAll ()
 		{
 			if (!isRead || read_eof || totalRead >= contentLength || nextReadCalled) {
 				if (isRead && !nextReadCalled) {
@@ -360,10 +507,22 @@ namespace System.Net
 			if (size < 0 || (length - offset) < size)
 				throw new ArgumentOutOfRangeException ("size");
 
-			lock (locker) {
-				pendingReads++;
-				pending.Reset ();
+			if (Interlocked.CompareExchange (ref nestedRead, 1, 0) != 0)
+				throw new InvalidOperationException ("Invalid nested call.");
+
+			var myReadTcs = new TaskCompletionSource<int> ();
+			while (!cancellationToken.IsCancellationRequested) {
+				/*
+				 * 'readTcs' is set by ReadAllAsync().
+				 */
+				var oldReadTcs = Interlocked.CompareExchange (ref readTcs, myReadTcs, null);
+				WebConnection.Debug ($"WCS READ ASYNC #1: {cnc.ID} {oldReadTcs != null}");
+				if (oldReadTcs == null)
+					break;
+				await oldReadTcs.Task.ConfigureAwait (false);
 			}
+
+			WebConnection.Debug ($"WCS READ ASYNC #2: {cnc.ID} {totalRead} {contentLength}");
 
 			if (totalRead >= contentLength)
 				return FinishReadAsync (0, -1, null);
@@ -405,6 +564,9 @@ namespace System.Net
 
 			if (error != null) {
 				lock (locker) {
+					readTcs.TrySetException (error.SourceException);
+					readTcs = null;
+					nestedRead = 0;
 					pendingReads--;
 					if (pendingReads == 0)
 						pending.Set ();
@@ -426,6 +588,9 @@ namespace System.Net
 				contentLength = totalRead;
 
 			lock (locker) {
+				readTcs.TrySetResult (oldBytes + nbytes);
+				readTcs = null;
+				nestedRead = 0;
 				pendingReads--;
 				if (pendingReads == 0)
 					pending.Set ();
