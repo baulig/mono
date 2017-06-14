@@ -28,10 +28,12 @@
 // OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 // WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //
-
+#define MARTIN_DEBUG
 using System.IO;
 using System.Text;
 using System.Threading;
+using System.Threading.Tasks;
+using System.Runtime.ExceptionServices;
 
 namespace System.Net
 {
@@ -327,6 +329,9 @@ namespace System.Net
 
 		public override int Read (byte[] buffer, int offset, int size)
 		{
+			WebConnection.Debug ($"WCS READ: {cnc.ID}");
+			return ReadAsync (buffer, offset, size, CancellationToken.None).Result;
+
 			AsyncCallback cb = cb_wrapper;
 			WebAsyncResult res = (WebAsyncResult)BeginRead (buffer, offset, size, cb, null);
 			if (!res.IsCompleted && !res.WaitUntilComplete (ReadTimeout, false)) {
@@ -336,6 +341,100 @@ namespace System.Net
 			}
 
 			return EndRead (res);
+		}
+
+		public override async Task<int> ReadAsync (byte[] buffer, int offset, int size, CancellationToken cancellationToken)
+		{
+			WebConnection.Debug ($"WCS READ ASYNC: {cnc.ID}");
+
+			cancellationToken.ThrowIfCancellationRequested ();
+
+			if (!isRead)
+				throw new NotSupportedException ("this stream does not allow reading");
+			if (buffer == null)
+				throw new ArgumentNullException ("buffer");
+
+			int length = buffer.Length;
+			if (offset < 0 || length < offset)
+				throw new ArgumentOutOfRangeException ("offset");
+			if (size < 0 || (length - offset) < size)
+				throw new ArgumentOutOfRangeException ("size");
+
+			lock (locker) {
+				pendingReads++;
+				pending.Reset ();
+			}
+
+			if (totalRead >= contentLength)
+				return FinishReadAsync (0, -1, null);
+
+			int oldBytes = 0;
+			int remaining = readBufferSize - readBufferOffset;
+			if (remaining > 0) {
+				int copy = (remaining > size) ? size : remaining;
+				Buffer.BlockCopy (readBuffer, readBufferOffset, buffer, offset, copy);
+				readBufferOffset += copy;
+				offset += copy;
+				size -= copy;
+				totalRead += copy;
+				if (size == 0 || totalRead >= contentLength)
+					return FinishReadAsync (0, copy, null);
+				oldBytes = copy;
+			}
+
+			if (contentLength != Int64.MaxValue && contentLength - totalRead < size)
+				size = (int)(contentLength - totalRead);
+
+			WebConnection.Debug ($"WCS READ ASYNC #1: {cnc.ID} {oldBytes} {size} {read_eof}");
+
+			if (read_eof)
+				return FinishReadAsync (oldBytes, 0, null);
+
+			try {
+				var ret = await cnc.ReadAsync (request, buffer, offset, size, cancellationToken).ConfigureAwait (false);
+				return FinishReadAsync (oldBytes, ret, null);
+			} catch (Exception ex) {
+				var error = ExceptionDispatchInfo.Capture (ex);
+				return FinishReadAsync (-1, -1, error);
+			}
+		}
+
+		int FinishReadAsync (int oldBytes, int nbytes, ExceptionDispatchInfo error)
+		{
+			WebConnection.Debug ($"WCS READ ASYNC DONE: {cnc.ID} {oldBytes} {nbytes} {error != null}");
+
+			if (error != null) {
+				lock (locker) {
+					pendingReads--;
+					if (pendingReads == 0)
+						pending.Set ();
+				}
+
+				nextReadCalled = true;
+				cnc.Close (true);
+				error.Throw ();
+				return -1;
+			}
+
+			if (nbytes < 0) {
+				nbytes = 0;
+				read_eof = true;
+			}
+
+			totalRead += nbytes;
+			if (nbytes == 0)
+				contentLength = totalRead;
+
+			lock (locker) {
+				pendingReads--;
+				if (pendingReads == 0)
+					pending.Set ();
+			}
+
+			if (totalRead >= contentLength && !nextReadCalled)
+				ReadAll ();
+
+			return oldBytes + nbytes;
 		}
 
 		public override IAsyncResult BeginRead (byte[] buffer, int offset, int size,

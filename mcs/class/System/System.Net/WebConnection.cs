@@ -27,13 +27,14 @@
 // OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 // WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //
-
+#define MARTIN_DEBUG
 using System.IO;
 using System.Collections;
 using System.Net.Sockets;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Diagnostics;
 using Mono.Net.Security;
 
@@ -909,6 +910,51 @@ namespace System.Net
 			return new WebConnectionAsyncResult (callback, state, data, request, s);
 		}
 
+		internal async Task<int> ReadAsync (HttpWebRequest request, byte[] buffer, int offset, int size, CancellationToken cancellationToken)
+		{
+			Debug ($"WC READ ASYNC: {ID}");
+
+			cancellationToken.ThrowIfCancellationRequested ();
+
+			WebConnectionData data;
+			Stream s;
+			lock (this) {
+				if (Data.request != request)
+					throw new ObjectDisposedException (typeof (NetworkStream).FullName);
+				data = Data;
+				s = data.NetworkStream;
+				if (s == null)
+					throw new ObjectDisposedException (typeof (NetworkStream).FullName);
+			}
+
+			int nbytes = 0;
+			bool done = false;
+
+			if (!chunkedRead || (!chunkStream.DataAvailable && chunkStream.WantMore)) {
+				nbytes = await s.ReadAsync (buffer, offset, size, cancellationToken).ConfigureAwait (false);
+				if (!chunkedRead)
+					return nbytes;
+			}
+
+			try {
+				chunkStream.WriteAndReadBack (buffer, offset, size, ref nbytes);
+				if (!done && nbytes == 0 && chunkStream.WantMore)
+					nbytes = await EnsureReadAsync (data, buffer, offset, size, cancellationToken).ConfigureAwait (false);
+			} catch (Exception e) {
+				if (e is WebException || e is OperationCanceledException)
+					throw;
+				throw new WebException ("Invalid chunked data.", e, WebExceptionStatus.ServerProtocolViolation, null);
+			}
+
+			if ((done || nbytes == 0) && chunkStream.ChunkLeft != 0) {
+				HandleError (WebExceptionStatus.ReceiveFailure, null, "chunked EndRead");
+				throw new WebException ("Read error", null, WebExceptionStatus.ReceiveFailure, null);
+			}
+
+			return (nbytes != 0) ? nbytes : -1;
+		}
+
+
 		internal WebConnectionAsyncResult AsyncRead (HttpWebRequest request, byte[] buffer, int offset, int size,
 		                                             AsyncCallback callback, object state)
 		{
@@ -999,6 +1045,31 @@ namespace System.Net
 					morebytes = new byte [localsize];
 
 				int nread = data.NetworkStream.Read (morebytes, 0, localsize);
+				if (nread <= 0)
+					return 0; // Error
+
+				chunkStream.Write (morebytes, 0, nread);
+				nbytes += chunkStream.Read (buffer, offset + nbytes, size - nbytes);
+			}
+
+			return nbytes;
+		}
+
+		async Task<int> EnsureReadAsync (WebConnectionData data, byte[] buffer, int offset, int size, CancellationToken cancellationToken)
+		{
+			byte[] morebytes = null;
+			int nbytes = 0;
+			while (nbytes == 0 && chunkStream.WantMore && !cancellationToken.IsCancellationRequested) {
+				int localsize = chunkStream.ChunkLeft;
+				if (localsize <= 0) // not read chunk size yet
+					localsize = 1024;
+				else if (localsize > 16384)
+					localsize = 16384;
+
+				if (morebytes == null || morebytes.Length < localsize)
+					morebytes = new byte[localsize];
+
+				int nread = await data.NetworkStream.ReadAsync (morebytes, 0, localsize, cancellationToken).ConfigureAwait (false);
 				if (nread <= 0)
 					return 0; // Error
 
