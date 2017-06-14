@@ -106,17 +106,16 @@ namespace System.Net
 			abortHandler = new EventHandler (abortHelper.Abort);
 		}
 
-		Socket xsocket {
-			get { return _socket; }
-			set {
-				Console.Error.WriteLine ($"WC SET SOCKET: {ID} {_socket?.ID ?? 0} -> {value?.ID ?? 0}");
-				if (csActive) {
-					Console.Error.WriteLine ($"WC SET SOCKET - MID-AIR COLLISSION!");
-					Console.Error.WriteLine (Environment.StackTrace);
-					Console.Error.WriteLine ($"WC SET SOCKET - MID-AIR COLLISSION DONE!");
-				}
-				_socket = value;
-			}
+		[Conditional ("MARTIN_DEBUG")]
+		internal static void Debug (string message, params object[] args)
+		{
+			Console.Error.WriteLine (string.Format (message, args));
+		}
+
+		[Conditional ("MARTIN_DEBUG")]
+		internal static void Debug (string message)
+		{
+			Console.Error.WriteLine (message);
 		}
 
 		class AbortHelper
@@ -419,7 +418,7 @@ namespace System.Net
 				csActive = true;
 				NetworkStream serverStream = new NetworkStream (data.Socket, false);
 
-				Console.Error.WriteLine ($"WC CREATE STREAM: {ID} {requestID}");
+				Debug ($"WC CREATE STREAM: {ID} {requestID}");
 
 				if (request.Address.Scheme == Uri.UriSchemeHttps) {
 #if SECURITY_DEP
@@ -449,12 +448,12 @@ namespace System.Net
 					status = WebExceptionStatus.ConnectFailure;
 				else if (data.MonoTlsStream != null) {
 					status = data.MonoTlsStream.ExceptionStatus;
-					Console.Error.WriteLine ($"WC CREATE STREAM EX: {ID} {requestID} - {status} - {ex.Message}");
+					Debug ($"WC CREATE STREAM EX: {ID} {requestID} - {status} - {ex.Message}");
 				}
 				connect_exception = ex;
 				return false;
 			} finally {
-				Console.Error.WriteLine ($"WC CREATE STREAM DONE: {ID} {requestID}");
+				Debug ($"WC CREATE STREAM DONE: {ID} {requestID}");
 				csActive = false;
 			}
 
@@ -915,7 +914,7 @@ namespace System.Net
 		internal WebConnectionAsyncResult AsyncRead (HttpWebRequest request, byte[] buffer, int offset, int size,
 		                                             AsyncCallback callback, object state)
 		{
-			Console.Error.WriteLine ($"WC PROCESS READ: {ID}");
+			Debug ($"WC PROCESS READ: {ID}");
 
 			var result = StartAsyncOperation (request, callback, state);
 
@@ -949,7 +948,7 @@ namespace System.Net
 
 		int AsyncReadCB (WebConnectionAsyncResult result, IAsyncResult inner, byte[] buffer, int offset, int size)
 		{
-			Console.Error.WriteLine ($"WC READ ASYNC CB: {ID}");
+			Debug ($"WC READ ASYNC CB: {ID}");
 
 			lock (this) {
 				if (result.Request.Aborted)
@@ -1031,7 +1030,7 @@ namespace System.Net
 		internal WebConnectionAsyncResult AsyncWrite (HttpWebRequest request, byte[] buffer, int offset, int size,
 		                                              bool throwOnError, AsyncCallback callback, object state)
 		{
-			Console.Error.WriteLine ($"WC PROCESS WRITE: {ID}");
+			Debug ($"WC PROCESS WRITE: {ID}");
 
 			var result = StartAsyncOperation (request, callback, state);
 
@@ -1068,7 +1067,7 @@ namespace System.Net
 
 		bool ProcessWrite_complete (WebConnectionAsyncResult result, IAsyncResult inner, bool throwOnError)
 		{
-			Console.Error.WriteLine ($"WC WRITE ASYNC CB: {ID}");
+			Debug ($"WC WRITE ASYNC CB: {ID}");
 
 			lock (this) {
 				if (status == WebExceptionStatus.RequestCanceled)
@@ -1090,7 +1089,7 @@ namespace System.Net
 
 		internal bool EndWrite (IAsyncResult r, bool throwOnError)
 		{
-			Console.Error.WriteLine ($"WC END WRITE: {ID}");
+			Debug ($"WC END WRITE: {ID}");
 
 			var result = (WebConnectionAsyncResult)r;
 			result.WaitUntilComplete ();
@@ -1103,7 +1102,7 @@ namespace System.Net
 
 		internal int Read (HttpWebRequest request, byte [] buffer, int offset, int size)
 		{
-			Console.Error.WriteLine ($"WC READ: {ID}");
+			Debug ($"WC READ: {ID}");
 			WebConnectionData data;
 			Stream s;
 			lock (this) {
@@ -1147,7 +1146,7 @@ namespace System.Net
 
 		internal bool Write (HttpWebRequest request, byte [] buffer, int offset, int size, ref string err_msg)
 		{
-			Console.Error.WriteLine ($"WC WRITE: {ID}");
+			Debug ($"WC WRITE: {ID}");
 			err_msg = null;
 			WebConnectionData data;
 			Stream s;

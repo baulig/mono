@@ -84,7 +84,7 @@ namespace System.Net
 		public Stream NetworkStream {
 			get {
 				lock (this) {
-					if (ReadState == ReadState.Aborted)
+					if (false && ReadState == ReadState.Aborted)
 						throw new WebException ("Aborted", WebExceptionStatus.RequestCanceled);
 					return nstream;
 				}

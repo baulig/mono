@@ -387,7 +387,7 @@ namespace System.Net
 			if (contentLength != Int64.MaxValue && contentLength - totalRead < size)
 				size = (int)(contentLength - totalRead);
 
-			Console.Error.WriteLine ($"WCS BEGIN READ: {cnc.ID}");
+			WebConnection.Debug ($"WCS BEGIN READ: {cnc.ID}");
 
 			if (!read_eof)
 				result.InnerAsyncResult = cnc.AsyncRead (request, buffer, offset, size, ReadAsyncCB, result);
@@ -400,7 +400,7 @@ namespace System.Net
 
 		void ReadAsyncCB (IAsyncResult r)
 		{
-			Console.Error.WriteLine ($"WCS READ ASYNC CB: {cnc.ID}");
+			WebConnection.Debug ($"WCS READ ASYNC CB: {cnc.ID}");
 
 			var innerResult = (WebConnectionAsyncResult)r;
 			var result = (WebAsyncResult)innerResult.AsyncState;
@@ -436,7 +436,7 @@ namespace System.Net
 		public override int EndRead (IAsyncResult r)
 		{
 			WebAsyncResult result = (WebAsyncResult)r;
-			Console.Error.WriteLine ($"WCS END READ: {cnc.ID} {result.EndCalled}");
+			WebConnection.Debug ($"WCS END READ: {cnc.ID} {result.EndCalled}");
 
 			if (result.EndCalled) {
 				int xx = result.NBytes;
