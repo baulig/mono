@@ -368,6 +368,7 @@ namespace System.Net
 			cnc.NextRead ();
 		}
 
+		[Obsolete ("Use ReadAllAsync()")]
 		internal void ReadAll ()
 		{
 			ReadAllAsync (CancellationToken.None).Wait ();
@@ -446,8 +447,8 @@ namespace System.Net
 
 			WebConnection.Debug ($"WCS READ ASYNC #2: {cnc.ID} {totalRead} {contentLength}");
 
-			if (totalRead >= contentLength)
-				return FinishReadAsync (0, -1, null);
+			if (totalRead >= contentLength || cancellationToken.IsCancellationRequested)
+				return await FinishReadAsync (0, -1, null, cancellationToken).ConfigureAwait (false);
 
 			int oldBytes = 0;
 			int remaining = readBufferSize - readBufferOffset;
@@ -459,7 +460,7 @@ namespace System.Net
 				size -= copy;
 				totalRead += copy;
 				if (size == 0 || totalRead >= contentLength)
-					return FinishReadAsync (0, copy, null);
+					return await FinishReadAsync (0, copy, null, cancellationToken).ConfigureAwait (false);
 				oldBytes = copy;
 			}
 
@@ -469,20 +470,25 @@ namespace System.Net
 			WebConnection.Debug ($"WCS READ ASYNC #1: {cnc.ID} {oldBytes} {size} {read_eof}");
 
 			if (read_eof)
-				return FinishReadAsync (oldBytes, 0, null);
+				return await FinishReadAsync (oldBytes, 0, null, cancellationToken).ConfigureAwait (false);
+			if (cancellationToken.IsCancellationRequested)
+				return await FinishReadAsync (0, -1, null, cancellationToken).ConfigureAwait (false);
 
 			try {
 				var ret = await cnc.ReadAsync (request, buffer, offset, size, cancellationToken).ConfigureAwait (false);
-				return FinishReadAsync (oldBytes, ret, null);
+				return await FinishReadAsync (oldBytes, ret, null, cancellationToken).ConfigureAwait (false);
 			} catch (Exception ex) {
 				var error = ExceptionDispatchInfo.Capture (ex);
-				return FinishReadAsync (-1, -1, error);
+				return await FinishReadAsync (-1, -1, error, cancellationToken).ConfigureAwait (false);
 			}
 		}
 
-		int FinishReadAsync (int oldBytes, int nbytes, ExceptionDispatchInfo error)
+		async Task<int> FinishReadAsync (int oldBytes, int nbytes, ExceptionDispatchInfo error, CancellationToken cancellationToken)
 		{
-			WebConnection.Debug ($"WCS READ ASYNC DONE: {cnc.ID} {oldBytes} {nbytes} {error != null}");
+			WebConnection.Debug ($"WCS FINISH READ ASYNC: {cnc.ID} {oldBytes} {nbytes} {error != null}");
+
+			if (cancellationToken.IsCancellationRequested && error == null)
+				error = ExceptionDispatchInfo.Capture (new OperationCanceledException ("WebConnectionStream.ReadAsync()"));
 
 			if (error != null) {
 				lock (locker) {
@@ -518,8 +524,11 @@ namespace System.Net
 					pending.Set ();
 			}
 
-			if (totalRead >= contentLength && !nextReadCalled)
-				ReadAll ();
+			if (totalRead >= contentLength && !nextReadCalled) {
+				WebConnection.Debug ($"WCS READ ASYNC - READ ALL: {cnc.ID} {oldBytes} {nbytes} {error != null}");
+				await ReadAllAsync (cancellationToken).ConfigureAwait (false);
+				WebConnection.Debug ($"WCS READ ASYNC - READ ALL DONE: {cnc.ID} {oldBytes} {nbytes} {error != null}");
+			}
 
 			return oldBytes + nbytes;
 		}
