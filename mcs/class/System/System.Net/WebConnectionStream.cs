@@ -733,6 +733,37 @@ namespace System.Net
 		{
 		}
 
+		internal async Task SetHeadersAsync (bool setInternalLength)
+		{
+			if (headersSent)
+				return;
+
+			string method = request.Method;
+			bool no_writestream = (method == "GET" || method == "CONNECT" || method == "HEAD" ||
+					      method == "TRACE");
+			bool webdav = (method == "PROPFIND" || method == "PROPPATCH" || method == "MKCOL" ||
+				      method == "COPY" || method == "MOVE" || method == "LOCK" ||
+				      method == "UNLOCK");
+
+			if (setInternalLength && !no_writestream && writeBuffer != null)
+				request.InternalContentLength = writeBuffer.Length;
+
+			bool has_content = !no_writestream && (writeBuffer == null || request.ContentLength > -1);
+			if (!(sendChunked || has_content || no_writestream || webdav))
+				return;
+
+			headersSent = true;
+			headers = request.GetRequestHeaders ();
+
+			try {
+				await cnc.WriteAsync (request, headers, 0, headers.Length, CancellationToken.None).ConfigureAwait (false);
+			} catch (Exception e) {
+				if (e is WebException)
+					throw;
+				throw new WebException ("Error writing headers", WebExceptionStatus.SendFailure, WebExceptionInternalStatus.RequestFatal, e);
+			}
+		}
+
 		internal void SetHeadersAsync (bool setInternalLength, SimpleAsyncCallback callback)
 		{
 			SimpleAsyncResult.Run (r => SetHeadersAsync (r, setInternalLength), callback);
@@ -745,10 +776,10 @@ namespace System.Net
 
 			string method = request.Method;
 			bool no_writestream = (method == "GET" || method == "CONNECT" || method == "HEAD" ||
-			                      method == "TRACE");
+					      method == "TRACE");
 			bool webdav = (method == "PROPFIND" || method == "PROPPATCH" || method == "MKCOL" ||
-			              method == "COPY" || method == "MOVE" || method == "LOCK" ||
-			              method == "UNLOCK");
+				      method == "COPY" || method == "MOVE" || method == "LOCK" ||
+				      method == "UNLOCK");
 
 			if (setInternalLength && !no_writestream && writeBuffer != null)
 				request.InternalContentLength = writeBuffer.Length;

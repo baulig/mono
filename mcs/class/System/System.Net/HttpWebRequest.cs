@@ -1360,7 +1360,7 @@ namespace System.Net
 		{
 			if (Aborted)
 				return;
-			
+
 			writeStream = stream;
 			if (bodyBuffer != null) {
 				webHeaders.RemoveInternal ("Transfer-Encoding");
@@ -1368,26 +1368,26 @@ namespace System.Net
 				writeStream.SendChunked = false;
 			}
 
-			writeStream.SetHeadersAsync (false, result => {
-				if (result.GotException) {
-					SetWriteStreamError (result.Exception);
+			try {
+				writeStream.SetHeadersAsync (false).Wait ();
+			} catch (Exception ex) {
+				SetWriteStreamError (ex);
+				return;
+			}
+
+			haveRequest = true;
+
+			SetWriteStreamInner (inner => {
+				if (inner.GotException) {
+					SetWriteStreamError (inner.Exception);
 					return;
 				}
 
-				haveRequest = true;
-
-				SetWriteStreamInner (inner => {
-					if (inner.GotException) {
-						SetWriteStreamError (inner.Exception);
-						return;
-					}
-
-					if (asyncWrite != null) {
-						asyncWrite.SetCompleted (inner.CompletedSynchronouslyPeek, writeStream);
-						asyncWrite.DoCallback ();
-						asyncWrite = null;
-					}
-				});
+				if (asyncWrite != null) {
+					asyncWrite.SetCompleted (inner.CompletedSynchronouslyPeek, writeStream);
+					asyncWrite.DoCallback ();
+					asyncWrite = null;
+				}
 			});
 		}
 
