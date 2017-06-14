@@ -932,12 +932,15 @@ namespace System.Net
 
 			if (!chunkedRead || (!chunkStream.DataAvailable && chunkStream.WantMore)) {
 				nbytes = await s.ReadAsync (buffer, offset, size, cancellationToken).ConfigureAwait (false);
+				Debug ($"WC READ ASYNC #1: {ID} {nbytes} {chunkedRead}");
 				if (!chunkedRead)
 					return nbytes;
+				done = nbytes == 0;
 			}
 
 			try {
 				chunkStream.WriteAndReadBack (buffer, offset, size, ref nbytes);
+				Debug ($"WC READ ASYNC #1: {ID} {done} {nbytes} {chunkStream.WantMore}");
 				if (!done && nbytes == 0 && chunkStream.WantMore)
 					nbytes = await EnsureReadAsync (data, buffer, offset, size, cancellationToken).ConfigureAwait (false);
 			} catch (Exception e) {
@@ -951,7 +954,7 @@ namespace System.Net
 				throw new WebException ("Read error", null, WebExceptionStatus.ReceiveFailure, null);
 			}
 
-			return (nbytes != 0) ? nbytes : -1;
+			return nbytes;
 		}
 
 
