@@ -46,6 +46,7 @@ namespace System.Net
 
 		public bool WaitOne (int millisecondTimeout)
 		{
+			WebConnection.Debug ($"AMRE WAIT ONE: {millisecondTimeout}");
 			return m_tcs.Task.Wait (millisecondTimeout); 
 		}
 
@@ -733,7 +734,7 @@ namespace System.Net
 		{
 		}
 
-		internal async Task SetHeadersAsync (bool setInternalLength)
+		internal async Task SetHeadersAsync (bool setInternalLength, CancellationToken cancellationToken)
 		{
 			if (headersSent)
 				return;
@@ -756,12 +757,57 @@ namespace System.Net
 			headers = request.GetRequestHeaders ();
 
 			try {
-				await cnc.WriteAsync (request, headers, 0, headers.Length, CancellationToken.None).ConfigureAwait (false);
+				await cnc.WriteAsync (request, headers, 0, headers.Length, cancellationToken).ConfigureAwait (false);
+				if (!initRead) {
+					initRead = true;
+					cnc.InitRead ();
+				}
+				var cl = request.ContentLength;
+				if (!sendChunked && cl == 0)
+					requestWritten = true;
 			} catch (Exception e) {
-				if (e is WebException)
+				if (e is WebException || e is OperationCanceledException)
 					throw;
 				throw new WebException ("Error writing headers", WebExceptionStatus.SendFailure, WebExceptionInternalStatus.RequestFatal, e);
 			}
+		}
+
+		internal async Task WriteRequestAsync (CancellationToken cancellationToken)
+		{
+			if (requestWritten)
+				return;
+
+			requestWritten = true;
+			if (sendChunked || !allowBuffering || writeBuffer == null)
+				return;
+
+			// Keep the call for a potential side-effect of GetBuffer
+			var bytes = writeBuffer.GetBuffer ();
+			var length = (int)writeBuffer.Length;
+			if (request.ContentLength != -1 && request.ContentLength < length) {
+				nextReadCalled = true;
+				cnc.Close (true);
+				throw new WebException ("Specified Content-Length is less than the number of bytes to write", null,
+					WebExceptionStatus.ServerProtocolViolation, null);
+			}
+
+			await SetHeadersAsync (true, cancellationToken).ConfigureAwait (false);
+
+			if (cnc.Data.StatusCode != 0 && cnc.Data.StatusCode != 100)
+				return;
+
+			if (!initRead) {
+				initRead = true;
+				cnc.InitRead ();
+			}
+
+			if (length == 0) {
+				complete_request_written = true;
+				return;
+			}
+
+			await cnc.WriteAsync (request, bytes, 0, length, cancellationToken).ConfigureAwait (false);
+			complete_request_written = true;
 		}
 
 		internal void SetHeadersAsync (bool setInternalLength, SimpleAsyncCallback callback)

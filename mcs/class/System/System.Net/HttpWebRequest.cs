@@ -1363,14 +1363,17 @@ namespace System.Net
 		internal void SetWriteStream (WebConnectionStream stream)
 		{
 			try {
-				SetWriteStreamAsync (stream).Wait ();
+				WebConnection.Debug ($"HWR SET WRITE STREAM: {ID}");
+				SetWriteStreamAsync (stream, CancellationToken.None).Wait ();
 			} catch (Exception ex) {
 				Console.Error.WriteLine ($"SET WRITE STREAM FAILED: {ex}");
 				throw;
+			} finally {
+				WebConnection.Debug ($"HWR SET WRITE STREAM DONE: {ID}");
 			}
 		}
 
-		internal async Task SetWriteStreamAsync (WebConnectionStream stream)
+		internal async Task SetWriteStreamAsync (WebConnectionStream stream, CancellationToken cancellationToken)
 		{
 			if (Aborted)
 				return;
@@ -1382,53 +1385,36 @@ namespace System.Net
 				writeStream.SendChunked = false;
 			}
 
-			WebConnection.Debug ($"HWR SET WRITE STREAM: {ID}");
-
 			try {
-				await writeStream.SetHeadersAsync (false).ConfigureAwait (false);
+				await writeStream.SetHeadersAsync (false, cancellationToken).ConfigureAwait (false);
 			} catch (Exception ex) {
 				WebConnection.Debug ($"HWR SET WRITE STREAM FAILED: {ID} - {ex}");
 				SetWriteStreamError (ex);
 				return;
 			}
 
-			WebConnection.Debug ($"HWR SET WRITE STREAM DONE: {ID}");
+			if (cancellationToken.IsCancellationRequested) {
+				SetWriteStreamError (WebExceptionStatus.RequestCanceled, new OperationCanceledException ("HttpWebRequest"));
+				return;
+			}
+
+			WebConnection.Debug ($"HWR SET WRITE STREAM ASYNC #1: {ID} {bodyBuffer != null} {MethodWithBuffer}");
 
 			haveRequest = true;
 
-			SetWriteStreamInner (inner => {
-				if (inner.GotException) {
-					SetWriteStreamError (inner.Exception);
-					return;
+			if (bodyBuffer != null) {
+				// The body has been written and buffered. The request "user"
+				// won't write it again, so we must do it.
+				if (auth_state.NtlmAuthState != NtlmAuthState.Challenge && proxy_auth_state.NtlmAuthState != NtlmAuthState.Challenge) {
+					// FIXME: this is a blocking call on the thread pool that could lead to thread pool exhaustion
+					await writeStream.WriteAsync (bodyBuffer, 0, bodyBufferLength, cancellationToken).ConfigureAwait (false);
+					bodyBuffer = null;
+					writeStream.Close ();
 				}
-
-				if (asyncWrite != null) {
-					asyncWrite.SetCompleted (inner.CompletedSynchronouslyPeek, writeStream);
-					asyncWrite.DoCallback ();
-					asyncWrite = null;
-				}
-			});
-		}
-
-		void SetWriteStreamInner (SimpleAsyncCallback callback)
-		{
-			SimpleAsyncResult.Run (result => {
-				if (bodyBuffer != null) {
-					// The body has been written and buffered. The request "user"
-					// won't write it again, so we must do it.
-					if (auth_state.NtlmAuthState != NtlmAuthState.Challenge && proxy_auth_state.NtlmAuthState != NtlmAuthState.Challenge) {
-						// FIXME: this is a blocking call on the thread pool that could lead to thread pool exhaustion
-						writeStream.Write (bodyBuffer, 0, bodyBufferLength);
-						bodyBuffer = null;
-						writeStream.Close ();
-					}
-				} else if (MethodWithBuffer) {
-					if (getResponseCalled && !writeStream.RequestWritten)
-						return writeStream.WriteRequestAsync (result);
-				}
-
-				return false;
-			}, callback);
+			} else if (MethodWithBuffer) {
+				if (getResponseCalled && !writeStream.RequestWritten)
+					await writeStream.WriteRequestAsync (cancellationToken).ConfigureAwait (false);
+			}
 		}
 
 		void SetWriteStreamError (Exception exc)
