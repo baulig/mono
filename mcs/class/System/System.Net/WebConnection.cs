@@ -896,8 +896,8 @@ namespace System.Net
 			return true;
 		}
 
-		internal WebAsyncResult StartAsyncOperation (HttpWebRequest request, byte[] buffer, int offset, int size,
-		                                             AsyncCallback callback, object state)
+		internal WebConnectionAsyncResult StartAsyncOperation (HttpWebRequest request, WebAsyncResult parent,
+		                                                       AsyncCallback callback, object state)
 		{
 			WebConnectionData data;
 			Stream s;
@@ -907,21 +907,24 @@ namespace System.Net
 				data = Data;
 				s = data.NetworkStream;
 				if (s == null)
-					return null;
+					throw new ObjectDisposedException (typeof (NetworkStream).FullName);
 			}
 
-			return new WebAsyncResult (request, data, s, buffer, offset, size, callback, state);
+			return new WebConnectionAsyncResult (callback, state, data, request, parent, s);
 		}
 
-		internal bool ProcessRead (WebAsyncResult result)
+		internal WebConnectionAsyncResult ProcessRead (HttpWebRequest request, WebAsyncResult parent,
+		                                               AsyncCallback callback, object state)
 		{
 			Console.Error.WriteLine ($"WC PROCESS READ: {ID}");
 
 			if (chunkedRead && (chunkStream.DataAvailable || !chunkStream.WantMore))
-				return true;
+				return null;
+
+			var result = StartAsyncOperation (request, parent, callback, state);
 
 			try {
-				result.InnerAsyncResult = result.Stream.BeginRead (result.Buffer, result.Offset, result.Size, r => {
+				result.InnerAsyncResult = result.Stream.BeginRead (parent.Buffer, parent.Offset, parent.Size, r => {
 					try {
 						var nbytes = ProcessRead_complete (result, r);
 						result.SetCompleted (false, nbytes);
@@ -930,14 +933,14 @@ namespace System.Net
 					}
 					result.DoCallback ();
 				}, result);
-				return false;
+				return result;
 			} catch (Exception) {
 				HandleError (WebExceptionStatus.ReceiveFailure, null, "chunked BeginRead");
 				throw;
 			}
 		}
 
-		int ProcessRead_complete (WebAsyncResult result, IAsyncResult inner)
+		int ProcessRead_complete (WebConnectionAsyncResult result, IAsyncResult inner)
 		{
 			Console.Error.WriteLine ($"WC READ ASYNC CB: {ID}");
 
@@ -955,9 +958,9 @@ namespace System.Net
 				return nbytes;
 
 			try {
-				chunkStream.WriteAndReadBack (result.Buffer, result.Offset, result.Size, ref nbytes);
+				chunkStream.WriteAndReadBack (result.Parent.Buffer, result.Parent.Offset, result.Parent.Size, ref nbytes);
 				if (!done && nbytes == 0 && chunkStream.WantMore)
-					nbytes = EnsureRead (result.Data, result.Buffer, result.Offset, result.Size);
+					nbytes = EnsureRead (result.Data, result.Parent.Buffer, result.Parent.Offset, result.Parent.Size);
 			} catch (Exception e) {
 				if (e is WebException)
 					throw;
@@ -976,7 +979,7 @@ namespace System.Net
 		{
 			Console.Error.WriteLine ($"WC END READ: {ID}");
 
-			var result = (WebConnectionAsyncResult)r.AsyncState;
+			var result = (WebConnectionAsyncResult)r;
 			result.WaitUntilComplete ();
 
 			if (result.GotException)

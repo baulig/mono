@@ -37,11 +37,11 @@ namespace System.Net
 {
 	class WebConnectionStream : Stream
 	{
-		static byte [] crlf = new byte [] { 13, 10 };
+		static byte[] crlf = new byte[] { 13, 10 };
 		bool isRead;
 		WebConnection cnc;
 		HttpWebRequest request;
-		byte [] readBuffer;
+		byte[] readBuffer;
 		int readBufferOffset;
 		int readBufferSize;
 		int stream_length; // -1 when CL not present
@@ -56,7 +56,7 @@ namespace System.Net
 		bool sendChunked;
 		MemoryStream writeBuffer;
 		bool requestWritten;
-		byte [] headers;
+		byte[] headers;
 		bool disposed;
 		bool headersSent;
 		object locker = new object ();
@@ -69,7 +69,7 @@ namespace System.Net
 		internal bool IgnoreIOErrors;
 
 		public WebConnectionStream (WebConnection cnc, WebConnectionData data)
-		{          
+		{
 			if (data == null)
 				throw new InvalidOperationException ("data was not initialized");
 			if (data.Headers == null)
@@ -83,9 +83,9 @@ namespace System.Net
 			read_timeout = request.ReadWriteTimeout;
 			write_timeout = read_timeout;
 			this.cnc = cnc;
-			string contentType = data.Headers ["Transfer-Encoding"];
+			string contentType = data.Headers["Transfer-Encoding"];
 			bool chunkedRead = (contentType != null && contentType.IndexOf ("chunked", StringComparison.OrdinalIgnoreCase) != -1);
-			string clength = data.Headers ["Content-Length"];
+			string clength = data.Headers["Content-Length"];
 			if (!chunkedRead && clength != null && clength != "") {
 				try {
 					contentLength = Int32.Parse (clength);
@@ -122,7 +122,7 @@ namespace System.Net
 
 		bool CheckAuthHeader (string headerName)
 		{
-			var authHeader = cnc.Data.Headers [headerName];
+			var authHeader = cnc.Data.Headers[headerName];
 			return (authHeader != null && authHeader.IndexOf ("NTLM", StringComparison.Ordinal) != -1);
 		}
 
@@ -185,24 +185,24 @@ namespace System.Net
 			set { sendChunked = value; }
 		}
 
-		internal byte [] ReadBuffer {
+		internal byte[] ReadBuffer {
 			set { readBuffer = value; }
 		}
 
 		internal int ReadBufferOffset {
 			set { readBufferOffset = value; }
 		}
-		
+
 		internal int ReadBufferSize {
 			set { readBufferSize = value; }
 		}
-		
+
 		internal byte[] WriteBuffer {
 			get { return writeBuffer.GetBuffer (); }
 		}
 
 		internal int WriteBufferLength {
-			get { return writeBuffer != null ? (int) writeBuffer.Length : (-1); }
+			get { return writeBuffer != null ? (int)writeBuffer.Length : (-1); }
 		}
 
 		internal void ForceCompletion ()
@@ -239,14 +239,14 @@ namespace System.Net
 			lock (locker) {
 				if (totalRead >= contentLength)
 					return;
-				
-				byte [] b = null;
+
+				byte[] b = null;
 				int diff = readBufferSize - readBufferOffset;
 				int new_size;
 
 				if (contentLength == Int64.MaxValue) {
 					MemoryStream ms = new MemoryStream ();
-					byte [] buffer = null;
+					byte[] buffer = null;
 					if (readBuffer != null && diff > 0) {
 						ms.Write (readBuffer, readBufferOffset, diff);
 						if (readBufferSize >= 8192)
@@ -254,25 +254,25 @@ namespace System.Net
 					}
 
 					if (buffer == null)
-						buffer = new byte [8192];
+						buffer = new byte[8192];
 
 					int read;
 					while ((read = cnc.Read (request, buffer, 0, buffer.Length)) != 0)
 						ms.Write (buffer, 0, read);
 
 					b = ms.GetBuffer ();
-					new_size = (int) ms.Length;
+					new_size = (int)ms.Length;
 					contentLength = new_size;
 				} else {
-					new_size = (int) (contentLength - totalRead);
-					b = new byte [new_size];
+					new_size = (int)(contentLength - totalRead);
+					b = new byte[new_size];
 					if (readBuffer != null && diff > 0) {
 						if (diff > new_size)
 							diff = new_size;
 
 						Buffer.BlockCopy (readBuffer, readBufferOffset, b, 0, diff);
 					}
-					
+
 					int remaining = new_size - diff;
 					int r = -1;
 					while (remaining > 0 && r != 0) {
@@ -292,14 +292,14 @@ namespace System.Net
 			cnc.NextRead ();
 		}
 
-	   	void WriteCallbackWrapper (IAsyncResult r)
+		void WriteCallbackWrapper (IAsyncResult r)
 		{
 			WebAsyncResult result = r as WebAsyncResult;
 			if (result != null && result.AsyncWriteAll)
 				return;
 
 			if (r.AsyncState != null) {
-				result = (WebAsyncResult) r.AsyncState;
+				result = (WebAsyncResult)r.AsyncState;
 				result.InnerAsyncResult = r;
 				result.DoCallback ();
 			} else {
@@ -310,11 +310,11 @@ namespace System.Net
 			}
 		}
 
-	   	void ReadCallbackWrapper (IAsyncResult r)
+		void ReadCallbackWrapper (IAsyncResult r)
 		{
 			WebAsyncResult result;
 			if (r.AsyncState != null) {
-				result = (WebAsyncResult) r.AsyncState;
+				result = (WebAsyncResult)r.AsyncState;
 				result.InnerAsyncResult = r;
 				result.DoCallback ();
 			} else {
@@ -325,10 +325,10 @@ namespace System.Net
 			}
 		}
 
-		public override int Read (byte [] buffer, int offset, int size)
+		public override int Read (byte[] buffer, int offset, int size)
 		{
 			AsyncCallback cb = cb_wrapper;
-			WebAsyncResult res = (WebAsyncResult) BeginRead (buffer, offset, size, cb, null);
+			WebAsyncResult res = (WebAsyncResult)BeginRead (buffer, offset, size, cb, null);
 			if (!res.IsCompleted && !res.WaitUntilComplete (ReadTimeout, false)) {
 				nextReadCalled = true;
 				cnc.Close (true);
@@ -338,7 +338,7 @@ namespace System.Net
 			return EndRead (res);
 		}
 
-		public override IAsyncResult BeginRead (byte [] buffer, int offset, int size,
+		public override IAsyncResult BeginRead (byte[] buffer, int offset, int size,
 							AsyncCallback cb, object state)
 		{
 			if (!isRead)
@@ -358,13 +358,13 @@ namespace System.Net
 				pending.Reset ();
 			}
 
-			WebAsyncResult result = cnc.StartAsyncOperation (request, buffer, offset, size, cb, state);
+			WebAsyncResult result = new WebAsyncResult (cb, state, buffer, offset, size);
 			if (totalRead >= contentLength) {
 				result.SetCompleted (true, -1);
 				result.DoCallback ();
 				return result;
 			}
-			
+
 			int remaining = readBufferSize - readBufferOffset;
 			if (remaining > 0) {
 				int copy = (remaining > size) ? size : remaining;
@@ -387,16 +387,51 @@ namespace System.Net
 			if (contentLength != Int64.MaxValue && contentLength - totalRead < size)
 				size = (int)(contentLength - totalRead);
 
-			if (read_eof || cnc.ProcessRead (result)) {
+			if (!read_eof)
+				result.InnerAsyncResult = cnc.ProcessRead (request, result, ReadAsyncCB, result);
+			if (result.InnerAsyncResult == null) {
 				result.SetCompleted (true, result.NBytes);
 				result.DoCallback ();
 			}
 			return result;
 		}
 
+		void ReadAsyncCB (IAsyncResult r)
+		{
+			WebAsyncResult result = (WebAsyncResult)r.AsyncState;
+
+			int nbytes = -1;
+			try {
+				nbytes = cnc.EndRead (request, result.InnerAsyncResult);
+			} catch (Exception exc) {
+				lock (locker) {
+					pendingReads--;
+					if (pendingReads == 0)
+						pending.Set ();
+				}
+
+				nextReadCalled = true;
+				cnc.Close (true);
+				result.SetCompleted (false, exc);
+				result.DoCallback ();
+				return;
+			}
+
+			if (nbytes < 0) {
+				nbytes = 0;
+				read_eof = true;
+			}
+
+			totalRead += nbytes;
+			if (nbytes == 0)
+				contentLength = totalRead;
+			result.SetCompleted (false, nbytes + result.NBytes);
+			result.DoCallback ();
+		}
+
 		public override int EndRead (IAsyncResult r)
 		{
-			WebAsyncResult result = (WebAsyncResult) r;
+			WebAsyncResult result = (WebAsyncResult)r;
 			if (result.EndCalled) {
 				int xx = result.NBytes;
 				return (xx >= 0) ? xx : 0;
@@ -404,6 +439,7 @@ namespace System.Net
 
 			result.EndCalled = true;
 
+#if FIXME
 			if (!result.IsCompleted) {
 				int nbytes = -1;
 				try {
@@ -433,6 +469,11 @@ namespace System.Net
 				if (nbytes == 0)
 					contentLength = totalRead;
 			}
+#else
+			result.WaitUntilComplete ();
+			if (result.GotException)
+				throw result.Exception;
+#endif
 
 			lock (locker) {
 				pendingReads--;
