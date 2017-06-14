@@ -562,7 +562,7 @@ namespace System.Net
 			}
 
 			try {
-				result.InnerAsyncResult = cnc.ProcessWrite (request, buffer, offset, size, callback, result);
+				result.InnerAsyncResult = cnc.AsyncWrite (request, buffer, offset, size, true, callback, result);
 				if (result.InnerAsyncResult == null) {
 					if (!result.IsCompleted)
 						result.SetCompleted (true, 0);
@@ -674,9 +674,11 @@ namespace System.Net
 			headersSent = true;
 			headers = request.GetRequestHeaders ();
 
-			var innerResult = cnc.ProcessWrite (request, headers, 0, headers.Length, r => {
+			var innerResult = cnc.AsyncWrite (request, headers, 0, headers.Length, true, r => {
 				try {
-					cnc.EndWrite (r, true);
+					var ir = (WebConnectionAsyncResult)r;
+					if (ir.GotException)
+						throw ir.Exception;
 					if (!initRead) {
 						initRead = true;
 						cnc.InitRead ();
@@ -752,9 +754,12 @@ namespace System.Net
 					return;
 				}
 
-				cnc.ProcessWrite (request, bytes, 0, length, r => {
+				cnc.AsyncWrite (request, bytes, 0, length, false, r => {
 					try {
-						complete_request_written = cnc.EndWrite (r, false);
+						var ir = (WebConnectionAsyncResult)r;
+						if (ir.GotException)
+							throw ir.Exception;
+						complete_request_written = ir.Result;
 						result.SetCompleted (false);
 					} catch (Exception exc) {
 						result.SetCompleted (false, exc);

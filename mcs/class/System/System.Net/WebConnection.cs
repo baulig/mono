@@ -1028,8 +1028,8 @@ namespace System.Net
 			return true;
   		}
 
-		internal WebConnectionAsyncResult ProcessWrite (HttpWebRequest request, byte[] buffer, int offset, int size,
-		                                                AsyncCallback callback, object state)
+		internal WebConnectionAsyncResult AsyncWrite (HttpWebRequest request, byte[] buffer, int offset, int size,
+		                                              bool throwOnError, AsyncCallback callback, object state)
 		{
 			Console.Error.WriteLine ($"WC PROCESS WRITE: {ID}");
 
@@ -1038,8 +1038,8 @@ namespace System.Net
 			try {
 				result.InnerAsyncResult = result.Stream.BeginWrite (buffer, offset, size, r => {
 					try {
-						var ok = ProcessWrite_complete (result, r);
-						result.SetCompleted (false, ok ? 1 : 0);
+						var ok = ProcessWrite_complete (result, r, throwOnError);
+						result.SetCompleted (false, ok);
 					} catch (Exception ex) {
 						result.SetCompleted (false, ex);
 					}
@@ -1066,7 +1066,7 @@ namespace System.Net
 			}
 		}
 
-		bool ProcessWrite_complete (WebConnectionAsyncResult result, IAsyncResult inner)
+		bool ProcessWrite_complete (WebConnectionAsyncResult result, IAsyncResult inner, bool throwOnError)
 		{
 			Console.Error.WriteLine ($"WC WRITE ASYNC CB: {ID}");
 
@@ -1082,7 +1082,7 @@ namespace System.Net
 				return true;
 			} catch (Exception exc) {
 				status = WebExceptionStatus.SendFailure;
-				if (exc.InnerException != null)
+				if (throwOnError && exc.InnerException != null)
 					throw exc.InnerException;
 				return false;
 			}
@@ -1097,80 +1097,9 @@ namespace System.Net
 
 			if (result.GotException)
 				throw result.Exception;
-			return result.NBytes > 0;
+			return result.Result;
 		}
 
-		internal IAsyncResult BeginWrite (HttpWebRequest request, byte [] buffer, int offset, int size, AsyncCallback cb, object state)
-		{
-			Console.Error.WriteLine ($"WC BEGIN WRITE: {ID}");
-			WebConnectionData data;
-			Stream s;
-			lock (this) {
-				if (Data.request != request)
-					throw new ObjectDisposedException (typeof (NetworkStream).FullName);
-				data = Data;
-				s = data.NetworkStream;
-				if (s == null)
-					return null;
-			}
-
-			var innerResult = new WebConnectionAsyncResult (null, null, data, request, s);
-
-			try {
-				innerResult.InnerAsyncResult = s.BeginWrite (buffer, offset, size, cb, innerResult);
-			} catch (ObjectDisposedException) {
-				lock (this) {
-					if (Data != innerResult.Data)
-						return null;
-					if (Data.request != request)
-						return null;
-				}
-				throw;
-			} catch (IOException e) {
-				SocketException se = e.InnerException as SocketException;
-				if (se != null && se.SocketErrorCode == SocketError.NotConnected) {
-					return null;
-				}
-				throw;
-			} catch (Exception) {
-				status = WebExceptionStatus.SendFailure;
-				throw;
-			}
-
-			return innerResult;
-		}
-
-		internal bool EndWrite (HttpWebRequest request, bool throwOnError, IAsyncResult result)
-		{
-			Console.Error.WriteLine ($"WC END WRITE: {ID}");
-			var webAsyncResult = (WebConnectionAsyncResult)result.AsyncState;
-			WebConnectionData data;
-			Stream s;
-			lock (this) {
-				if (status == WebExceptionStatus.RequestCanceled)
-					return true;
-				if (Data != webAsyncResult.Data)
-					throw new ObjectDisposedException (typeof (NetworkStream).FullName);
-				if (Data.request != request)
-					throw new ObjectDisposedException (typeof (NetworkStream).FullName);
-				data = webAsyncResult.Data;
-				s = data.NetworkStream;
-				if (s == null)
-					throw new ObjectDisposedException (typeof (NetworkStream).FullName);
-				if (result is WebAsyncResult wr)
-					result = wr.InnerAsyncResult;
-			}
-
-			try {
-				s.EndWrite (result);
-				return true;
-			} catch (Exception exc) {
-				status = WebExceptionStatus.SendFailure;
-				if (throwOnError && exc.InnerException != null)
-					throw exc.InnerException;
-				return false;
-			}
-		}
 
 		internal int Read (HttpWebRequest request, byte [] buffer, int offset, int size)
 		{

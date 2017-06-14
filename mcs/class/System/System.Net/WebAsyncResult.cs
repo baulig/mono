@@ -155,7 +155,8 @@ namespace System.Net
 
 		public IAsyncResult InnerAsyncResult;
 
-		int nbytes;
+		int? nbytes;
+		bool? result;
 
 		public WebConnectionAsyncResult (AsyncCallback cb, object state, WebConnectionData data,
 		                                 HttpWebRequest request, Stream stream)
@@ -172,13 +173,23 @@ namespace System.Net
 			SetCompleted_internal (synch);
 		}
 
+		internal void SetCompleted (bool synch, bool result)
+		{
+			this.result = result;
+			SetCompleted_internal (synch);
+		}
+
 		internal void DoCallback ()
 		{
 			DoCallback_internal ();
 		}
 
 		public int NBytes {
-			get { return nbytes; }
+			get { return nbytes.Value; }
+		}
+
+		public bool Result {
+			get { return result.Value; }
 		}
 	}
 }
