@@ -1019,7 +1019,7 @@ namespace System.Net
 			}
 
 			try {
-				await s.WriteAsync (buffer, offset, size).ConfigureAwait (false);
+				await s.WriteAsync (buffer, offset, size, cancellationToken).ConfigureAwait (false);
 			} catch (ObjectDisposedException) {
 				lock (this) {
 					if (Data != data || data.request != request)
@@ -1036,6 +1036,8 @@ namespace System.Net
 			} catch {
 				status = WebExceptionStatus.SendFailure;
 				throw;
+			} finally {
+				Debug ($"WC WRITE ASYNC DONE: {ID}");
 			}
 		}
 

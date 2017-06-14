@@ -30,7 +30,7 @@
 // OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 // WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //
-
+#define MARTIN_DEBUG
 #if SECURITY_DEP
 #if MONO_SECURITY_ALIAS
 extern alias MonoSecurity;
@@ -54,6 +54,7 @@ using System.Runtime.Serialization;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading;
+using System.Threading.Tasks;
 using Mono.Net.Security;
 
 namespace System.Net 
@@ -196,6 +197,9 @@ namespace System.Net
 			host = info.GetString ("host");
 			ResetAuthorization ();
 		}
+
+		static int nextId;
+		public readonly int ID = ++nextId;
 
 		void ResetAuthorization ()
 		{
@@ -1358,6 +1362,16 @@ namespace System.Net
 
 		internal void SetWriteStream (WebConnectionStream stream)
 		{
+			try {
+				SetWriteStreamAsync (stream).Wait ();
+			} catch (Exception ex) {
+				Console.Error.WriteLine ($"SET WRITE STREAM FAILED: {ex}");
+				throw;
+			}
+		}
+
+		internal async Task SetWriteStreamAsync (WebConnectionStream stream)
+		{
 			if (Aborted)
 				return;
 
@@ -1368,12 +1382,17 @@ namespace System.Net
 				writeStream.SendChunked = false;
 			}
 
+			WebConnection.Debug ($"HWR SET WRITE STREAM: {ID}");
+
 			try {
-				writeStream.SetHeadersAsync (false).Wait ();
+				await writeStream.SetHeadersAsync (false).ConfigureAwait (false);
 			} catch (Exception ex) {
+				WebConnection.Debug ($"HWR SET WRITE STREAM FAILED: {ID} - {ex}");
 				SetWriteStreamError (ex);
 				return;
 			}
+
+			WebConnection.Debug ($"HWR SET WRITE STREAM DONE: {ID}");
 
 			haveRequest = true;
 
