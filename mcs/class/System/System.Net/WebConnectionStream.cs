@@ -390,7 +390,7 @@ namespace System.Net
 			Console.Error.WriteLine ($"WCS BEGIN READ: {cnc.ID}");
 
 			if (!read_eof)
-				result.InnerAsyncResult = cnc.ProcessRead (request, buffer, offset, size, ReadAsyncCB, result);
+				result.InnerAsyncResult = cnc.AsyncRead (request, buffer, offset, size, ReadAsyncCB, result);
 			if (result.InnerAsyncResult == null) {
 				result.SetCompleted (true, result.NBytes);
 				result.DoCallback ();
@@ -445,41 +445,9 @@ namespace System.Net
 
 			result.EndCalled = true;
 
-#if FIXME
-			if (!result.IsCompleted) {
-				int nbytes = -1;
-				try {
-					nbytes = cnc.EndRead (request, result.InnerAsyncResult);
-				} catch (Exception exc) {
-					lock (locker) {
-						pendingReads--;
-						if (pendingReads == 0)
-							pending.Set ();
-					}
-
-					nextReadCalled = true;
-					cnc.Close (true);
-					result.SetCompleted (false, exc);
-					result.DoCallback ();
-					throw;
-				}
-
-				if (nbytes < 0) {
-					nbytes = 0;
-					read_eof = true;
-				}
-
-				totalRead += nbytes;
-				result.SetCompleted (false, nbytes + result.NBytes);
-				result.DoCallback ();
-				if (nbytes == 0)
-					contentLength = totalRead;
-			}
-#else
 			result.WaitUntilComplete ();
 			if (result.GotException)
 				throw result.Exception;
-#endif
 
 			lock (locker) {
 				pendingReads--;

@@ -912,8 +912,8 @@ namespace System.Net
 			return new WebConnectionAsyncResult (callback, state, data, request, s);
 		}
 
-		internal WebConnectionAsyncResult ProcessRead (HttpWebRequest request, byte[] buffer, int offset, int size,
-		                                               AsyncCallback callback, object state)
+		internal WebConnectionAsyncResult AsyncRead (HttpWebRequest request, byte[] buffer, int offset, int size,
+		                                             AsyncCallback callback, object state)
 		{
 			Console.Error.WriteLine ($"WC PROCESS READ: {ID}");
 
@@ -921,7 +921,7 @@ namespace System.Net
 
 			if (chunkedRead && (chunkStream.DataAvailable || !chunkStream.WantMore)) {
 				try {
-					var nbytes = ProcessRead_complete (result, null, buffer, offset, size);
+					var nbytes = AsyncReadCB (result, null, buffer, offset, size);
 					result.SetCompleted (false, nbytes);
 				} catch (Exception ex) {
 					result.SetCompleted (false, ex);
@@ -933,7 +933,7 @@ namespace System.Net
 			try {
 				result.InnerAsyncResult = result.Stream.BeginRead (buffer, offset, size, r => {
 					try {
-						var nbytes = ProcessRead_complete (result, r, buffer, offset, size);
+						var nbytes = AsyncReadCB (result, r, buffer, offset, size);
 						result.SetCompleted (false, nbytes);
 					} catch (Exception ex) {
 						result.SetCompleted (false, ex);
@@ -947,7 +947,7 @@ namespace System.Net
 			}
 		}
 
-		int ProcessRead_complete (WebConnectionAsyncResult result, IAsyncResult inner, byte[] buffer, int offset, int size)
+		int AsyncReadCB (WebConnectionAsyncResult result, IAsyncResult inner, byte[] buffer, int offset, int size)
 		{
 			Console.Error.WriteLine ($"WC READ ASYNC CB: {ID}");
 
@@ -984,18 +984,6 @@ namespace System.Net
 			}
 
 			return (nbytes != 0) ? nbytes : -1;
-		}
-
-		internal int EndRead (HttpWebRequest request, IAsyncResult r)
-		{
-			Console.Error.WriteLine ($"WC END READ: {ID}");
-
-			var result = (WebConnectionAsyncResult)r;
-			result.WaitUntilComplete ();
-
-			if (result.GotException)
-				throw result.Exception;
-			return result.NBytes;
 		}
 
 		// To be called on chunkedRead when we can read no data from the MonoChunkStream yet
