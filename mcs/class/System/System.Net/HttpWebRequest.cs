@@ -1042,13 +1042,13 @@ namespace System.Net
 				lock (locker) {
 					if (throwMe != null) {
 						haveResponse = true;
-						if (data.Data?.stream != null)
-							data.Data?.stream.Close ();
+						if (myDataTcs.Task.Status == TaskStatus.RanToCompletion)
+							myDataTcs.Task.Result?.stream?.Close ();
 						myTcs.TrySetException (throwMe);
 						throw throwMe;
 					}
 					
-					if (data.Response != null) {
+					if (!data.Redirect) {
 						haveResponse = true;
 						webResponse = data.Response;
 						myTcs.TrySetResult (data.Response);
@@ -1074,10 +1074,14 @@ namespace System.Net
 			public HttpWebResponse Response {
 				get;
 			}
-			public ResponseData (WebConnectionData data, HttpWebResponse response)
+			public bool Redirect {
+				get;
+			}
+			public ResponseData (WebConnectionData data, HttpWebResponse response, bool redirect)
 			{
 				Data = data;
 				Response = response;
+				Redirect = redirect;
 			}
 		}
 
@@ -1105,6 +1109,7 @@ namespace System.Net
 
 			WebException throwMe = null;
 			bool mustReadAll = false;
+			bool finishedReading = false;
 			if (throwMe == null && (method == "POST" || method == "PUT"))
 				(mustReadAll, throwMe) = CheckSendError (data);
 
@@ -1126,6 +1131,7 @@ namespace System.Net
 			if (mustReadAll) {
 				// The real thing.
 				await response.ReadAllAsync (cancellationToken).ConfigureAwait (false);
+				finishedReading = true;
 			}
 
 			lock (locker) {
@@ -1145,24 +1151,24 @@ namespace System.Net
 					if (writeStream != null)
 						writeStream.KillBuffer ();
 
-					return new ResponseData (data, response);
+					return new ResponseData (data, response, false);
 				} else {
 					if (sendChunked) {
 						sendChunked = false;
 						webHeaders.RemoveInternal ("Transfer-Encoding");
 					}
-
-					if (response != null) {
-#if FIXME
-						if (HandleNtlmAuth (null))
-							return null;
-#endif
-						response.Close ();
-					}
 					
-					return new ResponseData (data, null);
+					mustReadAll = HandleNtlmAuth (response);
 				}
 			}
+			
+			if (!finishedReading && mustReadAll) {
+				// NTLM auth has requested it.
+				await response.ReadAllAsync (cancellationToken).ConfigureAwait (false);
+				finishedReading = true;
+			}
+			
+			return new ResponseData (data, response, true);
 		}
 
 		public override IAsyncResult BeginGetResponse (AsyncCallback callback, object state)
@@ -1729,6 +1735,25 @@ namespace System.Net
 			haveResponse = false;
 			webResponse.ReadAll ();
 			webResponse = null;
+			return true;
+		}
+
+		bool HandleNtlmAuth (HttpWebResponse response)
+		{
+			bool isProxy = response.StatusCode == HttpStatusCode.ProxyAuthenticationRequired;
+			if ((isProxy ? proxy_auth_state : auth_state).NtlmAuthState == NtlmAuthState.None)
+				return false;
+
+			var wcs = response.GetResponseStream () as WebConnectionStream;
+			if (wcs != null) {
+				var cnc = wcs.Connection;
+				cnc.PriorityRequest = this;
+				var creds = (!isProxy || proxy == null) ? credentials : proxy.Credentials;
+				if (creds != null) {
+					cnc.NtlmCredential = creds.GetCredential (requestUri, "NTLM");
+					cnc.UnsafeAuthenticatedConnectionSharing = unsafe_auth_blah;
+				}
+			}
 			return true;
 		}
 
