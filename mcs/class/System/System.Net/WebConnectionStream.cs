@@ -273,7 +273,7 @@ namespace System.Net
 			}
 		}
 
-		async Task ReadAllAsync (CancellationToken cancellationToken)
+		internal async Task ReadAllAsync (CancellationToken cancellationToken)
 		{
 			WebConnection.Debug ($"WCS READ ALL ASYNC: {cnc.ID}");
 			if (!isRead || read_eof || totalRead >= contentLength || nextReadCalled) {

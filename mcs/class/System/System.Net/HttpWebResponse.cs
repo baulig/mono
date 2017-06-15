@@ -39,6 +39,8 @@ using System.IO;
 using System.IO.Compression;
 using System.Net.Sockets;
 using System.Runtime.Serialization;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Text;
 
 namespace System.Net 
@@ -265,12 +267,23 @@ namespace System.Net
 
 		internal void ReadAll ()
 		{
-			WebConnectionStream wce = stream as WebConnectionStream;
-			if (wce == null)
+			WebConnectionStream wcs = stream as WebConnectionStream;
+			if (wcs == null)
+				return;
+
+			try {
+				wcs.ReadAll ();
+			} catch { }
+		}
+
+		internal async Task ReadAllAsync (CancellationToken cancellationToken)
+		{
+			WebConnectionStream wcs = stream as WebConnectionStream;
+			if (wcs == null)
 				return;
 				
 			try {
-				wce.ReadAll ();
+				await wcs.ReadAllAsync (cancellationToken).ConfigureAwait (false);
 			} catch {}
 		}
 
