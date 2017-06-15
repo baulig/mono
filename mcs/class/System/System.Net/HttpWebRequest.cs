@@ -1023,17 +1023,16 @@ namespace System.Net
 				}
 			}
 
-			WebException throwMe = null;
-			WebConnectionData data = null;
-			HttpWebResponse response = null;
-
-			while (response == null) {
+			while (true) {
+				ResponseData data = null;
+				WebException throwMe = null;
+				
 				try {
 					cancellationToken.ThrowIfCancellationRequested ();
 					if (forceWrite)
 						await writeStream.WriteRequestAsync (cancellationToken).ConfigureAwait (false);
 
-					response = await MyGetResponseAsync (myTcs, myDataTcs, false, cancellationToken).ConfigureAwait (false);
+					data = await MyGetResponseAsync (myDataTcs, cancellationToken).ConfigureAwait (false);
 				} catch (OperationCanceledException) {
 					throwMe = new WebException ("Request canceled.", WebExceptionStatus.RequestCanceled);
 				} catch (Exception e) {
@@ -1043,151 +1042,127 @@ namespace System.Net
 				lock (locker) {
 					if (throwMe != null) {
 						haveResponse = true;
-						if (data?.stream != null)
-							data.stream.Close ();
+						if (data.Data?.stream != null)
+							data.Data?.stream.Close ();
 						myTcs.TrySetException (throwMe);
 						throw throwMe;
 					}
+					
+					if (data.Response != null) {
+						haveResponse = true;
+						webResponse = data.Response;
+						myTcs.TrySetResult (data.Response);
+						return data.Response;
+					}
 
+					finished_reading = false;
+					haveResponse = false;
+					webResponse = null;
 					forceWrite = false;
+					myDataTcs = new TaskCompletionSource<WebConnectionData> ();
+					responseDataTcs = myDataTcs;
+					servicePoint = GetServicePoint ();
+					abortHandler = servicePoint.SendRequest (this, connectionGroup);
 				}
 			}
-
-			return response;
+		}
+		
+		class ResponseData {
+			public WebConnectionData Data {
+				get;
+			}
+			public HttpWebResponse Response {
+				get;
+			}
+			public ResponseData (WebConnectionData data, HttpWebResponse response)
+			{
+				Data = data;
+				Response = response;
+			}
 		}
 
-		async Task<HttpWebResponse> MyGetResponseAsync (TaskCompletionSource<HttpWebResponse> myTcs,
-		                                                TaskCompletionSource<WebConnectionData> myDataTcs,
-								bool forceWrite,
-		                                                CancellationToken cancellationToken)
+		async Task<ResponseData> MyGetResponseAsync (TaskCompletionSource<WebConnectionData> myDataTcs,
+		                                             CancellationToken cancellationToken)
 		{
-			HttpWebResponse response = null;
 			WebConnectionData data = null;
-			WebException throwMe = null;
 
 			try {
-				if (forceWrite)
-					await writeStream.WriteRequestAsync (cancellationToken).ConfigureAwait (false);
-
-				lock (locker) {
-					if (!requestSent) {
-						requestSent = true;
-						redirects = 0;
-						servicePoint = GetServicePoint ();
-						abortHandler = servicePoint.SendRequest (this, connectionGroup);
-					}
-				}
-
 				data = await myDataTcs.Task.ConfigureAwait (false);
-			} catch (OperationCanceledException) {
-				throwMe = new WebException ("Request canceled.", WebExceptionStatus.RequestCanceled);
 			} catch (Exception e) {
-				throwMe = (e as WebException) ?? new WebException (e.Message, e, WebExceptionStatus.ProtocolError, null);
+				if (e is OperationCanceledException || e is WebException)
+					throw;
+				throw new WebException (e.Message, e, WebExceptionStatus.ProtocolError, null);
 			}
 
-			bool redirect = false;
+			/*
+			 * WebConnection has either called SetResponseData() or SetResponseError().
+		 	*/
+
+			if (data == null)
+				throw new WebException ("Got WebConnectionData == null and no exception.", WebExceptionStatus.ProtocolError);
+
+			var response = new HttpWebResponse (actualUri, method, data, cookieContainer);
+
+			WebException throwMe = null;
 			bool mustReadAll = false;
+			if (throwMe == null && (method == "POST" || method == "PUT"))
+				(mustReadAll, throwMe) = CheckSendError (data);
+
+			if (mustReadAll) {
+				// FIXME: this is only set if we're about to throw.
+				await response.ReadAllAsync (cancellationToken).ConfigureAwait (false);
+			}
+			
+			if (throwMe != null)
+				throw throwMe;
+
+			bool redirect = false;
 			lock (locker) {
-				/*
-				 * WebConnection has either called SetResponseData() or SetResponseError() - or we got an error.
-				 */
-
-				if (throwMe == null && data != null) {
-					try {
-						response = new HttpWebResponse (actualUri, method, data, cookieContainer);
-					} catch (Exception e) {
-						throwMe = new WebException (e.Message, e, WebExceptionStatus.ProtocolError, null);
-					}
-				}
-
-				if (throwMe == null && data == null)
-					throwMe = new WebException ("Got WebConnectionData == null and no exception.", WebExceptionStatus.ProtocolError);
-
-				if (throwMe == null && (method == "POST" || method == "PUT"))
-					(mustReadAll, throwMe) = CheckSendError (data);
-
-				if (throwMe == null) {
-					try {
-						(redirect, mustReadAll, throwMe) = CheckFinalStatus (response);
-					} catch (Exception e) {
-						throwMe = (e as WebException) ?? new WebException (e.Message, e, WebExceptionStatus.ProtocolError, null);
-					}
-				}
-
-				if (throwMe != null) {
-					haveResponse = true;
-					if (data.stream != null)
-						data.stream.Close ();
-					myTcs.TrySetException (throwMe);
+				(redirect, mustReadAll, throwMe) = CheckFinalStatus (response);
+				if (throwMe != null)
 					throw throwMe;
-				}
 			}
 
 			if (mustReadAll) {
-				try {
-					await response.ReadAllAsync (cancellationToken).ConfigureAwait (false);
-				} catch (Exception e) {
-					throwMe = (e as WebException) ?? new WebException (e.Message, e, WebExceptionStatus.ProtocolError, null);
-				}
+				// The real thing.
+				await response.ReadAllAsync (cancellationToken).ConfigureAwait (false);
 			}
 
 			lock (locker) {
 				bool isProxy = ProxyQuery && proxy != null && !proxy.IsBypassed (actualUri);
 
-				try {
-					if (!redirect && throwMe == null) {
-						if ((isProxy ? proxy_auth_state.IsNtlmAuthenticated : auth_state.IsNtlmAuthenticated) &&
-						    (int)response.StatusCode < 400) {
-							var wcs = webResponse.GetResponseStream () as WebConnectionStream;
-							if (wcs != null) {
-								var cnc = wcs.Connection;
-								cnc.NtlmAuthenticated = true;
-							}
+				if (!redirect) {
+					if ((isProxy ? proxy_auth_state : auth_state).IsNtlmAuthenticated && (int)response.StatusCode < 400) {
+						var wcs = webResponse.GetResponseStream () as WebConnectionStream;
+						if (wcs != null) {
+							var cnc = wcs.Connection;
+							cnc.NtlmAuthenticated = true;
 						}
-
-						// clear internal buffer so that it does not
-						// hold possible big buffer (bug #397627)
-						if (writeStream != null)
-							writeStream.KillBuffer ();
-
-						haveResponse = true;
-						webResponse = response;
-						myTcs.TrySetResult (response);
-						return response;
-					} else if (throwMe == null) {
-						if (sendChunked) {
-							sendChunked = false;
-							webHeaders.RemoveInternal ("Transfer-Encoding");
-						}
-
-						if (response != null) {
-#if FIXME
-							if (HandleNtlmAuth (null))
-								return null;
-#endif
-							response.Close ();
-						}
-						finished_reading = false;
-						haveResponse = false;
-						webResponse = null;
-						servicePoint = GetServicePoint ();
-						abortHandler = servicePoint.SendRequest (this, connectionGroup);
-						throw new NotImplementedException ();
 					}
-				} catch (Exception e) {
-					throwMe = (e as WebException) ?? new WebException (e.Message, e, WebExceptionStatus.ProtocolError, null);
-				}
 
-				if (throwMe != null) {
-					haveResponse = true;
-					if (data.stream != null)
-						data.stream.Close ();
-					myTcs.TrySetException (throwMe);
-					throw throwMe;
+					// clear internal buffer so that it does not
+					// hold possible big buffer (bug #397627)
+					if (writeStream != null)
+						writeStream.KillBuffer ();
+
+					return new ResponseData (data, response);
+				} else {
+					if (sendChunked) {
+						sendChunked = false;
+						webHeaders.RemoveInternal ("Transfer-Encoding");
+					}
+
+					if (response != null) {
+#if FIXME
+						if (HandleNtlmAuth (null))
+							return null;
+#endif
+						response.Close ();
+					}
+					
+					return new ResponseData (data, null);
 				}
 			}
-
-			return response;
 		}
 
 		public override IAsyncResult BeginGetResponse (AsyncCallback callback, object state)
