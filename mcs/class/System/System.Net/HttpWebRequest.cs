@@ -1016,9 +1016,9 @@ namespace System.Net
 				forceWrite = CheckIfForceWrite ();
 			}
 
-			HttpWebResponse response;
+			HttpWebResponse response = null;
 			WebConnectionData data = null;
-			WebException wexc = null;
+			WebException throwMe = null;
 
 			try {
 				if (forceWrite)
@@ -1035,11 +1035,9 @@ namespace System.Net
 
 				data = await myDataTcs.Task.ConfigureAwait (false);
 			} catch (OperationCanceledException) {
-				wexc = new WebException ("Request canceled.", WebExceptionStatus.RequestCanceled);
+				throwMe = new WebException ("Request canceled.", WebExceptionStatus.RequestCanceled);
 			} catch (Exception e) {
-				wexc = ex as WebException;
-				if (wexc == null)
-					wexc = new WebException (e.Message, e, WebExceptionStatus.ProtocolError, null);
+				throwMe = (e as WebException) ?? new WebException (e.Message, e, WebExceptionStatus.ProtocolError, null);
 			}
 
 			bool redirect = false;
@@ -1049,34 +1047,34 @@ namespace System.Net
 				 * WebConnection has either called SetResponseData() or SetResponseError() - or we got an error.
 				 */
 
-				if (wexc == null && data != null) {
+				if (throwMe == null && data != null) {
 					try {
 						response = new HttpWebResponse (actualUri, method, data, cookieContainer);
 					} catch (Exception e) {
-						wexc = new WebException (e.Message, e, WebExceptionStatus.ProtocolError, null);
+						throwMe = new WebException (e.Message, e, WebExceptionStatus.ProtocolError, null);
 					}
 				}
 
-				if (wexc == null && data == null)
-					wexc = new WebException ("Got WebConnectionData == null and no exception.", WebExceptionStatus.ProtocolError);
+				if (throwMe == null && data == null)
+					throwMe = new WebException ("Got WebConnectionData == null and no exception.", WebExceptionStatus.ProtocolError);
 
-				if (wexc == null && (method == "POST" || method == "PUT"))
-					(mustReadAll, wexc) = CheckSendError (data);
+				if (throwMe == null && (method == "POST" || method == "PUT"))
+					(mustReadAll, throwMe) = CheckSendError (data);
 
-				if (wexc == null) {
+				if (throwMe == null) {
 					try {
-						(redirect, mustReadAll, wexc) = CheckFinalStatus (response);
+						(redirect, mustReadAll, throwMe) = CheckFinalStatus (response);
 					} catch (Exception e) {
-						wexc = (e as WebException) ?? new WebException (e.Message, e, WebExceptionStatus.ProtocolError, null);
+						throwMe = (e as WebException) ?? new WebException (e.Message, e, WebExceptionStatus.ProtocolError, null);
 					}
 				}
 
-				if (wexc != null) {
+				if (throwMe != null) {
 					haveResponse = true;
 					if (data.stream != null)
 						data.stream.Close ();
-					myTcs.TrySetException (wexc);
-					throw wexc;
+					myTcs.TrySetException (throwMe);
+					throw throwMe;
 				}
 			}
 
@@ -1084,18 +1082,66 @@ namespace System.Net
 				try {
 					await response.ReadAllAsync (cancellationToken).ConfigureAwait (false);
 				} catch (Exception e) {
-					wexc = (e as WebException) ?? new WebException (e.Message, e, WebExceptionStatus.ProtocolError, null);
+					throwMe = (e as WebException) ?? new WebException (e.Message, e, WebExceptionStatus.ProtocolError, null);
 				}
 			}
 
-			if (wexc != null) {
-				haveResponse = true;
-				myTcs.TrySetException (wexc);
-				throw wexc;
+			lock (locker) {
+				bool isProxy = ProxyQuery && proxy != null && !proxy.IsBypassed (actualUri);
+
+				try {
+					if (!redirect && throwMe == null) {
+						if ((isProxy ? proxy_auth_state.IsNtlmAuthenticated : auth_state.IsNtlmAuthenticated) &&
+						    (int)response.StatusCode < 400) {
+							var wcs = webResponse.GetResponseStream () as WebConnectionStream;
+							if (wcs != null) {
+								var cnc = wcs.Connection;
+								cnc.NtlmAuthenticated = true;
+							}
+						}
+
+						// clear internal buffer so that it does not
+						// hold possible big buffer (bug #397627)
+						if (writeStream != null)
+							writeStream.KillBuffer ();
+
+						haveResponse = true;
+						webResponse = response;
+						myTcs.TrySetResult (response);
+						return response;
+					} else if (throwMe == null) {
+						if (sendChunked) {
+							sendChunked = false;
+							webHeaders.RemoveInternal ("Transfer-Encoding");
+						}
+
+						if (response != null) {
+#if FIXME
+							if (HandleNtlmAuth (null))
+								return null;
+#endif
+							response.Close ();
+						}
+						finished_reading = false;
+						haveResponse = false;
+						webResponse = null;
+						servicePoint = GetServicePoint ();
+						abortHandler = servicePoint.SendRequest (this, connectionGroup);
+						throw new NotImplementedException ();
+					}
+				} catch (Exception e) {
+					throwMe = (e as WebException) ?? new WebException (e.Message, e, WebExceptionStatus.ProtocolError, null);
+				}
+
+				if (throwMe != null) {
+					haveResponse = true;
+					if (data.stream != null)
+						data.stream.Close ();
+					myTcs.TrySetException (throwMe);
+					throw throwMe;
+				}
 			}
 
-
-			throw new NotImplementedException ();
 			return response;
 		}
 
@@ -1357,7 +1403,7 @@ namespace System.Net
 			if (AllowWriteStreamBuffering || method == "GET")
 				contentLength = -1;
 
-			uriString = webResponse.Headers["Location"];
+			uriString = response.Headers["Location"];
 
 			if (uriString == null)
 				throw new WebException ("No Location header found for " + (int)code,
