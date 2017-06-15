@@ -1014,8 +1014,53 @@ namespace System.Net
 
 				initialMethod = method;
 				forceWrite = CheckIfForceWrite ();
+
+				if (!requestSent) {
+					requestSent = true;
+					redirects = 0;
+					servicePoint = GetServicePoint ();
+					abortHandler = servicePoint.SendRequest (this, connectionGroup);
+				}
 			}
 
+			WebException throwMe = null;
+			WebConnectionData data = null;
+			HttpWebResponse response = null;
+
+			while (response == null) {
+				try {
+					cancellationToken.ThrowIfCancellationRequested ();
+					if (forceWrite)
+						await writeStream.WriteRequestAsync (cancellationToken).ConfigureAwait (false);
+
+					response = await MyGetResponseAsync (myTcs, myDataTcs, false, cancellationToken).ConfigureAwait (false);
+				} catch (OperationCanceledException) {
+					throwMe = new WebException ("Request canceled.", WebExceptionStatus.RequestCanceled);
+				} catch (Exception e) {
+					throwMe = (e as WebException) ?? new WebException (e.Message, e, WebExceptionStatus.ProtocolError, null);
+				}
+
+				lock (locker) {
+					if (throwMe != null) {
+						haveResponse = true;
+						if (data?.stream != null)
+							data.stream.Close ();
+						myTcs.TrySetException (throwMe);
+						throw throwMe;
+					}
+
+					forceWrite = false;
+				}
+			}
+
+			return response;
+		}
+
+		async Task<HttpWebResponse> MyGetResponseAsync (TaskCompletionSource<HttpWebResponse> myTcs,
+		                                                TaskCompletionSource<WebConnectionData> myDataTcs,
+								bool forceWrite,
+		                                                CancellationToken cancellationToken)
+		{
 			HttpWebResponse response = null;
 			WebConnectionData data = null;
 			WebException throwMe = null;
