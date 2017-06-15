@@ -34,6 +34,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Runtime.ExceptionServices;
+using System.Net.Sockets;
 
 namespace System.Net
 {
@@ -47,7 +48,7 @@ namespace System.Net
 		public bool WaitOne (int millisecondTimeout)
 		{
 			WebConnection.Debug ($"AMRE WAIT ONE: {millisecondTimeout}");
-			return m_tcs.Task.Wait (millisecondTimeout); 
+			return m_tcs.Task.Wait (millisecondTimeout);
 		}
 
 		public async Task<bool> WaitAsync (int millisecondTimeout)
@@ -108,7 +109,9 @@ namespace System.Net
 		bool headersSent;
 		object locker = new object ();
 		TaskCompletionSource<int> readTcs;
+		TaskCompletionSource<int> writeTcs;
 		int nestedRead;
+		int nestedWrite;
 		bool initRead;
 		bool read_eof;
 		bool complete_request_written;
@@ -549,9 +552,120 @@ namespace System.Net
 			return TaskToApm.End<int> (r);
 		}
 
-	   	void WriteAsyncCB (IAsyncResult r)
+		public override async Task WriteAsync (byte[] buffer, int offset, int size, CancellationToken cancellationToken)
 		{
-			WebAsyncResult result = (WebAsyncResult) r.AsyncState;
+			WebConnection.Debug ($"WCS WRITE ASYNC: {cnc.ID}");
+
+			cancellationToken.ThrowIfCancellationRequested ();
+
+			if (request.Aborted)
+				throw new WebException ("The request was canceled.", WebExceptionStatus.RequestCanceled);
+
+			if (isRead)
+				throw new NotSupportedException ("this stream does not allow writing");
+
+			if (buffer == null)
+				throw new ArgumentNullException ("buffer");
+
+			int length = buffer.Length;
+			if (offset < 0 || length < offset)
+				throw new ArgumentOutOfRangeException ("offset");
+			if (size < 0 || (length - offset) < size)
+				throw new ArgumentOutOfRangeException ("size");
+
+			if (Interlocked.CompareExchange (ref nestedWrite, 1, 0) != 0)
+				throw new InvalidOperationException ("Invalid nested call.");
+
+			var myWriteTcs = new TaskCompletionSource<int> ();
+			var oldWriteTcs = Interlocked.CompareExchange (ref writeTcs, myWriteTcs, null);
+			if (oldWriteTcs != null)
+				throw new InvalidOperationException ("Invalid nested call.");
+
+			bool asyncWriteAll = false;
+
+			if (sendChunked) {
+				requestWritten = true;
+
+				string cSize = String.Format ("{0:X}\r\n", size);
+				byte[] head = Encoding.ASCII.GetBytes (cSize);
+				int chunkSize = 2 + size + head.Length;
+				byte[] newBuffer = new byte[chunkSize];
+				Buffer.BlockCopy (head, 0, newBuffer, 0, head.Length);
+				Buffer.BlockCopy (buffer, offset, newBuffer, head.Length, size);
+				Buffer.BlockCopy (crlf, 0, newBuffer, head.Length + size, crlf.Length);
+
+				if (allowBuffering) {
+					if (writeBuffer == null)
+						writeBuffer = new MemoryStream ();
+					writeBuffer.Write (buffer, offset, size);
+					totalWritten += size;
+				}
+
+				buffer = newBuffer;
+				offset = 0;
+				size = chunkSize;
+			} else {
+				CheckWriteOverflow (request.ContentLength, totalWritten, size);
+
+				if (allowBuffering) {
+					if (writeBuffer == null)
+						writeBuffer = new MemoryStream ();
+					writeBuffer.Write (buffer, offset, size);
+					totalWritten += size;
+
+					if (request.ContentLength <= 0 || totalWritten < request.ContentLength) {
+						await FinishWriteAsync (false, null, cancellationToken).ConfigureAwait (false);
+						return;
+					}
+
+					asyncWriteAll = true;
+					requestWritten = true;
+					buffer = writeBuffer.GetBuffer ();
+					offset = 0;
+					size = (int)totalWritten;
+				}
+			}
+
+			try {
+				await cnc.WriteAsync (request, buffer, offset, size, cancellationToken).ConfigureAwait (false);
+				await FinishWriteAsync (false, null, cancellationToken).ConfigureAwait (false);
+			} catch (Exception ex) {
+				if (!IgnoreIOErrors)
+					throw;
+				await FinishWriteAsync (false, ExceptionDispatchInfo.Capture (ex), cancellationToken).ConfigureAwait (false);
+			}
+			totalWritten += size;
+		}
+
+		async Task FinishWriteAsync (bool writeAll, ExceptionDispatchInfo error, CancellationToken cancellationToken)
+		{
+			try {
+				if (error == null) {
+					if (!initRead) {
+						initRead = true;
+						cnc.InitRead ();
+					}
+				}
+			} catch (Exception e) {
+				error = ExceptionDispatchInfo.Capture (e);
+			}
+
+			if (error != null) {
+				KillBuffer ();
+				nextReadCalled = true;
+				cnc.Close (true);
+				if (error.SourceException is SocketException)
+					throw new IOException ("Error writing request", error.SourceException);
+				error.Throw ();
+			}
+
+			if (allowBuffering && !sendChunked && request.ContentLength > 0 && totalWritten == request.ContentLength)
+				complete_request_written = true;
+		}
+
+		void WriteAsyncCB (IAsyncResult r)
+		{
+			WebAsyncResult result = (WebAsyncResult)r.AsyncState;
 			result.InnerAsyncResult = null;
 
 			try {
@@ -576,11 +690,14 @@ namespace System.Net
 			result.DoCallback ();
 		}
 
-		public override IAsyncResult BeginWrite (byte [] buffer, int offset, int size,
-		                                         AsyncCallback cb, object state)
+		public override IAsyncResult BeginWrite (byte[] buffer, int offset, int size,
+							 AsyncCallback cb, object state)
 		{
 			if (request.Aborted)
 				throw new WebException ("The request was canceled.", WebExceptionStatus.RequestCanceled);
+
+			var task = WriteAsync (buffer, offset, size, CancellationToken.None);
+			return TaskToApm.Begin (task, cb, state);
 
 			if (isRead)
 				throw new NotSupportedException ("this stream does not allow writing");
@@ -610,7 +727,7 @@ namespace System.Net
 				string cSize = String.Format ("{0:X}\r\n", size);
 				byte[] head = Encoding.ASCII.GetBytes (cSize);
 				int chunkSize = 2 + size + head.Length;
-				byte[] newBuffer = new byte [chunkSize];
+				byte[] newBuffer = new byte[chunkSize];
 				Buffer.BlockCopy (head, 0, newBuffer, 0, head.Length);
 				Buffer.BlockCopy (buffer, offset, newBuffer, head.Length, size);
 				Buffer.BlockCopy (crlf, 0, newBuffer, head.Length + size, crlf.Length);
@@ -686,6 +803,9 @@ namespace System.Net
 			if (r == null)
 				throw new ArgumentNullException ("r");
 
+			TaskToApm.End (r);
+			return;
+
 			WebAsyncResult result = r as WebAsyncResult;
 			if (result == null)
 				throw new ArgumentException ("Invalid IAsyncResult");
@@ -715,11 +835,14 @@ namespace System.Net
 			if (result.GotException)
 				throw result.Exception;
 		}
-		
-		public override void Write (byte [] buffer, int offset, int size)
+
+		public override void Write (byte[] buffer, int offset, int size)
 		{
+			WriteAsync (buffer, offset, size).Wait ();
+			return;
+
 			AsyncCallback cb = cb_wrapper;
-			WebAsyncResult res = (WebAsyncResult) BeginWrite (buffer, offset, size, cb, null);
+			WebAsyncResult res = (WebAsyncResult)BeginWrite (buffer, offset, size, cb, null);
 			if (!res.IsCompleted && !res.WaitUntilComplete (WriteTimeout, false)) {
 				KillBuffer ();
 				nextReadCalled = true;
@@ -842,7 +965,7 @@ namespace System.Net
 				if (!pending.WaitOne (WriteTimeout)) {
 					throw new WebException ("The operation has timed out.", WebExceptionStatus.Timeout);
 				}
-				byte [] chunk = Encoding.ASCII.GetBytes ("0\r\n\r\n");
+				byte[] chunk = Encoding.ASCII.GetBytes ("0\r\n\r\n");
 				string err_msg = null;
 				cnc.Write (request, chunk, 0, chunk.Length, ref err_msg);
 				return;
@@ -893,12 +1016,12 @@ namespace System.Net
 		{
 			throw new NotSupportedException ();
 		}
-		
+
 		public override void SetLength (long a)
 		{
 			throw new NotSupportedException ();
 		}
-		
+
 		public override bool CanSeek {
 			get { return false; }
 		}
