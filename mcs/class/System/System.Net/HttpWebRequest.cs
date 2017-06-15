@@ -968,6 +968,7 @@ namespace System.Net
 
 		public override Stream GetRequestStream ()
 		{
+			return GetRequestStreamAsync ().Result;
 			IAsyncResult asyncResult = asyncWrite;
 			if (asyncResult == null) {
 				asyncResult = BeginGetRequestStream (null, null);
@@ -1327,6 +1328,7 @@ namespace System.Net
 
 		public override WebResponse GetResponse ()
 		{
+			return GetResponseAsync ().Result;
 			WebAsyncResult result = (WebAsyncResult)BeginGetResponse (null, null);
 			return EndGetResponse (result);
 		}
@@ -1654,6 +1656,7 @@ namespace System.Net
 				SetWriteStreamAsync (stream, CancellationToken.None).Wait ();
 			} catch (Exception ex) {
 				Console.Error.WriteLine ($"SET WRITE STREAM FAILED: {ex}");
+				SetWriteStreamError (ex);
 				throw;
 			} finally {
 				WebConnection.Debug ($"HWR SET WRITE STREAM DONE: {ID}");
@@ -1689,18 +1692,26 @@ namespace System.Net
 
 			haveRequest = true;
 
-			if (bodyBuffer != null) {
-				// The body has been written and buffered. The request "user"
-				// won't write it again, so we must do it.
-				if (auth_state.NtlmAuthState != NtlmAuthState.Challenge && proxy_auth_state.NtlmAuthState != NtlmAuthState.Challenge) {
-					// FIXME: this is a blocking call on the thread pool that could lead to thread pool exhaustion
-					await writeStream.WriteAsync (bodyBuffer, 0, bodyBufferLength, cancellationToken).ConfigureAwait (false);
-					bodyBuffer = null;
-					writeStream.Close ();
+			try {
+				if (bodyBuffer != null) {
+					// The body has been written and buffered. The request "user"
+					// won't write it again, so we must do it.
+					if (auth_state.NtlmAuthState != NtlmAuthState.Challenge && proxy_auth_state.NtlmAuthState != NtlmAuthState.Challenge) {
+						// FIXME: this is a blocking call on the thread pool that could lead to thread pool exhaustion
+						await writeStream.WriteAsync (bodyBuffer, 0, bodyBufferLength, cancellationToken).ConfigureAwait (false);
+						bodyBuffer = null;
+						writeStream.Close ();
+					}
+				} else if (MethodWithBuffer) {
+					if (getResponseCalled && !writeStream.RequestWritten)
+						await writeStream.WriteRequestAsync (cancellationToken).ConfigureAwait (false);
 				}
-			} else if (MethodWithBuffer) {
-				if (getResponseCalled && !writeStream.RequestWritten)
-					await writeStream.WriteRequestAsync (cancellationToken).ConfigureAwait (false);
+
+				requestTask?.TrySetResult (writeStream);
+			} catch (Exception ex) {
+				WebConnection.Debug ($"HWR SET WRITE STREAM FAILED #1: {ID} - {ex}");
+				SetWriteStreamError (ex);
+				return;
 			}
 		}
 
