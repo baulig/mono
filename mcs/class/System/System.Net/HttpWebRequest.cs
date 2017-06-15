@@ -973,18 +973,17 @@ namespace System.Net
 		{
 			using (var cts = new CancellationTokenSource ()) {
 				cts.CancelAfter (timeout);
+				cts.Token.Register (() => Abort ());
 				var timeoutTask = Task.Delay (timeout);
-				var responseTask = MyGetResponseAsync (cts.Token);
+				var responseTask = MyGetResponseAsync (timeoutTask, cts.Token);
 				var ret = await Task.WhenAny (responseTask, timeoutTask).ConfigureAwait (false);
-				if (ret == timeoutTask) {
-					Abort ();
+				if (ret == timeoutTask)
 					throw new WebException ("The request timed out", WebExceptionStatus.Timeout);
-				}
 				return responseTask.Result;
 			}
 		}
 
-		async Task<HttpWebResponse> MyGetResponseAsync (CancellationToken cancellationToken)
+		async Task<HttpWebResponse> MyGetResponseAsync (Task timeoutTask, CancellationToken cancellationToken)
 		{
 			if (Aborted)
 				throw new WebException ("The request was canceled.", WebExceptionStatus.RequestCanceled);
@@ -1024,15 +1023,37 @@ namespace System.Net
 			}
 
 			while (true) {
-				ResponseData data = null;
+				WebConnectionData data = null;
 				WebException throwMe = null;
+				HttpWebResponse response = null;
+				bool redirect = false;
 				
 				try {
 					cancellationToken.ThrowIfCancellationRequested ();
 					if (forceWrite)
 						await writeStream.WriteRequestAsync (cancellationToken).ConfigureAwait (false);
 
-					data = await MyGetResponseAsync (myDataTcs, cancellationToken).ConfigureAwait (false);
+					try {
+						var anyTask = await Task.WhenAny (timeoutTask, myDataTcs.Task).ConfigureAwait (false);
+						if (anyTask == timeoutTask) {
+							Abort ();
+							throw new WebException ("The request timed out", WebExceptionStatus.Timeout);
+						}
+						data = myDataTcs.Task.Result;
+					} catch (Exception e) {
+						if (e is OperationCanceledException || e is WebException)
+							throw;
+						throw new WebException (e.Message, e, WebExceptionStatus.ProtocolError, null);
+					}
+
+					/*
+					 * WebConnection has either called SetResponseData() or SetResponseError().
+					*/
+
+					if (data == null)
+						throw new WebException ("Got WebConnectionData == null and no exception.", WebExceptionStatus.ProtocolError);
+
+					(response, redirect) = await GetResponseFromData (data, cancellationToken).ConfigureAwait (false);
 				} catch (OperationCanceledException) {
 					throwMe = new WebException ("Request canceled.", WebExceptionStatus.RequestCanceled);
 				} catch (Exception e) {
@@ -1042,17 +1063,16 @@ namespace System.Net
 				lock (locker) {
 					if (throwMe != null) {
 						haveResponse = true;
-						if (myDataTcs.Task.Status == TaskStatus.RanToCompletion)
-							myDataTcs.Task.Result?.stream?.Close ();
+						data?.stream?.Close ();
 						myTcs.TrySetException (throwMe);
 						throw throwMe;
 					}
 					
-					if (!data.Redirect) {
+					if (!redirect) {
 						haveResponse = true;
-						webResponse = data.Response;
-						myTcs.TrySetResult (data.Response);
-						return data.Response;
+						webResponse = response;
+						myTcs.TrySetResult (response);
+						return response;
 					}
 
 					finished_reading = false;
@@ -1067,37 +1087,8 @@ namespace System.Net
 			}
 		}
 		
-		class ResponseData {
-			public WebConnectionData Data {
-				get;
-			}
-			public HttpWebResponse Response {
-				get;
-			}
-			public bool Redirect {
-				get;
-			}
-			public ResponseData (WebConnectionData data, HttpWebResponse response, bool redirect)
-			{
-				Data = data;
-				Response = response;
-				Redirect = redirect;
-			}
-		}
-
-		async Task<ResponseData> MyGetResponseAsync (TaskCompletionSource<WebConnectionData> myDataTcs,
-		                                             CancellationToken cancellationToken)
+		async Task<(HttpWebResponse response, bool redirect)> GetResponseFromData (WebConnectionData data, CancellationToken cancellationToken)
 		{
-			WebConnectionData data = null;
-
-			try {
-				data = await myDataTcs.Task.ConfigureAwait (false);
-			} catch (Exception e) {
-				if (e is OperationCanceledException || e is WebException)
-					throw;
-				throw new WebException (e.Message, e, WebExceptionStatus.ProtocolError, null);
-			}
-
 			/*
 			 * WebConnection has either called SetResponseData() or SetResponseError().
 		 	*/
@@ -1151,7 +1142,7 @@ namespace System.Net
 					if (writeStream != null)
 						writeStream.KillBuffer ();
 
-					return new ResponseData (data, response, false);
+					return (response, false);
 				} else {
 					if (sendChunked) {
 						sendChunked = false;
@@ -1168,7 +1159,7 @@ namespace System.Net
 				finishedReading = true;
 			}
 			
-			return new ResponseData (data, response, true);
+			return (response, true);
 		}
 
 		public override IAsyncResult BeginGetResponse (AsyncCallback callback, object state)
