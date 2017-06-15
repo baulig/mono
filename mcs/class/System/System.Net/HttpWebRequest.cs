@@ -97,6 +97,7 @@ namespace System.Net
 		HttpWebResponse webResponse;
 		WebAsyncResult asyncWrite;
 		WebAsyncResult asyncRead;
+		TaskCompletionSource<HttpWebResponse> responseTcs;
 		EventHandler abortHandler;
 		int aborted;
 		bool gotRequestStream;
@@ -942,16 +943,111 @@ namespace System.Net
 			// amount of bytes in it (ContentLength) (bug #77753) or if the write stream
 			// contains data and it has been closed already (xamarin bug #1512).
 
-			if (writeStream.WriteBufferLength == contentLength || (contentLength == -1 && writeStream.CanWrite == false))
-				return writeStream.WriteRequestAsync (result);
+			if (writeStream.WriteBufferLength == contentLength || (contentLength == -1 && writeStream.CanWrite == false)) {
+				// return writeStream.WriteRequestAsync (result);
+				throw new NotSupportedException ();
+			}
 
 			return false;
+		}
+
+		async Task CheckIfForceWrite (CancellationToken cancellationToken)
+		{
+			if (writeStream == null || writeStream.RequestWritten || !InternalAllowBuffering)
+				return;
+			if (contentLength < 0 && writeStream.CanWrite == true && writeStream.WriteBufferLength < 0)
+				return;
+
+			if (contentLength < 0 && writeStream.WriteBufferLength >= 0)
+				InternalContentLength = writeStream.WriteBufferLength;
+
+			// This will write the POST/PUT if the write stream already has the expected
+			// amount of bytes in it (ContentLength) (bug #77753) or if the write stream
+			// contains data and it has been closed already (xamarin bug #1512).
+
+			if (writeStream.WriteBufferLength == contentLength || (contentLength == -1 && writeStream.CanWrite == false))
+				await writeStream.WriteRequestAsync (cancellationToken).ConfigureAwait (false);
+		}
+
+		async Task<HttpWebResponse> MyGetResponseAsync ()
+		{
+			using (var cts = new CancellationTokenSource ()) {
+				cts.CancelAfter (timeout);
+				var timeoutTask = Task.Delay (timeout);
+				var responseTask = MyGetResponseAsync (cts.Token);
+				var ret = await Task.WhenAny (responseTask, timeoutTask).ConfigureAwait (false);
+				if (ret == timeoutTask) {
+					Abort ();
+					throw new WebException ("The request timed out", WebExceptionStatus.Timeout);
+				}
+				return responseTask.Result;
+			}
+		}
+
+		async Task<HttpWebResponse> MyGetResponseAsync (CancellationToken cancellationToken)
+		{
+			if (Aborted)
+				throw new WebException ("The request was canceled.", WebExceptionStatus.RequestCanceled);
+
+			if (method == null)
+				throw new ProtocolViolationException ("Method is null.");
+
+			string transferEncoding = TransferEncoding;
+			if (!sendChunked && transferEncoding != null && transferEncoding.Trim () != "")
+				throw new ProtocolViolationException ("SendChunked should be true.");
+
+			Monitor.Enter (locker);
+			getResponseCalled = true;
+			var myTcs = new TaskCompletionSource<HttpWebResponse> ();
+			var oldTcs = Interlocked.CompareExchange (ref responseTcs, myTcs, null);
+			if (oldTcs != null) {
+				Monitor.Exit (locker);
+				if (haveResponse && oldTcs.Task.IsCompleted)
+					return oldTcs.Task.Result;
+				throw new InvalidOperationException ("Cannot re-call start of asynchronous " +
+							"method while a previous call is still in progress.");
+			}
+
+			initialMethod = method;
+
+			try {
+				await CheckIfForceWrite (cancellationToken).ConfigureAwait (false);
+
+				if (haveResponse) {
+					Exception saved = saved_exc;
+					if (saved != null)
+						throw saved;
+					if (webResponse != null) {
+						myTcs.TrySetResult (webResponse);
+						return webResponse;
+					}
+				}
+
+				if (!requestSent) {
+					requestSent = true;
+					redirects = 0;
+					servicePoint = GetServicePoint ();
+					abortHandler = servicePoint.SendRequest (this, connectionGroup);
+				}
+
+				return await myTcs.Task.ConfigureAwait (false);
+			} catch (OperationCanceledException) {
+				myTcs.TrySetCanceled ();
+				throw;
+			} catch (Exception ex) {
+				myTcs.TrySetException (ex);
+				throw;
+			} finally {
+				Monitor.Exit (locker);
+			}
 		}
 
 		public override IAsyncResult BeginGetResponse (AsyncCallback callback, object state)
 		{
 			if (Aborted)
 				throw new WebException ("The request was canceled.", WebExceptionStatus.RequestCanceled);
+
+			return TaskToApm.Begin (MyGetResponseAsync (), callback, state);
 
 			if (method == null)
 				throw new ProtocolViolationException ("Method is null.");
@@ -1017,6 +1113,8 @@ namespace System.Net
 
 		public override WebResponse EndGetResponse (IAsyncResult asyncResult)
 		{
+			return TaskToApm.End<WebResponse> (asyncResult);
+
 			if (asyncResult == null)
 				throw new ArgumentNullException ("asyncResult");
 
