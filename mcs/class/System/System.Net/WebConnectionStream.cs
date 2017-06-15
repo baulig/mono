@@ -110,6 +110,7 @@ namespace System.Net
 		object locker = new object ();
 		TaskCompletionSource<int> readTcs;
 		TaskCompletionSource<int> writeTcs;
+		AsyncManualResetEvent pendingWrite;
 		int nestedRead;
 		int nestedWrite;
 		bool initRead;
@@ -131,6 +132,7 @@ namespace System.Net
 			isRead = true;
 			cb_wrapper = new AsyncCallback (ReadCallbackWrapper);
 			pending = new AsyncManualResetEvent (true);
+			pendingWrite = new AsyncManualResetEvent (true); 
 			this.request = data.request;
 			read_timeout = request.ReadWriteTimeout;
 			write_timeout = read_timeout;
@@ -166,6 +168,7 @@ namespace System.Net
 			this.request = request;
 			allowBuffering = request.InternalAllowBuffering;
 			sendChunked = request.SendChunked;
+			pendingWrite = new AsyncManualResetEvent (true);
 			if (sendChunked)
 				pending = new AsyncManualResetEvent (true);
 			else if (allowBuffering)
@@ -559,10 +562,9 @@ namespace System.Net
 			cancellationToken.ThrowIfCancellationRequested ();
 
 			if (request.Aborted)
-				throw new WebException ("The request was canceled.", WebExceptionStatus.RequestCanceled);
-
+				throw new WebException (SR.GetString (SR.net_webstatus_RequestCanceled));
 			if (isRead)
-				throw new NotSupportedException ("this stream does not allow writing");
+				throw new NotSupportedException (SR.GetString (SR.net_readonlystream));
 
 			if (buffer == null)
 				throw new ArgumentNullException ("buffer");
@@ -573,14 +575,40 @@ namespace System.Net
 			if (size < 0 || (length - offset) < size)
 				throw new ArgumentOutOfRangeException ("size");
 
-			if (Interlocked.CompareExchange (ref nestedWrite, 1, 0) != 0)
-				throw new InvalidOperationException ("Invalid nested call.");
-
 			var myWriteTcs = new TaskCompletionSource<int> ();
-			var oldWriteTcs = Interlocked.CompareExchange (ref writeTcs, myWriteTcs, null);
-			if (oldWriteTcs != null)
-				throw new InvalidOperationException ("Invalid nested call.");
+			if (Interlocked.CompareExchange (ref writeTcs, myWriteTcs, null) != null)
+				throw new InvalidOperationException (SR.GetString (SR.net_repcall));
 
+			try {
+				await ProcessWrite (buffer, offset, size, cancellationToken).ConfigureAwait (false);
+
+				if (!initRead) {
+					initRead = true;
+					cnc.InitRead ();
+				}
+
+				if (allowBuffering && !sendChunked && request.ContentLength > 0 && totalWritten == request.ContentLength)
+					complete_request_written = true;
+
+				writeTcs = null;
+				myWriteTcs.TrySetResult (0);
+			} catch (Exception ex) {
+				KillBuffer ();
+				nextReadCalled = true;
+				cnc.Close (true);
+
+				if (ex is SocketException)
+					ex = new IOException ("Error writing request", ex);
+
+				writeTcs = null;
+				myWriteTcs.TrySetException (ex);
+				throw;
+			}
+
+		}
+
+		async Task ProcessWrite (byte[] buffer, int offset, int size, CancellationToken cancellationToken)
+		{
 			bool asyncWriteAll = false;
 
 			if (sendChunked) {
@@ -613,10 +641,8 @@ namespace System.Net
 					writeBuffer.Write (buffer, offset, size);
 					totalWritten += size;
 
-					if (request.ContentLength <= 0 || totalWritten < request.ContentLength) {
-						await FinishWriteAsync (false, null, cancellationToken).ConfigureAwait (false);
+					if (request.ContentLength <= 0 || totalWritten < request.ContentLength)
 						return;
-					}
 
 					asyncWriteAll = true;
 					requestWritten = true;
@@ -628,39 +654,11 @@ namespace System.Net
 
 			try {
 				await cnc.WriteAsync (request, buffer, offset, size, cancellationToken).ConfigureAwait (false);
-				await FinishWriteAsync (false, null, cancellationToken).ConfigureAwait (false);
 			} catch (Exception ex) {
 				if (!IgnoreIOErrors)
 					throw;
-				await FinishWriteAsync (false, ExceptionDispatchInfo.Capture (ex), cancellationToken).ConfigureAwait (false);
 			}
 			totalWritten += size;
-		}
-
-		async Task FinishWriteAsync (bool writeAll, ExceptionDispatchInfo error, CancellationToken cancellationToken)
-		{
-			try {
-				if (error == null) {
-					if (!initRead) {
-						initRead = true;
-						cnc.InitRead ();
-					}
-				}
-			} catch (Exception e) {
-				error = ExceptionDispatchInfo.Capture (e);
-			}
-
-			if (error != null) {
-				KillBuffer ();
-				nextReadCalled = true;
-				cnc.Close (true);
-				if (error.SourceException is SocketException)
-					throw new IOException ("Error writing request", error.SourceException);
-				error.Throw ();
-			}
-
-			if (allowBuffering && !sendChunked && request.ContentLength > 0 && totalWritten == request.ContentLength)
-				complete_request_written = true;
 		}
 
 		void WriteAsyncCB (IAsyncResult r)
