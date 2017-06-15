@@ -951,12 +951,12 @@ namespace System.Net
 			return false;
 		}
 
-		async Task CheckIfForceWrite (CancellationToken cancellationToken)
+		bool CheckIfForceWrite ()
 		{
 			if (writeStream == null || writeStream.RequestWritten || !InternalAllowBuffering)
-				return;
+				return false;
 			if (contentLength < 0 && writeStream.CanWrite == true && writeStream.WriteBufferLength < 0)
-				return;
+				return false;
 
 			if (contentLength < 0 && writeStream.WriteBufferLength >= 0)
 				InternalContentLength = writeStream.WriteBufferLength;
@@ -966,7 +966,9 @@ namespace System.Net
 			// contains data and it has been closed already (xamarin bug #1512).
 
 			if (writeStream.WriteBufferLength == contentLength || (contentLength == -1 && writeStream.CanWrite == false))
-				await writeStream.WriteRequestAsync (cancellationToken).ConfigureAwait (false);
+				return true;
+
+			return false;
 		}
 
 		async Task<HttpWebResponse> MyGetResponseAsync ()
@@ -996,38 +998,43 @@ namespace System.Net
 			if (!sendChunked && transferEncoding != null && transferEncoding.Trim () != "")
 				throw new ProtocolViolationException ("SendChunked should be true.");
 
-			Monitor.Enter (locker);
-			getResponseCalled = true;
+			bool forceWrite;
 			var myTcs = new TaskCompletionSource<HttpWebResponse> ();
-			var oldTcs = Interlocked.CompareExchange (ref responseTcs, myTcs, null);
-			if (oldTcs != null) {
-				Monitor.Exit (locker);
-				if (haveResponse && oldTcs.Task.IsCompleted)
-					return oldTcs.Task.Result;
-				throw new InvalidOperationException ("Cannot re-call start of asynchronous " +
-							"method while a previous call is still in progress.");
-			}
-
-			initialMethod = method;
-
-			try {
-				await CheckIfForceWrite (cancellationToken).ConfigureAwait (false);
-
-				if (haveResponse) {
-					Exception saved = saved_exc;
-					if (saved != null)
-						throw saved;
-					if (webResponse != null) {
-						myTcs.TrySetResult (webResponse);
-						return webResponse;
-					}
+			lock (locker) {
+				getResponseCalled = true;
+				var oldTcs = Interlocked.CompareExchange (ref responseTcs, myTcs, null);
+				if (oldTcs != null) {
+					if (haveResponse && oldTcs.Task.IsCompleted)
+						return oldTcs.Task.Result;
+					throw new InvalidOperationException ("Cannot re-call start of asynchronous " +
+								"method while a previous call is still in progress.");
 				}
 
-				if (!requestSent) {
-					requestSent = true;
-					redirects = 0;
-					servicePoint = GetServicePoint ();
-					abortHandler = servicePoint.SendRequest (this, connectionGroup);
+				initialMethod = method;
+				forceWrite = CheckIfForceWrite ();
+			}
+
+			try {
+				if (forceWrite)
+					await writeStream.WriteRequestAsync (cancellationToken).ConfigureAwait (false);
+
+				lock (locker) {
+					if (haveResponse) {
+						Exception saved = saved_exc;
+						if (saved != null)
+							throw saved;
+						if (webResponse != null) {
+							myTcs.TrySetResult (webResponse);
+							return webResponse;
+						}
+					}
+
+					if (!requestSent) {
+						requestSent = true;
+						redirects = 0;
+						servicePoint = GetServicePoint ();
+						abortHandler = servicePoint.SendRequest (this, connectionGroup);
+					}
 				}
 
 				return await myTcs.Task.ConfigureAwait (false);
@@ -1037,8 +1044,6 @@ namespace System.Net
 			} catch (Exception ex) {
 				myTcs.TrySetException (ex);
 				throw;
-			} finally {
-				Monitor.Exit (locker);
 			}
 		}
 
@@ -1113,7 +1118,7 @@ namespace System.Net
 
 		public override WebResponse EndGetResponse (IAsyncResult asyncResult)
 		{
-			return TaskToApm.End<WebResponse> (asyncResult);
+			return TaskToApm.End<HttpWebResponse> (asyncResult);
 
 			if (asyncResult == null)
 				throw new ArgumentNullException ("asyncResult");
@@ -1603,45 +1608,52 @@ namespace System.Net
 		internal void SetResponseData (WebConnectionData data)
 		{
 			lock (locker) {
-			if (Aborted) {
-				if (data.stream != null)
-					data.stream.Close ();
-				return;
-			}
-
-			WebException wexc = null;
-			try {
-				webResponse = new HttpWebResponse (actualUri, method, data, cookieContainer);
-			} catch (Exception e) {
-				wexc = new WebException (e.Message, e, WebExceptionStatus.ProtocolError, null); 
-				if (data.stream != null)
-					data.stream.Close ();
-			}
-
-			if (wexc == null && (method == "POST" || method == "PUT")) {
-				CheckSendError (data);
-				if (saved_exc != null)
-					wexc = (WebException) saved_exc;
-			}
-
-			WebAsyncResult r = asyncRead;
-
-			bool forced = false;
-			if (r == null && webResponse != null) {
-				// This is a forced completion (302, 204)...
-				forced = true;
-				r = new WebAsyncResult (null, null);
-				r.SetCompleted (false, webResponse);
-			}
-
-			if (r != null) {
-				if (wexc != null) {
-					haveResponse = true;
-					if (!r.IsCompleted)
-						r.SetCompleted (false, wexc);
-					r.DoCallback ();
+				if (Aborted) {
+					if (data.stream != null)
+						data.stream.Close ();
 					return;
 				}
+
+				WebException wexc = null;
+				try {
+					webResponse = new HttpWebResponse (actualUri, method, data, cookieContainer);
+				} catch (Exception e) {
+					wexc = new WebException (e.Message, e, WebExceptionStatus.ProtocolError, null); 
+					if (data.stream != null)
+						data.stream.Close ();
+				}
+
+				if (wexc == null && (method == "POST" || method == "PUT")) {
+					CheckSendError (data);
+					if (saved_exc != null)
+						wexc = (WebException) saved_exc;
+				}
+
+				WebAsyncResult r = asyncRead;
+				var tcs = responseTcs;
+
+				WebConnection.Debug ($"HWR SET RESPONSE DATA: {ID} {tcs != null} {webResponse != null}");
+
+				bool forced = false;
+				if (r == null && webResponse != null) {
+					// This is a forced completion (302, 204)...
+					forced = true;
+					r = new WebAsyncResult (null, null);
+					r.SetCompleted (false, webResponse);
+				}
+
+				if (tcs == null) {
+					throw new NotImplementedException ();
+				}
+
+				if (wexc != null) {
+					haveResponse = true;
+					tcs.TrySetException (wexc);
+					return;
+				}
+
+				tcs.TrySetResult (webResponse);
+				return;
 
 				bool isProxy = ProxyQuery && proxy != null && !proxy.IsBypassed (actualUri);
 
@@ -1702,7 +1714,6 @@ namespace System.Net
 					r.DoCallback ();
 					return;
 				}
-			}
 			}
 		}
 
