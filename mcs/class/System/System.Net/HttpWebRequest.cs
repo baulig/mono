@@ -98,8 +98,10 @@ namespace System.Net
 		HttpWebResponse webResponse;
 		WebAsyncResult asyncWrite;
 		WebAsyncResult asyncRead;
-		TaskCompletionSource<HttpWebResponse> responseTcs;
-		TaskCompletionSource<WebConnectionData> responseDataTcs;
+		TaskCompletionSource<HttpWebResponse> responseTask;
+		TaskCompletionSource<WebConnectionData> responseDataTask;
+		TaskCompletionSource<Stream> requestTask;
+		TaskCompletionSource<WebConnectionData> requestDataTask;
 		EventHandler abortHandler;
 		int aborted;
 		bool gotRequestStream;
@@ -837,11 +839,68 @@ namespace System.Net
 			webHeaders.ChangeInternal ("Range", r);
 		}
 
+		Task<Stream> MyGetRequestStreamAsync ()
+		{
+			return RunWithTimeout (MyGetRequestStreamAsync, "The request timed out");
+		}
+
+		async Task<Stream> MyGetRequestStreamAsync (Task timeoutTask, CancellationToken cancellationToken)
+		{
+			if (Aborted)
+				throw new WebException ("The request was canceled.", WebExceptionStatus.RequestCanceled);
+
+			bool send = !(method == "GET" || method == "CONNECT" || method == "HEAD" ||
+					method == "TRACE");
+			if (method == null || !send)
+				throw new ProtocolViolationException ("Cannot send data when method is: " + method);
+
+			if (contentLength == -1 && !sendChunked && !allowBuffering && KeepAlive)
+				throw new ProtocolViolationException ("Content-Length not set");
+
+			string transferEncoding = TransferEncoding;
+			if (!sendChunked && transferEncoding != null && transferEncoding.Trim () != "")
+				throw new ProtocolViolationException ("SendChunked should be true.");
+
+			var myTcs = new TaskCompletionSource<Stream> ();
+			var myDataTcs = new TaskCompletionSource<WebConnectionData> ();
+			lock (locker) {
+				if (getResponseCalled)
+					throw new InvalidOperationException ("The operation cannot be performed once the request has been submitted.");
+
+				var oldTcs = Interlocked.CompareExchange (ref requestTask, myTcs, null);
+				if (oldTcs != null)
+					throw new InvalidOperationException ("Cannot re-call start of asynchronous " +
+								"method while a previous call is still in progress.");
+
+				if (Interlocked.CompareExchange (ref requestDataTask, myDataTcs, null) != null)
+					throw new InvalidOperationException ("Invalid nested call.");
+
+				initialMethod = method;
+				if (haveRequest) {
+					if (writeStream != null) {
+						myTcs.TrySetResult (writeStream);
+						return writeStream;
+					}
+				}
+
+				gotRequestStream = true;
+				if (!requestSent) {
+					requestSent = true;
+					redirects = 0;
+					servicePoint = GetServicePoint ();
+					abortHandler = servicePoint.SendRequest (this, connectionGroup);
+				}
+			}
+
+			return await myTcs.Task.ConfigureAwait (false);
+		}
 
 		public override IAsyncResult BeginGetRequestStream (AsyncCallback callback, object state)
 		{
 			if (Aborted)
 				throw new WebException ("The request was canceled.", WebExceptionStatus.RequestCanceled);
+
+			return TaskToApm.Begin (MyGetRequestStreamAsync (), callback, state);
 
 			bool send = !(method == "GET" || method == "CONNECT" || method == "HEAD" ||
 					method == "TRACE");
@@ -890,6 +949,8 @@ namespace System.Net
 		{
 			if (asyncResult == null)
 				throw new ArgumentNullException ("asyncResult");
+
+			return TaskToApm.End<Stream> (asyncResult);
 
 			WebAsyncResult result = asyncResult as WebAsyncResult;
 			if (result == null)
@@ -969,18 +1030,23 @@ namespace System.Net
 			return false;
 		}
 
-		async Task<HttpWebResponse> MyGetResponseAsync ()
+		async Task<T> RunWithTimeout<T> (Func<Task, CancellationToken, Task<T>> func, string message)
 		{
 			using (var cts = new CancellationTokenSource ()) {
 				cts.CancelAfter (timeout);
 				cts.Token.Register (() => Abort ());
 				var timeoutTask = Task.Delay (timeout);
-				var responseTask = MyGetResponseAsync (timeoutTask, cts.Token);
-				var ret = await Task.WhenAny (responseTask, timeoutTask).ConfigureAwait (false);
+				var workerTask = func (timeoutTask, cts.Token);
+				var ret = await Task.WhenAny (workerTask, timeoutTask).ConfigureAwait (false);
 				if (ret == timeoutTask)
-					throw new WebException ("The request timed out", WebExceptionStatus.Timeout);
-				return responseTask.Result;
+					throw new WebException (message, WebExceptionStatus.Timeout);
+				return workerTask.Result;
 			}
+		}
+
+		Task<HttpWebResponse> MyGetResponseAsync ()
+		{
+			return RunWithTimeout (MyGetResponseAsync, "The request timed out");
 		}
 
 		async Task<HttpWebResponse> MyGetResponseAsync (Task timeoutTask, CancellationToken cancellationToken)
@@ -1000,7 +1066,7 @@ namespace System.Net
 			var myDataTcs = new TaskCompletionSource<WebConnectionData> ();
 			lock (locker) {
 				getResponseCalled = true;
-				var oldTcs = Interlocked.CompareExchange (ref responseTcs, myTcs, null);
+				var oldTcs = Interlocked.CompareExchange (ref responseTask, myTcs, null);
 				if (oldTcs != null) {
 					if (haveResponse && oldTcs.Task.IsCompleted)
 						return oldTcs.Task.Result;
@@ -1008,7 +1074,7 @@ namespace System.Net
 								"method while a previous call is still in progress.");
 				}
 
-				if (Interlocked.CompareExchange (ref responseDataTcs, myDataTcs, null) != null)
+				if (Interlocked.CompareExchange (ref responseDataTask, myDataTcs, null) != null)
 					throw new InvalidOperationException ("Invalid nested call.");
 
 				initialMethod = method;
@@ -1080,7 +1146,7 @@ namespace System.Net
 					webResponse = null;
 					forceWrite = false;
 					myDataTcs = new TaskCompletionSource<WebConnectionData> ();
-					responseDataTcs = myDataTcs;
+					responseDataTask = myDataTcs;
 					servicePoint = GetServicePoint ();
 					abortHandler = servicePoint.SendRequest (this, connectionGroup);
 				}
@@ -1289,6 +1355,9 @@ namespace System.Net
 				} catch (Exception) { }
 				abortHandler = null;
 			}
+
+			responseDataTask?.TrySetCanceled ();
+			responseTask?.TrySetCanceled ();
 
 			if (asyncWrite != null) {
 				WebAsyncResult r = asyncWrite;
@@ -1650,7 +1719,7 @@ namespace System.Net
 				return;
 			lock (locker) {
 				string msg = String.Format ("Error getting response stream ({0}): {1}", where, status);
-				var tcs = responseDataTcs;
+				var tcs = responseDataTask;
 				WebAsyncResult r = asyncRead;
 				if (r == null)
 					r = asyncWrite;
@@ -1751,7 +1820,7 @@ namespace System.Net
 		internal void SetResponseData (WebConnectionData data)
 		{
 			lock (locker) {
-				var tcs = responseDataTcs;
+				var tcs = responseDataTask;
 
 				WebConnection.Debug ($"HWR SET RESPONSE DATA: {ID} {tcs != null} {webResponse != null}");
 
