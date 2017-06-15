@@ -1130,7 +1130,7 @@ namespace System.Net
 				lock (locker) {
 					if (throwMe != null) {
 						haveResponse = true;
-						data?.stream?.Close ();
+						// data?.stream?.Close ();
 						myTcs.TrySetException (throwMe);
 						throw throwMe;
 					}
@@ -1160,10 +1160,16 @@ namespace System.Net
 			 * WebConnection has either called SetResponseData() or SetResponseError().
 		 	*/
 
-			if (data == null)
-				throw new WebException ("Got WebConnectionData == null and no exception.", WebExceptionStatus.ProtocolError);
+			HttpWebResponse response;
+			try {
+				if (data == null)
+					throw new WebException ("Got WebConnectionData == null and no exception.", WebExceptionStatus.ProtocolError);
 
-			var response = new HttpWebResponse (actualUri, method, data, cookieContainer);
+				response = new HttpWebResponse (actualUri, method, data, cookieContainer);
+			} catch {
+				data.stream?.Close ();
+				throw;
+			}
 
 			WebException throwMe = null;
 			bool mustReadAll = false;
@@ -1197,7 +1203,7 @@ namespace System.Net
 
 				if (!redirect) {
 					if ((isProxy ? proxy_auth_state : auth_state).IsNtlmAuthenticated && (int)response.StatusCode < 400) {
-						var wcs = webResponse.GetResponseStream () as WebConnectionStream;
+						var wcs = response.GetResponseStream () as WebConnectionStream;
 						if (wcs != null) {
 							var cnc = wcs.Connection;
 							cnc.NtlmAuthenticated = true;
@@ -1300,7 +1306,14 @@ namespace System.Net
 
 		public override WebResponse EndGetResponse (IAsyncResult asyncResult)
 		{
-			return TaskToApm.End<HttpWebResponse> (asyncResult);
+			try {
+				return TaskToApm.End<HttpWebResponse> (asyncResult);
+			} catch (AggregateException ae) {
+				ae = ae.Flatten ();
+				if (ae.InnerExceptions.Count > 1)
+					throw;
+				throw ae.InnerException;
+			}
 
 			if (asyncResult == null)
 				throw new ArgumentNullException ("asyncResult");
@@ -1483,7 +1496,7 @@ namespace System.Net
 			}
 
 			if (method != "GET" && !InternalAllowBuffering && (writeStream.WriteBufferLength > 0 || contentLength > 0))
-				e = new WebException ("The request requires buffering data to succeed.", null, WebExceptionStatus.ProtocolError, webResponse);
+				e = new WebException ("The request requires buffering data to succeed.", null, WebExceptionStatus.ProtocolError, response);
 
 			if (e != null)
 				throw e;

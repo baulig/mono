@@ -591,7 +591,11 @@ namespace System.Net
 			if (!expect_content)
 				stream.ForceCompletion ();
 
-			data.request.SetResponseData (data);
+			try {
+				data.request.SetResponseData (data);
+			} catch (Exception e) {
+				Console.Error.WriteLine ("READ DONE EX: {0}", e);
+			}
 		}
 
 		static bool ExpectContent (int statusCode, string method)

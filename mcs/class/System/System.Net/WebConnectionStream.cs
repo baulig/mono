@@ -109,8 +109,7 @@ namespace System.Net
 		bool headersSent;
 		object locker = new object ();
 		TaskCompletionSource<int> readTcs;
-		TaskCompletionSource<int> writeTcs;
-		AsyncManualResetEvent pendingWrite;
+		TaskCompletionSource<int> pendingWrite;
 		int nestedRead;
 		int nestedWrite;
 		bool initRead;
@@ -132,7 +131,6 @@ namespace System.Net
 			isRead = true;
 			cb_wrapper = new AsyncCallback (ReadCallbackWrapper);
 			pending = new AsyncManualResetEvent (true);
-			pendingWrite = new AsyncManualResetEvent (true); 
 			this.request = data.request;
 			read_timeout = request.ReadWriteTimeout;
 			write_timeout = read_timeout;
@@ -168,7 +166,6 @@ namespace System.Net
 			this.request = request;
 			allowBuffering = request.InternalAllowBuffering;
 			sendChunked = request.SendChunked;
-			pendingWrite = new AsyncManualResetEvent (true);
 			if (sendChunked)
 				pending = new AsyncManualResetEvent (true);
 			else if (allowBuffering)
@@ -576,7 +573,7 @@ namespace System.Net
 				throw new ArgumentOutOfRangeException ("size");
 
 			var myWriteTcs = new TaskCompletionSource<int> ();
-			if (Interlocked.CompareExchange (ref writeTcs, myWriteTcs, null) != null)
+			if (Interlocked.CompareExchange (ref pendingWrite, myWriteTcs, null) != null)
 				throw new InvalidOperationException (SR.GetString (SR.net_repcall));
 
 			try {
@@ -590,7 +587,7 @@ namespace System.Net
 				if (allowBuffering && !sendChunked && request.ContentLength > 0 && totalWritten == request.ContentLength)
 					complete_request_written = true;
 
-				writeTcs = null;
+				pendingWrite = null;
 				myWriteTcs.TrySetResult (0);
 			} catch (Exception ex) {
 				KillBuffer ();
@@ -600,7 +597,7 @@ namespace System.Net
 				if (ex is SocketException)
 					ex = new IOException ("Error writing request", ex);
 
-				writeTcs = null;
+				pendingWrite = null;
 				myWriteTcs.TrySetException (ex);
 				throw;
 			}
@@ -940,32 +937,39 @@ namespace System.Net
 			disposed = true;
 		}
 
-		internal bool GetResponseOnClose {
-			get; set;
+		async Task WriteChunkTrailer ()
+		{
+			using (var cts = new CancellationTokenSource ()) {
+				cts.CancelAfter (WriteTimeout);
+				var timeoutTask = Task.Delay (WriteTimeout);
+				while (true) {
+					var myWriteTcs = new TaskCompletionSource<int> ();
+					var oldTcs = Interlocked.CompareExchange (ref pendingWrite, myWriteTcs, null);
+					if (oldTcs == null)
+						break;
+					var ret = await Task.WhenAny (timeoutTask, oldTcs.Task).ConfigureAwait (false);
+					if (ret == timeoutTask)
+						throw new WebException ("The operation has timed out.", WebExceptionStatus.Timeout);
+				}
+
+				try {
+					byte[] chunk = Encoding.ASCII.GetBytes ("0\r\n\r\n");
+					await cnc.WriteAsync (request, chunk, 0, chunk.Length, cts.Token).ConfigureAwait (false);
+				} catch {
+					;
+				} finally {
+					pendingWrite = null;
+				}
+			}
 		}
 
 		public override void Close ()
 		{
-			if (GetResponseOnClose) {
-				if (disposed)
-					return;
-				disposed = true;
-				var response = (HttpWebResponse)request.GetResponse ();
-				response.ReadAll ();
-				response.Close ();
-				return;
-			}
-
 			if (sendChunked) {
 				if (disposed)
 					return;
 				disposed = true;
-				if (!pending.WaitOne (WriteTimeout)) {
-					throw new WebException ("The operation has timed out.", WebExceptionStatus.Timeout);
-				}
-				byte[] chunk = Encoding.ASCII.GetBytes ("0\r\n\r\n");
-				string err_msg = null;
-				cnc.Write (request, chunk, 0, chunk.Length, ref err_msg);
+				WriteChunkTrailer ().Wait ();
 				return;
 			}
 
