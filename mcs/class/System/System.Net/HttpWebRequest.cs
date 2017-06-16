@@ -920,7 +920,14 @@ namespace System.Net
 
 		public override Stream GetRequestStream ()
 		{
-			return GetRequestStreamAsync ().Result;
+			try {
+				return GetRequestStreamAsync ().Result;
+			} catch (AggregateException ae) {
+				ae = ae.Flatten ();
+				if (ae.InnerExceptions.Count > 1)
+					throw;
+				throw ae.InnerException;
+			}
 		}
 
 		[MonoTODO]
@@ -1181,7 +1188,14 @@ namespace System.Net
 
 		public override WebResponse GetResponse ()
 		{
-			return GetResponseAsync ().Result;
+			try {
+				return GetResponseAsync ().Result;
+			} catch (AggregateException ae) {
+				ae = ae.Flatten ();
+				if (ae.InnerExceptions.Count > 1)
+					throw;
+				throw ae.InnerException;
+			}
 		}
 
 		internal bool FinishedReading {
