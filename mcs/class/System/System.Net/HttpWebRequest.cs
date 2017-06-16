@@ -101,7 +101,6 @@ namespace System.Net
 		TaskCompletionSource<HttpWebResponse> responseTask;
 		TaskCompletionSource<WebConnectionData> responseDataTask;
 		TaskCompletionSource<Stream> requestTask;
-		TaskCompletionSource<WebConnectionData> requestDataTask;
 		EventHandler abortHandler;
 		int aborted;
 		bool gotRequestStream;
@@ -839,6 +838,31 @@ namespace System.Net
 			webHeaders.ChangeInternal ("Range", r);
 		}
 
+		TaskCompletionSource<WebConnectionData> SendRequest ()
+		{
+			lock (locker) {
+				WebConnection.Debug ($"HWR SEND REQUEST: {ID} {requestSent}");
+
+				TaskCompletionSource<WebConnectionData> task;
+				if (requestSent) {
+					task = responseDataTask;
+					if (task == null)
+						throw new InvalidOperationException ("Should never happen!");
+					return task;
+				}
+
+				task = new TaskCompletionSource<WebConnectionData> ();
+				if (Interlocked.CompareExchange (ref responseDataTask, task, null) != null)
+					throw new InvalidOperationException ("Invalid nested call.");
+
+				requestSent = true;
+				redirects = 0;
+				servicePoint = GetServicePoint ();
+				abortHandler = servicePoint.SendRequest (this, connectionGroup);
+				return task;
+			}
+		}
+
 		Task<Stream> MyGetRequestStreamAsync ()
 		{
 			return RunWithTimeout (MyGetRequestStreamAsync, "The request timed out");
@@ -862,7 +886,6 @@ namespace System.Net
 				throw new ProtocolViolationException ("SendChunked should be true.");
 
 			var myTcs = new TaskCompletionSource<Stream> ();
-			var myDataTcs = new TaskCompletionSource<WebConnectionData> ();
 			lock (locker) {
 				if (getResponseCalled)
 					throw new InvalidOperationException ("The operation cannot be performed once the request has been submitted.");
@@ -871,9 +894,6 @@ namespace System.Net
 				if (oldTcs != null)
 					throw new InvalidOperationException ("Cannot re-call start of asynchronous " +
 								"method while a previous call is still in progress.");
-
-				if (Interlocked.CompareExchange (ref requestDataTask, myDataTcs, null) != null)
-					throw new InvalidOperationException ("Invalid nested call.");
 
 				initialMethod = method;
 				if (haveRequest) {
@@ -884,12 +904,7 @@ namespace System.Net
 				}
 
 				gotRequestStream = true;
-				if (!requestSent) {
-					requestSent = true;
-					redirects = 0;
-					servicePoint = GetServicePoint ();
-					abortHandler = servicePoint.SendRequest (this, connectionGroup);
-				}
+				SendRequest ();
 			}
 
 			return await myTcs.Task.ConfigureAwait (false);
@@ -989,7 +1004,7 @@ namespace System.Net
 
 			bool forceWrite;
 			var myTcs = new TaskCompletionSource<HttpWebResponse> ();
-			var myDataTcs = new TaskCompletionSource<WebConnectionData> ();
+			TaskCompletionSource<WebConnectionData> myDataTcs;
 			lock (locker) {
 				getResponseCalled = true;
 				var oldTcs = Interlocked.CompareExchange (ref responseTask, myTcs, null);
@@ -1001,18 +1016,10 @@ namespace System.Net
 								"method while a previous call is still in progress.");
 				}
 
-				if (Interlocked.CompareExchange (ref responseDataTask, myDataTcs, null) != null)
-					throw new InvalidOperationException ("Invalid nested call.");
-
 				initialMethod = method;
 				forceWrite = CheckIfForceWrite ();
 
-				if (!requestSent) {
-					requestSent = true;
-					redirects = 0;
-					servicePoint = GetServicePoint ();
-					abortHandler = servicePoint.SendRequest (this, connectionGroup);
-				}
+				myDataTcs = SendRequest ();
 			}
 
 			while (true) {
