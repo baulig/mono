@@ -117,7 +117,6 @@ namespace System.Net
 		bool complete_request_written;
 		int read_timeout;
 		int write_timeout;
-		AsyncCallback cb_wrapper; // Calls to ReadCallbackWrapper or WriteCallbacWrapper
 		internal bool IgnoreIOErrors;
 
 		public WebConnectionStream (WebConnection cnc, WebConnectionData data)
@@ -129,7 +128,6 @@ namespace System.Net
 			if (data.request == null)
 				throw new InvalidOperationException ("data.request was not initialized");
 			isRead = true;
-			cb_wrapper = new AsyncCallback (ReadCallbackWrapper);
 			pending = new AsyncManualResetEvent (true);
 			this.request = data.request;
 			read_timeout = request.ReadWriteTimeout;
@@ -161,7 +159,6 @@ namespace System.Net
 			read_timeout = request.ReadWriteTimeout;
 			write_timeout = read_timeout;
 			isRead = false;
-			cb_wrapper = new AsyncCallback (WriteCallbackWrapper);
 			this.cnc = cnc;
 			this.request = request;
 			allowBuffering = request.InternalAllowBuffering;
@@ -376,39 +373,6 @@ namespace System.Net
 		internal void ReadAll ()
 		{
 			ReadAllAsync (CancellationToken.None).Wait ();
-		}
-
-		void WriteCallbackWrapper (IAsyncResult r)
-		{
-			WebAsyncResult result = r as WebAsyncResult;
-			if (result != null && result.AsyncWriteAll)
-				return;
-
-			if (r.AsyncState != null) {
-				result = (WebAsyncResult)r.AsyncState;
-				result.InnerAsyncResult = r;
-				result.DoCallback ();
-			} else {
-				try {
-					EndWrite (r);
-				} catch {
-				}
-			}
-		}
-
-		void ReadCallbackWrapper (IAsyncResult r)
-		{
-			WebAsyncResult result;
-			if (r.AsyncState != null) {
-				result = (WebAsyncResult)r.AsyncState;
-				result.InnerAsyncResult = r;
-				result.DoCallback ();
-			} else {
-				try {
-					EndRead (r);
-				} catch {
-				}
-			}
 		}
 
 		public override int Read (byte[] buffer, int offset, int size)
@@ -658,33 +622,6 @@ namespace System.Net
 			totalWritten += size;
 		}
 
-		void WriteAsyncCB (IAsyncResult r)
-		{
-			WebAsyncResult result = (WebAsyncResult)r.AsyncState;
-			result.InnerAsyncResult = null;
-
-			try {
-				cnc.EndWrite (r, true);
-				result.SetCompleted (false, 0);
-				if (!initRead) {
-					initRead = true;
-					cnc.InitRead ();
-				}
-			} catch (Exception e) {
-				KillBuffer ();
-				nextReadCalled = true;
-				cnc.Close (true);
-				if (e is System.Net.Sockets.SocketException)
-					e = new IOException ("Error writing request", e);
-				result.SetCompleted (false, e);
-			}
-
-			if (allowBuffering && !sendChunked && request.ContentLength > 0 && totalWritten == request.ContentLength)
-				complete_request_written = true;
-
-			result.DoCallback ();
-		}
-
 		public override IAsyncResult BeginWrite (byte[] buffer, int offset, int size,
 							 AsyncCallback cb, object state)
 		{
@@ -693,88 +630,6 @@ namespace System.Net
 
 			var task = WriteAsync (buffer, offset, size, CancellationToken.None);
 			return TaskToApm.Begin (task, cb, state);
-
-			if (isRead)
-				throw new NotSupportedException ("this stream does not allow writing");
-
-			if (buffer == null)
-				throw new ArgumentNullException ("buffer");
-
-			int length = buffer.Length;
-			if (offset < 0 || length < offset)
-				throw new ArgumentOutOfRangeException ("offset");
-			if (size < 0 || (length - offset) < size)
-				throw new ArgumentOutOfRangeException ("size");
-
-			if (sendChunked) {
-				lock (locker) {
-					pendingWrites++;
-					pending.Reset ();
-				}
-			}
-
-			WebAsyncResult result = new WebAsyncResult (cb, state);
-			AsyncCallback callback = new AsyncCallback (WriteAsyncCB);
-
-			if (sendChunked) {
-				requestWritten = true;
-
-				string cSize = String.Format ("{0:X}\r\n", size);
-				byte[] head = Encoding.ASCII.GetBytes (cSize);
-				int chunkSize = 2 + size + head.Length;
-				byte[] newBuffer = new byte[chunkSize];
-				Buffer.BlockCopy (head, 0, newBuffer, 0, head.Length);
-				Buffer.BlockCopy (buffer, offset, newBuffer, head.Length, size);
-				Buffer.BlockCopy (crlf, 0, newBuffer, head.Length + size, crlf.Length);
-
-				if (allowBuffering) {
-					if (writeBuffer == null)
-						writeBuffer = new MemoryStream ();
-					writeBuffer.Write (buffer, offset, size);
-					totalWritten += size;
-				}
-
-				buffer = newBuffer;
-				offset = 0;
-				size = chunkSize;
-			} else {
-				CheckWriteOverflow (request.ContentLength, totalWritten, size);
-
-				if (allowBuffering) {
-					if (writeBuffer == null)
-						writeBuffer = new MemoryStream ();
-					writeBuffer.Write (buffer, offset, size);
-					totalWritten += size;
-
-					if (request.ContentLength <= 0 || totalWritten < request.ContentLength) {
-						result.SetCompleted (true, 0);
-						result.DoCallback ();
-						return result;
-					}
-
-					result.AsyncWriteAll = true;
-					requestWritten = true;
-					buffer = writeBuffer.GetBuffer ();
-					offset = 0;
-					size = (int)totalWritten;
-				}
-			}
-
-			try {
-				result.InnerAsyncResult = cnc.AsyncWrite (request, buffer, offset, size, true, callback, result);
-				if (result.InnerAsyncResult == null) {
-					if (!result.IsCompleted)
-						result.SetCompleted (true, 0);
-					result.DoCallback ();
-				}
-			} catch (Exception) {
-				if (!IgnoreIOErrors)
-					throw;
-				result.SetCompleted (true, 0);
-				result.DoCallback ();
-			}
-			totalWritten += size;
-			return result;
 		}
 
 		void CheckWriteOverflow (long contentLength, long totalWritten, long size)
@@ -799,53 +654,11 @@ namespace System.Net
 				throw new ArgumentNullException ("r");
 
 			TaskToApm.End (r);
-			return;
-
-			WebAsyncResult result = r as WebAsyncResult;
-			if (result == null)
-				throw new ArgumentException ("Invalid IAsyncResult");
-
-			if (result.EndCalled)
-				return;
-
-			if (sendChunked) {
-				lock (locker) {
-					pendingWrites--;
-					if (pendingWrites <= 0)
-						pending.Set ();
-				}
-			}
-
-			result.EndCalled = true;
-			if (result.AsyncWriteAll) {
-				result.WaitUntilComplete ();
-				if (result.GotException)
-					throw result.Exception;
-				return;
-			}
-
-			if (allowBuffering && !sendChunked)
-				return;
-
-			if (result.GotException)
-				throw result.Exception;
 		}
 
 		public override void Write (byte[] buffer, int offset, int size)
 		{
 			WriteAsync (buffer, offset, size).Wait ();
-			return;
-
-			AsyncCallback cb = cb_wrapper;
-			WebAsyncResult res = (WebAsyncResult)BeginWrite (buffer, offset, size, cb, null);
-			if (!res.IsCompleted && !res.WaitUntilComplete (WriteTimeout, false)) {
-				KillBuffer ();
-				nextReadCalled = true;
-				cnc.Close (true);
-				throw new IOException ("Write timed out.");
-			}
-
-			EndWrite (res);
 		}
 
 		public override void Flush ()

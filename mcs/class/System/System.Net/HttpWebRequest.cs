@@ -901,48 +901,6 @@ namespace System.Net
 				throw new WebException ("The request was canceled.", WebExceptionStatus.RequestCanceled);
 
 			return TaskToApm.Begin (MyGetRequestStreamAsync (), callback, state);
-
-			bool send = !(method == "GET" || method == "CONNECT" || method == "HEAD" ||
-					method == "TRACE");
-			if (method == null || !send)
-				throw new ProtocolViolationException ("Cannot send data when method is: " + method);
-
-			if (contentLength == -1 && !sendChunked && !allowBuffering && KeepAlive)
-				throw new ProtocolViolationException ("Content-Length not set");
-
-			string transferEncoding = TransferEncoding;
-			if (!sendChunked && transferEncoding != null && transferEncoding.Trim () != "")
-				throw new ProtocolViolationException ("SendChunked should be true.");
-
-			lock (locker) {
-				if (getResponseCalled)
-					throw new InvalidOperationException ("The operation cannot be performed once the request has been submitted.");
-
-				if (asyncWrite != null) {
-					throw new InvalidOperationException ("Cannot re-call start of asynchronous " +
-								"method while a previous call is still in progress.");
-				}
-
-				asyncWrite = new WebAsyncResult (this, callback, state);
-				initialMethod = method;
-				if (haveRequest) {
-					if (writeStream != null) {
-						asyncWrite.SetCompleted (true, writeStream);
-						asyncWrite.DoCallback ();
-						return asyncWrite;
-					}
-				}
-
-				gotRequestStream = true;
-				WebAsyncResult result = asyncWrite;
-				if (!requestSent) {
-					requestSent = true;
-					redirects = 0;
-					servicePoint = GetServicePoint ();
-					abortHandler = servicePoint.SendRequest (this, connectionGroup);
-				}
-				return result;
-			}
 		}
 
 		public override Stream EndGetRequestStream (IAsyncResult asyncResult)
@@ -950,65 +908,25 @@ namespace System.Net
 			if (asyncResult == null)
 				throw new ArgumentNullException ("asyncResult");
 
-			return TaskToApm.End<Stream> (asyncResult);
-
-			WebAsyncResult result = asyncResult as WebAsyncResult;
-			if (result == null)
-				throw new ArgumentException ("Invalid IAsyncResult");
-
-			asyncWrite = result;
-			result.WaitUntilComplete ();
-
-			Exception e = result.Exception;
-			if (e != null)
-				throw e;
-
-			return result.WriteStream;
+			try {
+				return TaskToApm.End<Stream> (asyncResult);
+			} catch (AggregateException ae) {
+				ae = ae.Flatten ();
+				if (ae.InnerExceptions.Count > 1)
+					throw;
+				throw ae.InnerException;
+			}
 		}
 
 		public override Stream GetRequestStream ()
 		{
 			return GetRequestStreamAsync ().Result;
-			IAsyncResult asyncResult = asyncWrite;
-			if (asyncResult == null) {
-				asyncResult = BeginGetRequestStream (null, null);
-				asyncWrite = (WebAsyncResult)asyncResult;
-			}
-
-			if (!asyncResult.IsCompleted && !asyncResult.AsyncWaitHandle.WaitOne (timeout, false)) {
-				Abort ();
-				throw new WebException ("The request timed out", WebExceptionStatus.Timeout);
-			}
-
-			return EndGetRequestStream (asyncResult);
 		}
 
 		[MonoTODO]
 		public Stream GetRequestStream (out TransportContext context)
 		{
 			throw new NotImplementedException ();
-		}
-
-		bool CheckIfForceWrite (SimpleAsyncResult result)
-		{
-			if (writeStream == null || writeStream.RequestWritten || !InternalAllowBuffering)
-				return false;
-			if (contentLength < 0 && writeStream.CanWrite == true && writeStream.WriteBufferLength < 0)
-				return false;
-
-			if (contentLength < 0 && writeStream.WriteBufferLength >= 0)
-				InternalContentLength = writeStream.WriteBufferLength;
-
-			// This will write the POST/PUT if the write stream already has the expected
-			// amount of bytes in it (ContentLength) (bug #77753) or if the write stream
-			// contains data and it has been closed already (xamarin bug #1512).
-
-			if (writeStream.WriteBufferLength == contentLength || (contentLength == -1 && writeStream.CanWrite == false)) {
-				// return writeStream.WriteRequestAsync (result);
-				throw new NotSupportedException ();
-			}
-
-			return false;
 		}
 
 		bool CheckIfForceWrite ()
@@ -1094,7 +1012,7 @@ namespace System.Net
 				WebException throwMe = null;
 				HttpWebResponse response = null;
 				bool redirect = false;
-				
+
 				try {
 					cancellationToken.ThrowIfCancellationRequested ();
 					if (forceWrite)
@@ -1134,7 +1052,7 @@ namespace System.Net
 						myTcs.TrySetException (throwMe);
 						throw throwMe;
 					}
-					
+
 					if (!redirect) {
 						haveResponse = true;
 						webResponse = response;
@@ -1153,7 +1071,7 @@ namespace System.Net
 				}
 			}
 		}
-		
+
 		async Task<(HttpWebResponse response, bool redirect)> GetResponseFromData (WebConnectionData data, CancellationToken cancellationToken)
 		{
 			/*
@@ -1181,7 +1099,7 @@ namespace System.Net
 				// FIXME: this is only set if we're about to throw.
 				await response.ReadAllAsync (cancellationToken).ConfigureAwait (false);
 			}
-			
+
 			if (throwMe != null)
 				throw throwMe;
 
@@ -1221,17 +1139,17 @@ namespace System.Net
 						sendChunked = false;
 						webHeaders.RemoveInternal ("Transfer-Encoding");
 					}
-					
+
 					mustReadAll = HandleNtlmAuth (response);
 				}
 			}
-			
+
 			if (!finishedReading && mustReadAll) {
 				// NTLM auth has requested it.
 				await response.ReadAllAsync (cancellationToken).ConfigureAwait (false);
 				finishedReading = true;
 			}
-			
+
 			return (response, true);
 		}
 
@@ -1241,67 +1159,6 @@ namespace System.Net
 				throw new WebException ("The request was canceled.", WebExceptionStatus.RequestCanceled);
 
 			return TaskToApm.Begin (MyGetResponseAsync (), callback, state);
-
-			if (method == null)
-				throw new ProtocolViolationException ("Method is null.");
-
-			string transferEncoding = TransferEncoding;
-			if (!sendChunked && transferEncoding != null && transferEncoding.Trim () != "")
-				throw new ProtocolViolationException ("SendChunked should be true.");
-
-			Monitor.Enter (locker);
-			getResponseCalled = true;
-			if (asyncRead != null && !haveResponse) {
-				Monitor.Exit (locker);
-				throw new InvalidOperationException ("Cannot re-call start of asynchronous " +
-							"method while a previous call is still in progress.");
-			}
-
-			asyncRead = new WebAsyncResult (this, callback, state);
-			WebAsyncResult aread = asyncRead;
-			initialMethod = method;
-
-			SimpleAsyncResult.RunWithLock (locker, CheckIfForceWrite, inner => {
-				var synch = inner.CompletedSynchronouslyPeek;
-
-				if (inner.GotException) {
-					aread.SetCompleted (synch, inner.Exception);
-					aread.DoCallback ();
-					return;
-				}
-
-				if (haveResponse) {
-					Exception saved = saved_exc;
-					if (webResponse != null) {
-						if (saved == null) {
-							aread.SetCompleted (synch, webResponse);
-						} else {
-							aread.SetCompleted (synch, saved);
-						}
-						aread.DoCallback ();
-						return;
-					} else if (saved != null) {
-						aread.SetCompleted (synch, saved);
-						aread.DoCallback ();
-						return;
-					}
-				}
-
-				if (requestSent)
-					return;
-
-				try {
-					requestSent = true;
-					redirects = 0;
-					servicePoint = GetServicePoint ();
-					abortHandler = servicePoint.SendRequest (this, connectionGroup);
-				} catch (Exception ex) {
-					aread.SetCompleted (synch, ex);
-					aread.DoCallback ();
-				}
-			});
-
-			return aread;
 		}
 
 		public override WebResponse EndGetResponse (IAsyncResult asyncResult)
@@ -1314,23 +1171,6 @@ namespace System.Net
 					throw;
 				throw ae.InnerException;
 			}
-
-			if (asyncResult == null)
-				throw new ArgumentNullException ("asyncResult");
-
-			WebAsyncResult result = asyncResult as WebAsyncResult;
-			if (result == null)
-				throw new ArgumentException ("Invalid IAsyncResult", "asyncResult");
-
-			if (!result.WaitUntilComplete (timeout, false)) {
-				Abort ();
-				throw new WebException ("The request timed out", WebExceptionStatus.Timeout);
-			}
-
-			if (result.GotException)
-				throw result.Exception;
-
-			return result.Response;
 		}
 
 		public Stream EndGetRequestStream (IAsyncResult asyncResult, out TransportContext context)
@@ -1342,8 +1182,6 @@ namespace System.Net
 		public override WebResponse GetResponse ()
 		{
 			return GetResponseAsync ().Result;
-			WebAsyncResult result = (WebAsyncResult)BeginGetResponse (null, null);
-			return EndGetResponse (result);
 		}
 
 		internal bool FinishedReading {
@@ -1798,30 +1636,6 @@ namespace System.Net
 			return (false, null);
 		}
 
-		bool HandleNtlmAuth (WebAsyncResult r)
-		{
-			bool isProxy = webResponse.StatusCode == HttpStatusCode.ProxyAuthenticationRequired;
-			if ((isProxy ? proxy_auth_state.NtlmAuthState : auth_state.NtlmAuthState) == NtlmAuthState.None)
-				return false;
-
-			WebConnectionStream wce = webResponse.GetResponseStream () as WebConnectionStream;
-			if (wce != null) {
-				WebConnection cnc = wce.Connection;
-				cnc.PriorityRequest = this;
-				ICredentials creds = (!isProxy || proxy == null) ? credentials : proxy.Credentials;
-				if (creds != null) {
-					cnc.NtlmCredential = creds.GetCredential (requestUri, "NTLM");
-					cnc.UnsafeAuthenticatedConnectionSharing = unsafe_auth_blah;
-				}
-			}
-			r.Reset ();
-			finished_reading = false;
-			haveResponse = false;
-			webResponse.ReadAll ();
-			webResponse = null;
-			return true;
-		}
-
 		bool HandleNtlmAuth (HttpWebResponse response)
 		{
 			bool isProxy = response.StatusCode == HttpStatusCode.ProxyAuthenticationRequired;
@@ -1860,97 +1674,6 @@ namespace System.Net
 
 				tcs.TrySetResult (data);
 				return;
-
-				if (Aborted) {
-					if (data.stream != null)
-						data.stream.Close ();
-					return;
-				}
-
-				WebException wexc = null;
-				try {
-					webResponse = new HttpWebResponse (actualUri, method, data, cookieContainer);
-				} catch (Exception e) {
-					wexc = new WebException (e.Message, e, WebExceptionStatus.ProtocolError, null); 
-					if (data.stream != null)
-						data.stream.Close ();
-				}
-
-				if (wexc == null && (method == "POST" || method == "PUT")) {
-					// CheckSendError (data);
-					if (saved_exc != null)
-						wexc = (WebException) saved_exc;
-				}
-
-				WebAsyncResult r = asyncRead;
-
-				bool forced = false;
-				if (r == null && webResponse != null) {
-					// This is a forced completion (302, 204)...
-					forced = true;
-					r = new WebAsyncResult (null, null);
-					r.SetCompleted (false, webResponse);
-				}
-
-				bool isProxy = ProxyQuery && proxy != null && !proxy.IsBypassed (actualUri);
-
-				bool redirected;
-				try {
-					redirected = CheckFinalStatus (r);
-					if (!redirected) {
-						if ((isProxy ? proxy_auth_state.IsNtlmAuthenticated : auth_state.IsNtlmAuthenticated) &&
-								webResponse != null && (int)webResponse.StatusCode < 400) {
-							WebConnectionStream wce = webResponse.GetResponseStream () as WebConnectionStream;
-							if (wce != null) {
-								WebConnection cnc = wce.Connection;
-								cnc.NtlmAuthenticated = true;
-							}
-						}
-
-						// clear internal buffer so that it does not
-						// hold possible big buffer (bug #397627)
-						if (writeStream != null)
-							writeStream.KillBuffer ();
-
-						haveResponse = true;
-						r.SetCompleted (false, webResponse);
-						r.DoCallback ();
-					} else {
-						if (sendChunked) {
-							sendChunked = false;
-							webHeaders.RemoveInternal ("Transfer-Encoding");
-						}
-
-						if (webResponse != null) {
-							if (HandleNtlmAuth (r))
-								return;
-							webResponse.Close ();
-						}
-						finished_reading = false;
-						haveResponse = false;
-						webResponse = null;
-						r.Reset ();
-						servicePoint = GetServicePoint ();
-						abortHandler = servicePoint.SendRequest (this, connectionGroup);
-					}
-				} catch (WebException wexc2) {
-					if (forced) {
-						saved_exc = wexc2;
-						haveResponse = true;
-					}
-					r.SetCompleted (false, wexc2);
-					r.DoCallback ();
-					return;
-				} catch (Exception ex) {
-					wexc = new WebException (ex.Message, ex, WebExceptionStatus.ProtocolError, null); 
-					if (forced) {
-						saved_exc = wexc;
-						haveResponse = true;
-					}
-					r.SetCompleted (false, wexc);
-					r.DoCallback ();
-					return;
-				}
 			}
 		}
 
