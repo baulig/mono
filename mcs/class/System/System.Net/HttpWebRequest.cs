@@ -993,6 +993,7 @@ namespace System.Net
 			lock (locker) {
 				getResponseCalled = true;
 				var oldTcs = Interlocked.CompareExchange (ref responseTask, myTcs, null);
+				WebConnection.Debug ($"HWR GET RESPONSE: {ID} {oldTcs != null}");
 				if (oldTcs != null) {
 					if (haveResponse && oldTcs.Task.IsCompleted)
 						return oldTcs.Task.Result;
@@ -1073,6 +1074,7 @@ namespace System.Net
 					forceWrite = false;
 					myDataTcs = new TaskCompletionSource<WebConnectionData> ();
 					responseDataTask = myDataTcs;
+					WebConnection.Debug ($"HWR GET RESPONSE ASYNC - REDIRECT: {ID}");
 					servicePoint = GetServicePoint ();
 					abortHandler = servicePoint.SendRequest (this, connectionGroup);
 				}

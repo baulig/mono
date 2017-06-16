@@ -49,6 +49,9 @@ namespace System.Net
 		Socket socket;
 		MonoTlsStream tlsStream;
 
+		static int nextID;
+		public readonly int ID = ++nextID;
+
 		public WebConnectionData ()
 		{
 			_readState = ReadState.None;

@@ -488,7 +488,11 @@ namespace System.Net
 
 		void ReadDone (IAsyncResult result)
 		{
-			WebConnectionData data = (WebConnectionData)result.AsyncState;
+			var state = (Tuple<WebConnectionData, int>)result.AsyncState;
+			var data = state.Item1;
+
+			Debug ($"READ DONE: {ID} {data.ID} {state.Item2}");
+
 			Stream ns = data.NetworkStream;
 			if (ns == null) {
 				Close (true);
@@ -605,6 +609,8 @@ namespace System.Net
 			return (statusCode >= 200 && statusCode != 204 && statusCode != 304);
 		}
 
+		static int nextRequestId;
+
 		internal void InitRead ()
 		{
 			WebConnectionData data = Data;
@@ -612,7 +618,10 @@ namespace System.Net
 
 			try {
 				int size = buffer.Length - position;
-				ns.BeginRead (buffer, position, size, ReadDone, data);
+				int requestId = ++nextRequestID;
+				Debug ($"INIT READ: {ID} {data.ID} {requestId}");
+				var userData = new Tuple<WebConnectionData,int> (data, requestId);
+				ns.BeginRead (buffer, position, size, ReadDone, userData);
 			} catch (Exception e) {
 				HandleError (WebExceptionStatus.ReceiveFailure, e, "InitRead");
 			}
@@ -737,8 +746,10 @@ namespace System.Net
 			return -1;
 		}
 
-		void InitConnection (HttpWebRequest request)
+		void InitConnection (HttpWebRequest request, int debugID)
 		{
+			Debug ($"INIT CONNECTION: {ID} {request.ID} {debugID}"); 
+
 			request.WebConnection = this;
 			if (request.ReuseConnection)
 				request.StoredConnection = this;
@@ -792,15 +803,19 @@ namespace System.Net
 		static bool warned_about_queue = false;
 #endif
 
+		static int nextSendID;
+
 		internal EventHandler SendRequest (HttpWebRequest request)
 		{
 			if (request.Aborted)
 				return null;
 
 			lock (this) {
+				var requestID = ++nextSendID;
+				Debug ($"SEND REQUEST: {ID} {request.ID} {request.ID}");
 				if (state.TrySetBusy ()) {
 					status = WebExceptionStatus.Success;
-					ThreadPool.QueueUserWorkItem (o => { try { InitConnection ((HttpWebRequest)o); } catch { } }, request);
+					ThreadPool.QueueUserWorkItem (o => { try { InitConnection ((HttpWebRequest)o, requestID); } catch { } }, request);
 				} else {
 					lock (queue) {
 #if MONOTOUCH
