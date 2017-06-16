@@ -96,8 +96,6 @@ namespace System.Net
 
 		WebConnectionStream writeStream;
 		HttpWebResponse webResponse;
-		WebAsyncResult asyncWrite;
-		WebAsyncResult asyncRead;
 		TaskCompletionSource<HttpWebResponse> responseTask;
 		TaskCompletionSource<WebConnectionData> responseDataTask;
 		TaskCompletionSource<Stream> requestTask;
@@ -907,7 +905,11 @@ namespace System.Net
 				SendRequest ();
 			}
 
-			return await myTcs.Task.ConfigureAwait (false);
+			try {
+				return await myTcs.Task.ConfigureAwait (false);
+			} finally {
+				requestTask = null;
+			}
 		}
 
 		public override IAsyncResult BeginGetRequestStream (AsyncCallback callback, object state)
@@ -1221,6 +1223,8 @@ namespace System.Net
 			if (Interlocked.CompareExchange (ref aborted, 1, 0) == 1)
 				return;
 
+			WebConnection.Debug ($"HWR ABORT: {ID}");
+
 			if (haveResponse && finished_reading)
 				return;
 
@@ -1232,32 +1236,9 @@ namespace System.Net
 				abortHandler = null;
 			}
 
+			requestTask?.TrySetCanceled ();
 			responseDataTask?.TrySetCanceled ();
 			responseTask?.TrySetCanceled ();
-
-			if (asyncWrite != null) {
-				WebAsyncResult r = asyncWrite;
-				if (!r.IsCompleted) {
-					try {
-						WebException wexc = new WebException ("Aborted.", WebExceptionStatus.RequestCanceled);
-						r.SetCompleted (false, wexc);
-						r.DoCallback ();
-					} catch { }
-				}
-				asyncWrite = null;
-			}
-
-			if (asyncRead != null) {
-				WebAsyncResult r = asyncRead;
-				if (!r.IsCompleted) {
-					try {
-						WebException wexc = new WebException ("Aborted.", WebExceptionStatus.RequestCanceled);
-						r.SetCompleted (false, wexc);
-						r.DoCallback ();
-					} catch { }
-				}
-				asyncRead = null;
-			}
 
 			if (writeStream != null) {
 				try {
@@ -1476,26 +1457,32 @@ namespace System.Net
 			if (Aborted)
 				return;
 
-			WebAsyncResult r = asyncWrite;
-			if (r == null)
-				r = asyncRead;
+			WebConnection.Debug ($"HWR SET WRITE STREAM ERROR: {ID} {requestTask != null} {responseDataTask != null} {responseTask != null}");
 
-			if (r != null) {
-				string msg;
-				WebException wex;
-				if (exc == null) {
-					msg = "Error: " + status;
-					wex = new WebException (msg, status);
-				} else {
-					wex = exc as WebException;
-					if (wex == null) {
-						msg = String.Format ("Error: {0} ({1})", status, exc.Message);
-						wex = new WebException (msg, status, WebExceptionInternalStatus.RequestFatal, exc);
-					}
+			string msg;
+			WebException wex;
+			if (exc == null) {
+				msg = "Error: " + status;
+				wex = new WebException (msg, status);
+			} else {
+				wex = exc as WebException;
+				if (wex == null) {
+					msg = String.Format ("Error: {0} ({1})", status, exc.Message);
+					wex = new WebException (msg, status, WebExceptionInternalStatus.RequestFatal, exc);
 				}
-				r.SetCompleted (false, wex);
-				r.DoCallback ();
 			}
+
+			var tcs = requestTask;
+			var tcs2 = responseDataTask;
+
+			WebConnection.Debug ($"HWR SET WRITE STREAM ERROR #1: {ID} {tcs != null} {tcs2 != null}");
+
+			if (tcs != null)
+				tcs.TrySetException (wex);
+			else if (tcs2 != null)
+				tcs2.TrySetException (wex);
+			else
+				WebConnection.Debug ($"HWR SET WRITE STREAM ERROR #2");
 		}
 
 		internal byte[] GetRequestHeaders ()
@@ -1605,9 +1592,7 @@ namespace System.Net
 			lock (locker) {
 				string msg = String.Format ("Error getting response stream ({0}): {1}", where, status);
 				var tcs = responseDataTask;
-				WebAsyncResult r = asyncRead;
-				if (r == null)
-					r = asyncWrite;
+				WebConnection.Debug ($"HWR SET RESPONSE ERROR: {ID} {tcs != null}");
 
 				WebException wexc;
 				if (e is WebException) {
@@ -1620,31 +1605,19 @@ namespace System.Net
 					tcs.TrySetException (wexc);
 					return;
 				}
-				if (r != null) {
-					if (!r.IsCompleted) {
-						r.SetCompleted (false, wexc);
-						r.DoCallback ();
-					} else if (r == asyncWrite) {
-						saved_exc = wexc;
-					}
-					haveResponse = true;
-					asyncRead = null;
-					asyncWrite = null;
-				} else {
-					haveResponse = true;
-					saved_exc = wexc;
-				}
 			}
 		}
 
 		(bool, WebException) CheckSendError (WebConnectionData data)
 		{
+#if FIXME
 			// Got here, but no one called GetResponse
 			int status = data.StatusCode;
 			if (status < 400 || status == 401 || status == 407)
 				return (false, null);
 
 			if (writeStream != null && asyncRead == null && !writeStream.CompleteRequestWritten) {
+				throw new NotImplementedException ("SHOULD NEVER HAPPEN!");
 				// The request has not been completely sent and we got here!
 				// We should probably just close and cause an error in any case,
 				var saved_exc = new WebException (data.StatusDescription, null, WebExceptionStatus.ProtocolError, webResponse);
@@ -1655,6 +1628,7 @@ namespace System.Net
 					return (false, saved_exc);
 				}
 			}
+#endif
 
 			return (false, null);
 		}

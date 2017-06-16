@@ -504,7 +504,7 @@ namespace System.Net
 		public override IAsyncResult BeginRead (byte[] buffer, int offset, int size,
 							AsyncCallback cb, object state)
 		{
-			WebConnection.Debug ($"WCS BEGIN READ: {cnc.ID}");
+			// WebConnection.Debug ($"WCS BEGIN READ: {cnc.ID}");
 
 			var task = ReadAsync (buffer, offset, size, CancellationToken.None);
 			return TaskToApm.Begin (task, cb, state);
@@ -512,13 +512,13 @@ namespace System.Net
 
 		public override int EndRead (IAsyncResult r)
 		{
-			WebConnection.Debug ($"WCS END READ: {cnc.ID}");
+			// WebConnection.Debug ($"WCS END READ: {cnc.ID}");
 			return TaskToApm.End<int> (r);
 		}
 
 		public override async Task WriteAsync (byte[] buffer, int offset, int size, CancellationToken cancellationToken)
 		{
-			WebConnection.Debug ($"WCS WRITE ASYNC: {cnc.ID}");
+			// WebConnection.Debug ($"WCS WRITE ASYNC: {cnc.ID}");
 
 			cancellationToken.ThrowIfCancellationRequested ();
 
