@@ -61,10 +61,40 @@ namespace System.Net
 		static int nextID;
 		public readonly int ID = ++nextID;
 
-		public WebOperation (WebConnection connection, HttpWebRequest request)
+		public WebOperation (WebConnection connection, HttpWebRequest request, CancellationToken cancellationToken)
 		{
 			Connection = connection;
 			Request = request;
+
+			cts = CancellationTokenSource.CreateLinkedTokenSource (cancellationToken);
+			task = new TaskCompletionSource<WebConnectionData> (); 
+		}
+
+		CancellationTokenSource cts;
+		TaskCompletionSource<WebConnectionData> task;
+
+		public void Run (Func<CancellationToken, (WebConnectionData,WebConnectionStream,Exception)> func)
+		{
+			try {
+				if (Request.Aborted || cts.Token.IsCancellationRequested) {
+					task.TrySetCanceled ();
+					return;
+				}
+				var (data,stream,error) = func (cts.Token);
+				if (error != null)
+					task.TrySetException (error);
+				else if (data == null || Request.Aborted || cts.Token.IsCancellationRequested)
+					task.TrySetCanceled ();
+				else
+					task.TrySetResult (data);
+			} catch (OperationCanceledException) {
+				task.TrySetCanceled ();
+			} catch (Exception e) {
+				task.TrySetException (e);
+			} finally {
+				cts.Dispose ();
+				cts = null;
+			}
 		}
 	}
 
@@ -758,7 +788,7 @@ namespace System.Net
 			return -1;
 		}
 
-		void InitConnection (WebOperation operation)
+		(WebConnectionData,WebConnectionStream,Exception) InitConnection (WebOperation operation, CancellationToken cancellationToken)
 		{
 			Debug ($"WC INIT CONNECTION: {ID} {operation.Request.ID} {operation.ID}");
 
@@ -767,27 +797,27 @@ namespace System.Net
 			if (request.ReuseConnection)
 				request.StoredConnection = this;
 
-			if (request.Aborted)
-				return;
+			if (request.Aborted || cancellationToken.IsCancellationRequested)
+				return (null, null, null);
 
 			keepAlive = request.KeepAlive;
 			Data = new WebConnectionData (this, request);
 		retry:
 			Connect (request);
 			if (request.Aborted)
-				return;
+				return (null, null, null);
 
 			if (status != WebExceptionStatus.Success) {
 				if (!request.Aborted) {
 					request.SetWriteStreamError (status, connect_exception);
 					Close (true);
 				}
-				return;
+				return (null, null, connect_exception);
 			}
 
 			if (!CreateStream (request)) {
 				if (request.Aborted)
-					return;
+					return (null, null, null);
 
 				WebExceptionStatus st = status;
 				if (Data.Challenge != null)
@@ -806,10 +836,12 @@ namespace System.Net
 				connect_exception = null;
 				request.SetWriteStreamError (st, cnc_exc);
 				Close (true);
-				return;
+				return (null, null, cnc_exc);
 			}
 
-			request.SetWriteStream (new WebConnectionStream (this, request));
+			var stream = new WebConnectionStream (this, request);
+			request.SetWriteStream (stream);
+			return (Data, stream, null);
 		}
 
 #if MONOTOUCH
@@ -821,7 +853,7 @@ namespace System.Net
 			if (request.Aborted)
 				return (null, null);
 
-			var operation = new WebOperation (this, request);
+			var operation = new WebOperation (this, request, cancellationToken);
 			SendRequest (operation);
 			return (operation, abortHandler);
 		}
@@ -835,7 +867,7 @@ namespace System.Net
 					ThreadPool.QueueUserWorkItem (_ => {
 						try {
 							Debug ($"WC SEND REQUEST #1: {ID} {operation.ID}");
-							InitConnection (operation);
+							operation.Run (token => InitConnection (operation, token));
 						} catch (Exception ex) {
 							Debug ($"WC SEND REQUEST EX: {ID} {operation.ID} - {ex}");
 							throw;
@@ -890,7 +922,7 @@ namespace System.Net
 				state.SetIdle ();
 				var priority = Interlocked.Exchange (ref priority_request, null);
 				if (priority != null) {
-					var operation = new WebOperation (this, priority);
+					var operation = new WebOperation (this, priority, CancellationToken.None);
 					SendRequest (operation);
 				} else {
 					SendNext ();
