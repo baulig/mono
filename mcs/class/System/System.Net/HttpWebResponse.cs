@@ -88,11 +88,11 @@ namespace System.Net
 			}
 
 			string content_encoding = webHeaders ["Content-Encoding"];
-			if (content_encoding == "gzip" && (data.request.AutomaticDecompression & DecompressionMethods.GZip) != 0) {
+			if (content_encoding == "gzip" && (data.Request.AutomaticDecompression & DecompressionMethods.GZip) != 0) {
 				stream = new GZipStream (stream, CompressionMode.Decompress);
 				webHeaders.Remove (HttpRequestHeader.ContentEncoding);
 			}
-			else if (content_encoding == "deflate" && (data.request.AutomaticDecompression & DecompressionMethods.Deflate) != 0) {
+			else if (content_encoding == "deflate" && (data.Request.AutomaticDecompression & DecompressionMethods.Deflate) != 0) {
 				stream = new DeflateStream (stream, CompressionMode.Decompress);
 				webHeaders.Remove (HttpRequestHeader.ContentEncoding);
 			}

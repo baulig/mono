@@ -122,10 +122,10 @@ namespace System.Net
 				throw new InvalidOperationException ("data was not initialized");
 			if (data.Headers == null)
 				throw new InvalidOperationException ("data.Headers was not initialized");
-			if (data.request == null)
-				throw new InvalidOperationException ("data.request was not initialized");
+			if (data.Request == null)
+				throw new InvalidOperationException ("data.Request was not initialized");
 			isRead = true;
-			this.request = data.request;
+			this.request = data.Request;
 			read_timeout = request.ReadWriteTimeout;
 			write_timeout = read_timeout;
 			this.cnc = cnc;

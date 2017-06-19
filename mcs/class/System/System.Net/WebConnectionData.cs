@@ -36,7 +36,6 @@ namespace System.Net
 {
 	class WebConnectionData
 	{
-		HttpWebRequest _request;
 		public int StatusCode;
 		public string StatusDescription;
 		public WebHeaderCollection Headers;
@@ -57,18 +56,18 @@ namespace System.Net
 			_readState = ReadState.None;
 		}
 
-		public WebConnectionData (HttpWebRequest request)
+		public WebConnectionData (WebConnection connection, HttpWebRequest request)
 		{
-			this._request = request;
+			Connection = connection;
+			Request = request;
 		}
 
-		public HttpWebRequest request {
-			get {
-				return _request;
-			}
-			set {
-				_request = value;
-			}
+		public WebConnection Connection {
+			get;
+		}
+
+		public HttpWebRequest Request {
+			get; set;
 		}
 
 		public ReadState ReadState {

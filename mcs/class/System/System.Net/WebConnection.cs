@@ -471,8 +471,8 @@ namespace System.Net
 			}
 
 			HttpWebRequest req = null;
-			if (Data != null && Data.request != null)
-				req = Data.request;
+			if (Data != null && Data.Request != null)
+				req = Data.Request;
 
 			Close (true);
 			if (req != null) {
@@ -574,7 +574,7 @@ namespace System.Net
 			position = 0;
 
 			WebConnectionStream stream = await WebConnectionStream.Create (this, data, cancellationToken).ConfigureAwait (false);
-			bool expect_content = ExpectContent (data.StatusCode, data.request.Method);
+			bool expect_content = ExpectContent (data.StatusCode, data.Request.Method);
 			string tencoding = null;
 			if (expect_content)
 				tencoding = data.Headers["Transfer-Encoding"];
@@ -614,7 +614,7 @@ namespace System.Net
 			}
 
 			try {
-				data.request.SetResponseData (data);
+				data.Request.SetResponseData (data);
 			} catch (Exception e) {
 				Console.Error.WriteLine ("READ DONE EX: {0}", e);
 			}
@@ -720,11 +720,11 @@ namespace System.Net
 						if (pos >= max)
 							return pos;
 
-						if (data.request.ExpectContinue) {
-							data.request.DoContinueDelegate (data.StatusCode, data.Headers);
+						if (data.Request.ExpectContinue) {
+							data.Request.DoContinueDelegate (data.StatusCode, data.Headers);
 							// Prevent double calls when getting the
 							// headers in several packets.
-							data.request.ExpectContinue = false;
+							data.Request.ExpectContinue = false;
 						}
 
 						data.ReadState = ReadState.None;
@@ -751,7 +751,7 @@ namespace System.Net
 				return;
 
 			keepAlive = request.KeepAlive;
-			Data = new WebConnectionData (request);
+			Data = new WebConnectionData (this, request);
 		retry:
 			Connect (request);
 			if (request.Aborted)
@@ -848,8 +848,8 @@ namespace System.Net
 		{
 			lock (this) {
 				Debug ($"WC NEXT READ: {ID}");
-				if (Data.request != null)
-					Data.request.FinishedReading = true;
+				if (Data.Request != null)
+					Data.Request.FinishedReading = true;
 				string header = (sPoint.UsesProxy) ? "Proxy-Connection" : "Connection";
 				string cncHeader = (Data.Headers != null) ? Data.Headers[header] : null;
 				bool keepAlive = (Data.Version == HttpVersion.Version11 && this.keepAlive);
@@ -922,7 +922,7 @@ namespace System.Net
 			WebConnectionData data;
 			Stream s;
 			lock (this) {
-				if (Data.request != request)
+				if (Data.Request != request)
 					throw new ObjectDisposedException (typeof (NetworkStream).FullName);
 				data = Data;
 				s = data.NetworkStream;
@@ -942,7 +942,7 @@ namespace System.Net
 			WebConnectionData data;
 			Stream s;
 			lock (this) {
-				if (Data.request != request)
+				if (Data.Request != request)
 					throw new ObjectDisposedException (typeof (NetworkStream).FullName);
 				data = Data;
 				s = data.NetworkStream;
@@ -1033,7 +1033,7 @@ namespace System.Net
 			lock (this) {
 				if (status == WebExceptionStatus.RequestCanceled)
 					return;
-				if (Data.request != request)
+				if (Data.Request != request)
 					throw new ObjectDisposedException (typeof (NetworkStream).FullName);
 				data = Data;
 				s = data.NetworkStream;
@@ -1045,7 +1045,7 @@ namespace System.Net
 				await s.WriteAsync (buffer, offset, size, cancellationToken).ConfigureAwait (false);
 			} catch (ObjectDisposedException) {
 				lock (this) {
-					if (Data != data || data.request != request)
+					if (Data != data || data.Request != request)
 						return;
 				}
 				throw;
@@ -1072,8 +1072,8 @@ namespace System.Net
 		internal void Close (bool sendNext)
 		{
 			lock (this) {
-				if (Data.request != null && Data.request.ReuseConnection) {
-					Data.request.ReuseConnection = false;
+				if (Data.Request != null && Data.Request.ReuseConnection) {
+					Data.Request.ReuseConnection = false;
 					return;
 				}
 
@@ -1096,13 +1096,13 @@ namespace System.Net
 			lock (this) {
 				lock (queue) {
 					HttpWebRequest req = (HttpWebRequest) sender;
-					if (Data.request == req || Data.request == null) {
+					if (Data.Request == req || Data.Request == null) {
 						if (!req.FinishedReading) {
 							status = WebExceptionStatus.RequestCanceled;
 							Close (false);
 							if (queue.Count > 0) {
-								Data.request = (HttpWebRequest) queue.Dequeue ();
-								SendRequest (Data.request);
+								Data.Request = (HttpWebRequest) queue.Dequeue ();
+								SendRequest (Data.Request);
 							}
 						}
 						return;
