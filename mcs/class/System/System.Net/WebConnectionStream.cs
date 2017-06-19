@@ -378,7 +378,11 @@ namespace System.Net
 		public override int Read (byte[] buffer, int offset, int size)
 		{
 			WebConnection.Debug ($"WCS READ: {cnc.ID}");
-			return ReadAsync (buffer, offset, size, CancellationToken.None).Result;
+			try {
+				return ReadAsync (buffer, offset, size, CancellationToken.None).Result;
+			} catch (Exception e) {
+				throw HttpWebRequest.FlattenException (e);
+			}
 		}
 
 		public override async Task<int> ReadAsync (byte[] buffer, int offset, int size, CancellationToken cancellationToken)
@@ -513,7 +517,11 @@ namespace System.Net
 		public override int EndRead (IAsyncResult r)
 		{
 			// WebConnection.Debug ($"WCS END READ: {cnc.ID}");
-			return TaskToApm.End<int> (r);
+			try {
+				return TaskToApm.End<int> (r);
+			} catch (Exception e) {
+				throw HttpWebRequest.FlattenException (e);
+			}
 		}
 
 		public override async Task WriteAsync (byte[] buffer, int offset, int size, CancellationToken cancellationToken)
@@ -653,12 +661,20 @@ namespace System.Net
 			if (r == null)
 				throw new ArgumentNullException ("r");
 
-			TaskToApm.End (r);
+			try {
+				TaskToApm.End (r);
+			} catch (Exception e) {
+				throw HttpWebRequest.FlattenException (e);
+			}
 		}
 
 		public override void Write (byte[] buffer, int offset, int size)
 		{
-			WriteAsync (buffer, offset, size).Wait ();
+			try {
+				WriteAsync (buffer, offset, size).Wait ();
+			} catch (Exception e) {
+				throw HttpWebRequest.FlattenException (e);
+			}
 		}
 
 		public override void Flush ()

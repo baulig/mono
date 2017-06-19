@@ -927,11 +927,8 @@ namespace System.Net
 
 			try {
 				return TaskToApm.End<Stream> (asyncResult);
-			} catch (AggregateException ae) {
-				ae = ae.Flatten ();
-				if (ae.InnerExceptions.Count > 1)
-					throw;
-				throw ae.InnerException;
+			} catch (Exception e) {
+				throw FlattenException (e);
 			}
 		}
 
@@ -939,11 +936,8 @@ namespace System.Net
 		{
 			try {
 				return GetRequestStreamAsync ().Result;
-			} catch (AggregateException ae) {
-				ae = ae.Flatten ();
-				if (ae.InnerExceptions.Count > 1)
-					throw;
-				throw ae.InnerException;
+			} catch (Exception e) {
+				throw FlattenException (e);
 			}
 		}
 
@@ -1045,6 +1039,7 @@ namespace System.Net
 						}
 						data = myDataTcs.Task.Result;
 					} catch (Exception e) {
+						FlattenException (ref e);
 						if (e is OperationCanceledException || e is WebException)
 							throw;
 						throw new WebException (e.Message, e, WebExceptionStatus.ProtocolError, null);
@@ -1061,6 +1056,7 @@ namespace System.Net
 				} catch (OperationCanceledException) {
 					throwMe = new WebException ("Request canceled.", WebExceptionStatus.RequestCanceled);
 				} catch (Exception e) {
+					FlattenException (ref e);
 					throwMe = (e as WebException) ?? new WebException (e.Message, e, WebExceptionStatus.ProtocolError, null);
 				}
 
@@ -1091,9 +1087,11 @@ namespace System.Net
 				try {
 					if (mustReadAll)
 						await response.ReadAllAsync (cancellationToken).ConfigureAwait (false);
+					response.Close (); 
 				} catch (OperationCanceledException) {
 					throwMe = new WebException ("Request canceled.", WebExceptionStatus.RequestCanceled);
 				} catch (Exception e) {
+					FlattenException (ref e);
 					throwMe = (e as WebException) ?? new WebException (e.Message, e, WebExceptionStatus.ProtocolError, null);
 				}
 
@@ -1187,17 +1185,23 @@ namespace System.Net
 					mustReadAll = true;
 			}
 
-#if FIXME
-			if (!finishedReading && mustReadAll) {
-				// NTLM auth has requested it.
-				await response.ReadAllAsync (cancellationToken).ConfigureAwait (false);
-				finishedReading = true;
-			} else {
-				response.Close ();
-			}
-#endif
-
 			return (response, true, mustReadAll, ntlm);
+		}
+
+		internal static void FlattenException (ref Exception e)
+		{
+			e = FlattenException (e);
+		}
+
+		internal static Exception FlattenException (Exception e)
+		{
+			if (e is AggregateException ae) {
+				ae = ae.Flatten ();
+				if (ae.InnerExceptions.Count == 1)
+					return ae.InnerException;
+			}
+
+			return e;
 		}
 
 		public override IAsyncResult BeginGetResponse (AsyncCallback callback, object state)
@@ -1212,11 +1216,8 @@ namespace System.Net
 		{
 			try {
 				return TaskToApm.End<HttpWebResponse> (asyncResult);
-			} catch (AggregateException ae) {
-				ae = ae.Flatten ();
-				if (ae.InnerExceptions.Count > 1)
-					throw;
-				throw ae.InnerException;
+			} catch (Exception e) {
+				throw FlattenException (e);
 			}
 		}
 
@@ -1230,11 +1231,8 @@ namespace System.Net
 		{
 			try {
 				return GetResponseAsync ().Result;
-			} catch (AggregateException ae) {
-				ae = ae.Flatten ();
-				if (ae.InnerExceptions.Count > 1)
-					throw;
-				throw ae.InnerException;
+			} catch (Exception e) {
+				throw FlattenException (e);
 			}
 		}
 
