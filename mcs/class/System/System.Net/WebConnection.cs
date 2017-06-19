@@ -1062,6 +1062,11 @@ namespace System.Net
 			}
 		}
 
+		internal void CloseError ()
+		{
+			Close (true);
+		}
+
 		internal void Close (bool sendNext)
 		{
 			lock (this) {

@@ -97,6 +97,7 @@ namespace System.Net
 		long totalRead;
 		internal long totalWritten;
 		bool nextReadCalled;
+		bool closed;
 		bool allowBuffering;
 		bool sendChunked;
 		MemoryStream writeBuffer;
@@ -261,7 +262,7 @@ namespace System.Net
 
 		internal void ForceCompletion ()
 		{
-			if (!nextReadCalled) {
+			if (!closed && !nextReadCalled) {
 				if (contentLength == Int64.MaxValue)
 					contentLength = 0;
 				nextReadCalled = true;
@@ -425,8 +426,8 @@ namespace System.Net
 					nestedRead = 0;
 				}
 
-				nextReadCalled = true;
-				cnc.Close (true);
+				closed = true;
+				cnc.CloseError ();
 				throw throwMe;
 			}
 
@@ -546,8 +547,8 @@ namespace System.Net
 				myWriteTcs.TrySetResult (0);
 			} catch (Exception ex) {
 				KillBuffer ();
-				nextReadCalled = true;
-				cnc.Close (true);
+				closed = true;
+				cnc.CloseError ();
 
 				if (ex is SocketException)
 					ex = new IOException ("Error writing request", ex);
@@ -628,8 +629,8 @@ namespace System.Net
 			long avail = contentLength - totalWritten;
 			if (size > avail) {
 				KillBuffer ();
-				nextReadCalled = true;
-				cnc.Close (true);
+				closed = true;
+				cnc.CloseError ();
 				throw new ProtocolViolationException (
 					"The number of bytes to be written is greater than " +
 					"the specified ContentLength.");
@@ -712,8 +713,8 @@ namespace System.Net
 			var bytes = writeBuffer.GetBuffer ();
 			var length = (int)writeBuffer.Length;
 			if (request.ContentLength != -1 && request.ContentLength < length) {
-				nextReadCalled = true;
-				cnc.Close (true);
+				closed = true;
+				cnc.CloseError ();
 				throw new WebException ("Specified Content-Length is less than the number of bytes to write", null,
 					WebExceptionStatus.ServerProtocolViolation, null);
 			}
@@ -783,13 +784,14 @@ namespace System.Net
 			}
 
 			if (isRead) {
-				if (!nextReadCalled) {
+				if (!closed && !nextReadCalled) {
 					nextReadCalled = true;
 					if (readBufferSize - readBufferOffset == contentLength) {
 						cnc.NextRead ();
 					} else {
 						// If we have not read all the contents
-						cnc.Close (true);
+						closed = true;
+						cnc.CloseError ();
 					}
 				}
 				return;
@@ -809,8 +811,8 @@ namespace System.Net
 
 			if (!sendChunked && length != -1 && totalWritten != length) {
 				IOException io = new IOException ("Cannot close the stream until all bytes are written");
-				nextReadCalled = true;
-				cnc.Close (true);
+				closed = true;
+				cnc.CloseError ();
 				throw new WebException ("Request was cancelled.", WebExceptionStatus.RequestCanceled, WebExceptionInternalStatus.RequestFatal, io);
 			}
 
