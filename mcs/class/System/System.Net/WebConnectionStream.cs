@@ -706,7 +706,7 @@ namespace System.Net
 				await cnc.WriteAsync (request, headers, 0, headers.Length, cancellationToken).ConfigureAwait (false);
 				if (!initRead) {
 					initRead = true;
-					cnc.InitRead ();
+					cnc.InitReadAsync (cancellationToken);
 				}
 				var cl = request.ContentLength;
 				if (!sendChunked && cl == 0)

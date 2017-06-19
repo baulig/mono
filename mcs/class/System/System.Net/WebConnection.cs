@@ -611,6 +611,7 @@ namespace System.Net
 
 		static int nextRequestId;
 
+		[Obsolete ("Use InitReadAsync()")]
 		internal void InitRead ()
 		{
 			WebConnectionData data = Data;
@@ -624,6 +625,138 @@ namespace System.Net
 				ns.BeginRead (buffer, position, size, ReadDone, userData);
 			} catch (Exception e) {
 				HandleError (WebExceptionStatus.ReceiveFailure, e, "InitRead");
+			}
+		}
+
+		internal void InitReadAsync (CancellationToken cancellationToken)
+		{
+			WebConnectionData data = Data;
+			Stream ns = data.NetworkStream;
+
+			int nread = -1;
+			try {
+				int size = buffer.Length - position;
+				int requestId = ++nextRequestID;
+				Debug ($"WC INIT READ ASYNC: {ID} {data.ID} {requestId}");
+				cancellationToken.ThrowIfCancellationRequested ();
+				var task = ns.ReadAsync (buffer, position, size, cancellationToken);
+				task.ContinueWith (t => ReadDoneAsync (data, t, cancellationToken));
+				Debug ($"WC INIT READ ASYNC DONE: {ID} {data.ID} {requestId} - {task}");
+			} catch (ObjectDisposedException) {
+				return;
+			} catch (OperationCanceledException) {
+				return;
+			} catch (Exception e) {
+				e = HttpWebRequest.FlattenException (e);
+				if (e.InnerException is ObjectDisposedException)
+					return;
+
+				HandleError (WebExceptionStatus.ReceiveFailure, e, "ReadDoneAsync1");
+				return;
+			}
+
+		}
+
+		void ReadDoneAsync (WebConnectionData data, Task<int> task, CancellationToken cancellationToken)
+		{
+			if (task.IsCanceled)
+				return;
+			if (task.IsFaulted) {
+				var e = HttpWebRequest.FlattenException (task.Exception);
+				if (e is ObjectDisposedException || e.InnerException is ObjectDisposedException)
+					return;
+				HandleError (WebExceptionStatus.ReceiveFailure, e, "ReadDoneAsync1");
+				return;
+			}
+
+			int nread = task.Result;
+			if (nread == 0) {
+				HandleError (WebExceptionStatus.ReceiveFailure, null, "ReadDoneAsync2");
+				return;
+			}
+
+			if (nread < 0) {
+				HandleError (WebExceptionStatus.ServerProtocolViolation, null, "ReadDoneAsync3");
+				return;
+			}
+
+			int pos = -1;
+			nread += position;
+			if (data.ReadState == ReadState.None) {
+				Exception exc = null;
+				try {
+					pos = GetResponse (data, sPoint, buffer, nread);
+				} catch (Exception e) {
+					exc = e;
+				}
+
+				if (exc != null || pos == -1) {
+					HandleError (WebExceptionStatus.ServerProtocolViolation, exc, "ReadDoneAsync4");
+					return;
+				}
+			}
+
+			if (data.ReadState == ReadState.Aborted) {
+				HandleError (WebExceptionStatus.RequestCanceled, null, "ReadDoneAsync5");
+				return;
+			}
+
+			if (data.ReadState != ReadState.Content) {
+				int est = nread * 2;
+				int max = (est < buffer.Length) ? buffer.Length : est;
+				byte[] newBuffer = new byte[max];
+				Buffer.BlockCopy (buffer, 0, newBuffer, 0, nread);
+				buffer = newBuffer;
+				position = nread;
+				data.ReadState = ReadState.None;
+				InitReadAsync (cancellationToken);
+				return;
+			}
+
+			position = 0;
+
+			WebConnectionStream stream = new WebConnectionStream (this, data);
+			bool expect_content = ExpectContent (data.StatusCode, data.request.Method);
+			string tencoding = null;
+			if (expect_content)
+				tencoding = data.Headers["Transfer-Encoding"];
+
+			chunkedRead = (tencoding != null && tencoding.IndexOf ("chunked", StringComparison.OrdinalIgnoreCase) != -1);
+			if (!chunkedRead) {
+				stream.ReadBuffer = buffer;
+				stream.ReadBufferOffset = pos;
+				stream.ReadBufferSize = nread;
+				try {
+					stream.CheckResponseInBuffer ();
+				} catch (Exception e) {
+					HandleError (WebExceptionStatus.ReceiveFailure, e, "ReadDoneAsync6");
+				}
+			} else if (chunkStream == null) {
+				try {
+					chunkStream = new MonoChunkStream (buffer, pos, nread, data.Headers);
+				} catch (Exception e) {
+					HandleError (WebExceptionStatus.ServerProtocolViolation, e, "ReadDoneAsync7");
+					return;
+				}
+			} else {
+				chunkStream.ResetBuffer ();
+				try {
+					chunkStream.Write (buffer, pos, nread);
+				} catch (Exception e) {
+					HandleError (WebExceptionStatus.ServerProtocolViolation, e, "ReadDoneAsync8");
+					return;
+				}
+			}
+
+			data.stream = stream;
+
+			if (!expect_content)
+				stream.ForceCompletion ();
+
+			try {
+				data.request.SetResponseData (data);
+			} catch (Exception e) {
+				Console.Error.WriteLine ("READ DONE EX: {0}", e);
 			}
 		}
 
