@@ -119,7 +119,7 @@ namespace System.Net
 		int write_timeout;
 		internal bool IgnoreIOErrors;
 
-		public WebConnectionStream (WebConnection cnc, WebConnectionData data)
+		WebConnectionStream (WebConnection cnc, WebConnectionData data)
 		{
 			if (data == null)
 				throw new InvalidOperationException ("data was not initialized");
@@ -133,6 +133,10 @@ namespace System.Net
 			read_timeout = request.ReadWriteTimeout;
 			write_timeout = read_timeout;
 			this.cnc = cnc;
+		}
+
+		async Task Initialize (WebConnectionData data, CancellationToken cancellationToken)
+		{
 			string contentType = data.Headers["Transfer-Encoding"];
 			bool chunkedRead = (contentType != null && contentType.IndexOf ("chunked", StringComparison.OrdinalIgnoreCase) != -1);
 			string clength = data.Headers["Content-Length"];
@@ -140,7 +144,7 @@ namespace System.Net
 				try {
 					contentLength = Int32.Parse (clength);
 					if (contentLength == 0 && !IsNtlmAuth ()) {
-						ReadAll ();
+						await ReadAllAsync (cancellationToken).ConfigureAwait (false);
 					}
 				} catch {
 					contentLength = Int64.MaxValue;
@@ -152,6 +156,14 @@ namespace System.Net
 			// Negative numbers?
 			if (!Int32.TryParse (clength, out stream_length))
 				stream_length = -1;
+		}
+
+		public static async Task<WebConnectionStream> Create (WebConnection cnc, WebConnectionData data, CancellationToken cancellationToken)
+		{
+			cancellationToken.ThrowIfCancellationRequested ();
+			var wcs = new WebConnectionStream (cnc, data);
+			await wcs.Initialize (data, cancellationToken).ConfigureAwait (false);
+			return wcs;
 		}
 
 		public WebConnectionStream (WebConnection cnc, HttpWebRequest request)
@@ -367,12 +379,6 @@ namespace System.Net
 			}
 
 			cnc.NextRead ();
-		}
-
-		[Obsolete ("Use ReadAllAsync()")]
-		internal void ReadAll ()
-		{
-			ReadAllAsync (CancellationToken.None).Wait ();
 		}
 
 		public override int Read (byte[] buffer, int offset, int size)
