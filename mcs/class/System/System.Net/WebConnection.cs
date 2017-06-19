@@ -573,7 +573,7 @@ namespace System.Net
 
 			position = 0;
 
-			WebConnectionStream stream = await WebConnectionStream.Create (this, data, cancellationToken).ConfigureAwait (false);
+			WebConnectionStream stream = new WebConnectionStream (this, data);
 			bool expect_content = ExpectContent (data.StatusCode, data.Request.Method);
 			string tencoding = null;
 			if (expect_content)
