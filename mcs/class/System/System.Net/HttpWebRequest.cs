@@ -1063,7 +1063,6 @@ namespace System.Net
 				lock (locker) {
 					if (throwMe != null) {
 						haveResponse = true;
-						data?.stream?.Close ();
 						myTcs.TrySetException (throwMe);
 						throw throwMe;
 					}
