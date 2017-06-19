@@ -1150,11 +1150,7 @@ namespace System.Net
 
 				if (!redirect) {
 					if ((isProxy ? proxy_auth_state : auth_state).IsNtlmAuthenticated && (int)response.StatusCode < 400) {
-						var wcs = response.GetResponseStream () as WebConnectionStream;
-						if (wcs != null) {
-							var cnc = wcs.Connection;
-							cnc.NtlmAuthenticated = true;
-						}
+						data.Connection.NtlmAuthenticated = true;
 					}
 
 					// clear internal buffer so that it does not
@@ -1170,7 +1166,7 @@ namespace System.Net
 					webHeaders.RemoveInternal ("Transfer-Encoding");
 				}
 
-				ntlm = HandleNtlmAuth (response);
+				ntlm = HandleNtlmAuth (data, response);
 				WebConnection.Debug ($"HWR REDIRECT: {ntlm} {mustReadAll}");
 				if (ntlm)
 					mustReadAll = true;
@@ -1626,21 +1622,17 @@ namespace System.Net
 			}
 		}
 
-		bool HandleNtlmAuth (HttpWebResponse response)
+		bool HandleNtlmAuth (WebConnectionData data, HttpWebResponse response)
 		{
 			bool isProxy = response.StatusCode == HttpStatusCode.ProxyAuthenticationRequired;
 			if ((isProxy ? proxy_auth_state : auth_state).NtlmAuthState == NtlmAuthState.None)
 				return false;
 
-			var wcs = response.GetResponseStream () as WebConnectionStream;
-			if (wcs != null) {
-				var cnc = wcs.Connection;
-				cnc.PriorityRequest = this;
-				var creds = (!isProxy || proxy == null) ? credentials : proxy.Credentials;
-				if (creds != null) {
-					cnc.NtlmCredential = creds.GetCredential (requestUri, "NTLM");
-					cnc.UnsafeAuthenticatedConnectionSharing = unsafe_auth_blah;
-				}
+			data.Connection.PriorityRequest = this;
+			var creds = (!isProxy || proxy == null) ? credentials : proxy.Credentials;
+			if (creds != null) {
+				data.Connection.NtlmCredential = creds.GetCredential (requestUri, "NTLM");
+				data.Connection.UnsafeAuthenticatedConnectionSharing = unsafe_auth_blah;
 			}
 			return true;
 		}
