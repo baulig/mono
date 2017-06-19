@@ -1029,6 +1029,8 @@ namespace System.Net
 				WebException throwMe = null;
 				HttpWebResponse response = null;
 				bool redirect = false;
+				bool mustReadAll = false;
+				bool ntlm = false;
 
 				try {
 					cancellationToken.ThrowIfCancellationRequested ();
@@ -1055,7 +1057,7 @@ namespace System.Net
 					if (data == null)
 						throw new WebException ("Got WebConnectionData == null and no exception.", WebExceptionStatus.ProtocolError);
 
-					(response, redirect) = await GetResponseFromData (data, cancellationToken).ConfigureAwait (false);
+					(response, redirect, mustReadAll, ntlm) = await GetResponseFromData (data, cancellationToken).ConfigureAwait (false);
 				} catch (OperationCanceledException) {
 					throwMe = new WebException ("Request canceled.", WebExceptionStatus.RequestCanceled);
 				} catch (Exception e) {
@@ -1065,7 +1067,7 @@ namespace System.Net
 				lock (locker) {
 					if (throwMe != null) {
 						haveResponse = true;
-						// data?.stream?.Close ();
+						data?.stream?.Close ();
 						myTcs.TrySetException (throwMe);
 						throw throwMe;
 					}
@@ -1083,14 +1085,36 @@ namespace System.Net
 					forceWrite = false;
 					myDataTcs = new TaskCompletionSource<WebConnectionData> ();
 					responseDataTask = myDataTcs;
-					WebConnection.Debug ($"HWR GET RESPONSE ASYNC - REDIRECT: {ID}");
-					servicePoint = GetServicePoint ();
-					abortHandler = servicePoint.SendRequest (this, connectionGroup);
+					WebConnection.Debug ($"HWR GET RESPONSE ASYNC - REDIRECT: {ID} {mustReadAll} {ntlm}");
+				}
+
+				try {
+					if (mustReadAll)
+						await response.ReadAllAsync (cancellationToken).ConfigureAwait (false);
+				} catch (OperationCanceledException) {
+					throwMe = new WebException ("Request canceled.", WebExceptionStatus.RequestCanceled);
+				} catch (Exception e) {
+					throwMe = (e as WebException) ?? new WebException (e.Message, e, WebExceptionStatus.ProtocolError, null);
+				}
+
+				lock (locker) {
+					if (throwMe != null) {
+						haveResponse = true;
+						data?.stream?.Close ();
+						myTcs.TrySetException (throwMe);
+						throw throwMe;
+					}
+
+					if (!ntlm) {
+						servicePoint = GetServicePoint ();
+						abortHandler = servicePoint.SendRequest (this, connectionGroup);
+					}
 				}
 			}
 		}
 
-		async Task<(HttpWebResponse response, bool redirect)> GetResponseFromData (WebConnectionData data, CancellationToken cancellationToken)
+		async Task<(HttpWebResponse response, bool redirect, bool mustReadAll, bool ntlm)> GetResponseFromData (
+			WebConnectionData data, CancellationToken cancellationToken)
 		{
 			/*
 			 * WebConnection has either called SetResponseData() or SetResponseError().
@@ -1108,8 +1132,8 @@ namespace System.Net
 			}
 
 			WebException throwMe = null;
+			bool ntlm = false;
 			bool mustReadAll = false;
-			bool finishedReading = false;
 			if (throwMe == null && (method == "POST" || method == "PUT"))
 				(mustReadAll, throwMe) = CheckSendError (data);
 
@@ -1124,14 +1148,12 @@ namespace System.Net
 			bool redirect = false;
 			lock (locker) {
 				(redirect, mustReadAll, throwMe) = CheckFinalStatus (response);
-				if (throwMe != null)
-					throw throwMe;
 			}
 
-			if (mustReadAll) {
-				// The real thing.
-				await response.ReadAllAsync (cancellationToken).ConfigureAwait (false);
-				finishedReading = true;
+			if (throwMe != null) {
+				if (mustReadAll)
+					await response.ReadAllAsync (cancellationToken).ConfigureAwait (false);
+				throw throwMe;
 			}
 
 			lock (locker) {
@@ -1151,24 +1173,31 @@ namespace System.Net
 					if (writeStream != null)
 						writeStream.KillBuffer ();
 
-					return (response, false);
-				} else {
-					if (sendChunked) {
-						sendChunked = false;
-						webHeaders.RemoveInternal ("Transfer-Encoding");
-					}
-
-					mustReadAll = HandleNtlmAuth (response);
+					return (response, false, false, false);
 				}
+
+				if (sendChunked) {
+					sendChunked = false;
+					webHeaders.RemoveInternal ("Transfer-Encoding");
+				}
+
+				ntlm = HandleNtlmAuth (response);
+				WebConnection.Debug ($"HWR REDIRECT: {ntlm} {mustReadAll}");
+				if (ntlm)
+					mustReadAll = true;
 			}
 
+#if FIXME
 			if (!finishedReading && mustReadAll) {
 				// NTLM auth has requested it.
 				await response.ReadAllAsync (cancellationToken).ConfigureAwait (false);
 				finishedReading = true;
+			} else {
+				response.Close ();
 			}
+#endif
 
-			return (response, true);
+			return (response, true, mustReadAll, ntlm);
 		}
 
 		public override IAsyncResult BeginGetResponse (AsyncCallback callback, object state)
@@ -1657,10 +1686,12 @@ namespace System.Net
 			lock (locker) {
 				var tcs = responseDataTask;
 
-				WebConnection.Debug ($"HWR SET RESPONSE DATA: {ID} {tcs != null} {webResponse != null}");
-
-				if (tcs == null)
+				if (tcs == null) {
+					WebConnection.Debug ($"HWR SET RESPONSE DATA - NO TASK: {ID}");
 					throw new NotImplementedException ();
+				}
+
+				WebConnection.Debug ($"HWR SET RESPONSE DATA: {ID} {Aborted} {tcs.Task.Status} {webResponse != null}");
 
 				if (Aborted) {
 					if (data.stream != null)
@@ -1848,129 +1879,12 @@ namespace System.Net
 				return (b, mustReadAll, null);
 			}
 
+			if (writeStream != null) {
+				writeStream.InternalClose ();
+				writeStream = null;
+			}
+
 			return (false, mustReadAll, throwMe);
-
-			if (!ThrowOnError)
-				return (false, mustReadAll, null);
-
-			if (writeStream != null) {
-				writeStream.InternalClose ();
-				writeStream = null;
-			}
-
-		}
-
-		// Returns true if redirected
-		bool CheckFinalStatus (WebAsyncResult result)
-		{
-			if (result.GotException) {
-				bodyBuffer = null;
-				throw result.Exception;
-			}
-
-			Exception throwMe = result.Exception;
-
-			HttpWebResponse resp = result.Response;
-			WebExceptionStatus protoError = WebExceptionStatus.ProtocolError;
-			HttpStatusCode code = 0;
-			if (throwMe == null && webResponse != null) {
-				code = webResponse.StatusCode;
-				if ((!auth_state.IsCompleted && code == HttpStatusCode.Unauthorized && credentials != null) ||
-					(ProxyQuery && !proxy_auth_state.IsCompleted && code == HttpStatusCode.ProxyAuthenticationRequired)) {
-					if (!usedPreAuth && CheckAuthorization (webResponse, code)) {
-						// Keep the written body, so it can be rewritten in the retry
-						if (MethodWithBuffer) {
-							if (AllowWriteStreamBuffering) {
-								if (writeStream.WriteBufferLength > 0) {
-									bodyBuffer = writeStream.WriteBuffer;
-									bodyBufferLength = writeStream.WriteBufferLength;
-								}
-
-								return true;
-							}
-
-							//
-							// Buffering is not allowed but we have alternative way to get same content (we
-							// need to resent it due to NTLM Authentication).
-					 		//
-							if (ResendContentFactory != null) {
-								using (var ms = new MemoryStream ()) {
-									ResendContentFactory (ms);
-									bodyBuffer = ms.ToArray ();
-									bodyBufferLength = bodyBuffer.Length;
-								}
-								return true;
-							}
-						} else if (method != "PUT" && method != "POST") {
-							bodyBuffer = null;
-							return true;
-						}
-
-						if (!ThrowOnError)
-							return false;
-							
-						writeStream.InternalClose ();
-						writeStream = null;
-						webResponse.Close ();
-						webResponse = null;
-						bodyBuffer = null;
-							
-						throw new WebException ("This request requires buffering " +
-									"of data for authentication or " +
-									"redirection to be sucessful.");
-					}
-				}
-
-				bodyBuffer = null;
-				if ((int) code >= 400) {
-					string err = String.Format ("The remote server returned an error: ({0}) {1}.",
-								    (int) code, webResponse.StatusDescription);
-					throwMe = new WebException (err, null, protoError, webResponse);
-					webResponse.ReadAll ();
-				} else if ((int) code == 304 && allowAutoRedirect) {
-					string err = String.Format ("The remote server returned an error: ({0}) {1}.",
-								    (int) code, webResponse.StatusDescription);
-					throwMe = new WebException (err, null, protoError, webResponse);
-				} else if ((int) code >= 300 && allowAutoRedirect && redirects >= maxAutoRedirect) {
-					throwMe = new WebException ("Max. redirections exceeded.", null,
-								    protoError, webResponse);
-					webResponse.ReadAll ();
-				}
-			}
-
-			bodyBuffer = null;
-			if (throwMe == null) {
-				bool b = false;
-				int c = (int) code;
-				if (allowAutoRedirect && c >= 300) {
-					b = Redirect (code, webResponse);
-					if (InternalAllowBuffering && writeStream.WriteBufferLength > 0) {
-						bodyBuffer = writeStream.WriteBuffer;
-						bodyBufferLength = writeStream.WriteBufferLength;
-					}
-					if (b && !unsafe_auth_blah) {
-						auth_state.Reset ();
-						proxy_auth_state.Reset ();
-					}
-				}
-
-				if (resp != null && c >= 300 && c != 304)
-					resp.ReadAll ();
-
-				return b;
-			}
-				
-			if (!ThrowOnError)
-				return false;
-
-			if (writeStream != null) {
-				writeStream.InternalClose ();
-				writeStream = null;
-			}
-
-			webResponse = null;
-
-			throw throwMe;
 		}
 
 		internal bool ReuseConnection {

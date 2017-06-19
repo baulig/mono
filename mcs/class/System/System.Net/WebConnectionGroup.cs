@@ -29,7 +29,7 @@
 // OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 // WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //
-
+#define MARTIN_DEBUG
 using System;
 using System.Threading;
 using System.Collections;
@@ -263,6 +263,7 @@ namespace System.Net
 			public bool TrySetBusy ()
 			{
 				lock (ServicePoint) {
+					WebConnection.Debug ($"CS TRY SET BUSY: {busy}");
 					if (busy)
 						return false;
 					busy = true;
@@ -274,6 +275,7 @@ namespace System.Net
 			public void SetIdle ()
 			{
 				lock (ServicePoint) {
+					WebConnection.Debug ($"CS SET IDLE: {busy}");
 					busy = false;
 					idleSince = DateTime.UtcNow;
 				}

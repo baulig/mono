@@ -491,7 +491,7 @@ namespace System.Net
 			var state = (Tuple<WebConnectionData, int>)result.AsyncState;
 			var data = state.Item1;
 
-			Debug ($"READ DONE: {ID} {data.ID} {state.Item2}");
+			Debug ($"WC READ DONE: {ID} {data.ID} {state.Item2}");
 
 			Stream ns = data.NetworkStream;
 			if (ns == null) {
@@ -619,7 +619,7 @@ namespace System.Net
 			try {
 				int size = buffer.Length - position;
 				int requestId = ++nextRequestID;
-				Debug ($"INIT READ: {ID} {data.ID} {requestId}");
+				Debug ($"WC INIT READ: {ID} {data.ID} {requestId}");
 				var userData = new Tuple<WebConnectionData,int> (data, requestId);
 				ns.BeginRead (buffer, position, size, ReadDone, userData);
 			} catch (Exception e) {
@@ -748,7 +748,7 @@ namespace System.Net
 
 		void InitConnection (HttpWebRequest request, int debugID)
 		{
-			Debug ($"INIT CONNECTION: {ID} {request.ID} {debugID}"); 
+			Debug ($"WC INIT CONNECTION: {ID} {request.ID} {debugID}"); 
 
 			request.WebConnection = this;
 			if (request.ReuseConnection)
@@ -812,10 +812,18 @@ namespace System.Net
 
 			lock (this) {
 				var requestID = ++nextSendID;
-				Debug ($"SEND REQUEST: {ID} {request.ID} {request.ID}");
+				Debug ($"WC SEND REQUEST: {ID} {request.ID} {requestID}");
 				if (state.TrySetBusy ()) {
 					status = WebExceptionStatus.Success;
-					ThreadPool.QueueUserWorkItem (o => { try { InitConnection ((HttpWebRequest)o, requestID); } catch { } }, request);
+					ThreadPool.QueueUserWorkItem (_ => {
+						try {
+							Debug ($"WC SEND REQUEST #1: {ID} {request.ID} {requestID}");
+							InitConnection (request, requestID);
+						} catch (Exception ex) {
+							Debug ($"WC SEND REQUEST EX: {ID} {request.ID} {requestID} - {ex}");
+							throw;
+						}
+					}, null);
 				} else {
 					lock (queue) {
 #if MONOTOUCH
@@ -825,6 +833,7 @@ namespace System.Net
 						}
 #endif
 						queue.Enqueue (request);
+						Debug ($"WC SEND REQUEST - QUEUED: {ID} {request.ID} {requestID}");
 					}
 				}
 			}
@@ -835,6 +844,7 @@ namespace System.Net
 		void SendNext ()
 		{
 			lock (queue) {
+				Debug ($"WC SEND NEXT: {ID} {queue.Count}");
 				if (queue.Count > 0) {
 					SendRequest ((HttpWebRequest)queue.Dequeue ());
 				}
@@ -844,6 +854,7 @@ namespace System.Net
 		internal void NextRead ()
 		{
 			lock (this) {
+				Debug ($"WC NEXT READ: {ID}");
 				if (Data.request != null)
 					Data.request.FinishedReading = true;
 				string header = (sPoint.UsesProxy) ? "Proxy-Connection" : "Connection";
