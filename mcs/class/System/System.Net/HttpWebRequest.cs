@@ -836,25 +836,28 @@ namespace System.Net
 			webHeaders.ChangeInternal ("Range", r);
 		}
 
-		TaskCompletionSource<WebConnectionData> SendRequest ()
+		TaskCompletionSource<WebConnectionData> SendRequest (bool redirecting)
 		{
 			lock (locker) {
-				WebConnection.Debug ($"HWR SEND REQUEST: {ID} {requestSent}");
+				WebConnection.Debug ($"HWR SEND REQUEST: {ID} {requestSent} {redirecting}");
 
-				TaskCompletionSource<WebConnectionData> task;
-				if (requestSent) {
-					task = responseDataTask;
-					if (task == null)
-						throw new InvalidOperationException ("Should never happen!");
-					return task;
+				TaskCompletionSource<WebConnectionData> task = null;
+				if (!redirecting) {
+					if (requestSent) {
+						task = responseDataTask;
+						if (task == null)
+							throw new InvalidOperationException ("Should never happen!");
+						return task;
+					}
+
+					task = new TaskCompletionSource<WebConnectionData> ();
+					if (Interlocked.CompareExchange (ref responseDataTask, task, null) != null)
+						throw new InvalidOperationException ("Invalid nested call.");
 				}
 
-				task = new TaskCompletionSource<WebConnectionData> ();
-				if (Interlocked.CompareExchange (ref responseDataTask, task, null) != null)
-					throw new InvalidOperationException ("Invalid nested call.");
-
 				requestSent = true;
-				redirects = 0;
+				if (!redirecting)
+					redirects = 0;
 				servicePoint = GetServicePoint ();
 				abortHandler = servicePoint.SendRequest (this, connectionGroup);
 				return task;
@@ -902,7 +905,7 @@ namespace System.Net
 				}
 
 				gotRequestStream = true;
-				SendRequest ();
+				SendRequest (false);
 			}
 
 			try {
@@ -1015,7 +1018,7 @@ namespace System.Net
 				initialMethod = method;
 				forceWrite = CheckIfForceWrite ();
 
-				myDataTcs = SendRequest ();
+				myDataTcs = SendRequest (false);
 			}
 
 			while (true) {
@@ -1103,8 +1106,7 @@ namespace System.Net
 					}
 
 					if (!ntlm) {
-						servicePoint = GetServicePoint ();
-						abortHandler = servicePoint.SendRequest (this, connectionGroup);
+						SendRequest (true);
 					}
 				}
 			}

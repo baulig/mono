@@ -183,11 +183,11 @@ namespace System.Net
 			return CheckAuthHeader ("WWW-Authenticate");
 		}
 
-		internal void CheckResponseInBuffer ()
+		internal async Task CheckResponseInBuffer (CancellationToken cancellationToken)
 		{
 			if (contentLength > 0 && (readBufferSize - readBufferOffset) >= contentLength) {
 				if (!IsNtlmAuth ())
-					ReadAll ();
+					await ReadAllAsync (cancellationToken).ConfigureAwait (false);
 			}
 		}
 

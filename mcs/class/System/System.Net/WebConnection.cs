@@ -486,122 +486,6 @@ namespace System.Net
 			}
 		}
 
-		void ReadDone (IAsyncResult result)
-		{
-			var state = (Tuple<WebConnectionData, int>)result.AsyncState;
-			var data = state.Item1;
-
-			Debug ($"WC READ DONE: {ID} {data.ID} {state.Item2}");
-
-			Stream ns = data.NetworkStream;
-			if (ns == null) {
-				Close (true);
-				return;
-			}
-
-			int nread = -1;
-			try {
-				nread = ns.EndRead (result);
-			} catch (ObjectDisposedException) {
-				return;
-			} catch (Exception e) {
-				if (e.InnerException is ObjectDisposedException)
-					return;
-
-				HandleError (WebExceptionStatus.ReceiveFailure, e, "ReadDone1");
-				return;
-			}
-
-			if (nread == 0) {
-				HandleError (WebExceptionStatus.ReceiveFailure, null, "ReadDone2");
-				return;
-			}
-
-			if (nread < 0) {
-				HandleError (WebExceptionStatus.ServerProtocolViolation, null, "ReadDone3");
-				return;
-			}
-
-			int pos = -1;
-			nread += position;
-			if (data.ReadState == ReadState.None) {
-				Exception exc = null;
-				try {
-					pos = GetResponse (data, sPoint, buffer, nread);
-				} catch (Exception e) {
-					exc = e;
-				}
-
-				if (exc != null || pos == -1) {
-					HandleError (WebExceptionStatus.ServerProtocolViolation, exc, "ReadDone4");
-					return;
-				}
-			}
-
-			if (data.ReadState == ReadState.Aborted) {
-				HandleError (WebExceptionStatus.RequestCanceled, null, "ReadDone");
-				return;
-			}
-
-			if (data.ReadState != ReadState.Content) {
-				int est = nread * 2;
-				int max = (est < buffer.Length) ? buffer.Length : est;
-				byte[] newBuffer = new byte[max];
-				Buffer.BlockCopy (buffer, 0, newBuffer, 0, nread);
-				buffer = newBuffer;
-				position = nread;
-				data.ReadState = ReadState.None;
-				InitRead ();
-				return;
-			}
-
-			position = 0;
-
-			WebConnectionStream stream = new WebConnectionStream (this, data);
-			bool expect_content = ExpectContent (data.StatusCode, data.request.Method);
-			string tencoding = null;
-			if (expect_content)
-				tencoding = data.Headers["Transfer-Encoding"];
-
-			chunkedRead = (tencoding != null && tencoding.IndexOf ("chunked", StringComparison.OrdinalIgnoreCase) != -1);
-			if (!chunkedRead) {
-				stream.ReadBuffer = buffer;
-				stream.ReadBufferOffset = pos;
-				stream.ReadBufferSize = nread;
-				try {
-					stream.CheckResponseInBuffer ();
-				} catch (Exception e) {
-					HandleError (WebExceptionStatus.ReceiveFailure, e, "ReadDone7");
-				}
-			} else if (chunkStream == null) {
-				try {
-					chunkStream = new MonoChunkStream (buffer, pos, nread, data.Headers);
-				} catch (Exception e) {
-					HandleError (WebExceptionStatus.ServerProtocolViolation, e, "ReadDone5");
-					return;
-				}
-			} else {
-				chunkStream.ResetBuffer ();
-				try {
-					chunkStream.Write (buffer, pos, nread);
-				} catch (Exception e) {
-					HandleError (WebExceptionStatus.ServerProtocolViolation, e, "ReadDone6");
-					return;
-				}
-			}
-
-			data.stream = stream;
-
-			if (!expect_content)
-				stream.ForceCompletion ();
-
-			try {
-				data.request.SetResponseData (data);
-			} catch (Exception e) {
-				Console.Error.WriteLine ("READ DONE EX: {0}", e);
-			}
-		}
-
 		static bool ExpectContent (int statusCode, string method)
 		{
 			if (method == "HEAD")
@@ -614,32 +498,19 @@ namespace System.Net
 		[Obsolete ("Use InitReadAsync()")]
 		internal void InitRead ()
 		{
-			WebConnectionData data = Data;
-			Stream ns = data.NetworkStream;
-
-			try {
-				int size = buffer.Length - position;
-				int requestId = ++nextRequestID;
-				Debug ($"WC INIT READ: {ID} {data.ID} {requestId}");
-				var userData = new Tuple<WebConnectionData,int> (data, requestId);
-				ns.BeginRead (buffer, position, size, ReadDone, userData);
-			} catch (Exception e) {
-				HandleError (WebExceptionStatus.ReceiveFailure, e, "InitRead");
-			}
+			InitReadAsync (CancellationToken.None);
 		}
 
 		internal void InitReadAsync (CancellationToken cancellationToken)
 		{
 			WebConnectionData data = Data;
-			Stream ns = data.NetworkStream;
 
-			int nread = -1;
 			try {
 				int size = buffer.Length - position;
 				int requestId = ++nextRequestID;
 				Debug ($"WC INIT READ ASYNC: {ID} {data.ID} {requestId}");
 				cancellationToken.ThrowIfCancellationRequested ();
-				var task = ns.ReadAsync (buffer, position, size, cancellationToken);
+				var task = data.NetworkStream.ReadAsync (buffer, position, size, cancellationToken);
 				task.ContinueWith (t => ReadDoneAsync (data, t, cancellationToken));
 				Debug ($"WC INIT READ ASYNC DONE: {ID} {data.ID} {requestId} - {task}");
 			} catch (ObjectDisposedException) {
@@ -657,7 +528,7 @@ namespace System.Net
 
 		}
 
-		void ReadDoneAsync (WebConnectionData data, Task<int> task, CancellationToken cancellationToken)
+		async void ReadDoneAsync (WebConnectionData data, Task<int> task, CancellationToken cancellationToken)
 		{
 			if (task.IsCanceled)
 				return;
@@ -727,7 +598,7 @@ namespace System.Net
 				stream.ReadBufferOffset = pos;
 				stream.ReadBufferSize = nread;
 				try {
-					stream.CheckResponseInBuffer ();
+					await stream.CheckResponseInBuffer (cancellationToken).ConfigureAwait (false);
 				} catch (Exception e) {
 					HandleError (WebExceptionStatus.ReceiveFailure, e, "ReadDoneAsync6");
 				}

@@ -265,17 +265,6 @@ namespace System.Net
 			return (value != null) ? value : "";
 		}
 
-		internal void ReadAll ()
-		{
-			WebConnectionStream wcs = stream as WebConnectionStream;
-			if (wcs == null)
-				return;
-
-			try {
-				wcs.ReadAll ();
-			} catch { }
-		}
-
 		internal async Task ReadAllAsync (CancellationToken cancellationToken)
 		{
 			WebConnectionStream wcs = stream as WebConnectionStream;
