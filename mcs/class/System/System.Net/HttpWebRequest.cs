@@ -858,7 +858,8 @@ namespace System.Net
 				if (!redirecting)
 					redirects = 0;
 				servicePoint = GetServicePoint ();
-				abortHandler = servicePoint.SendRequest (this, connectionGroup);
+				var connection = servicePoint.GetConnection (this, connectionGroup);
+				abortHandler = connection.SendRequest (this);
 				return task;
 			}
 		}

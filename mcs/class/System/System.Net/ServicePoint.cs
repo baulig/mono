@@ -382,23 +382,22 @@ namespace System.Net
 			protocolVersion = version;
 		}
 
-		internal EventHandler SendRequest (HttpWebRequest request, string groupName)
+		internal WebConnection GetConnection (HttpWebRequest request, string groupName)
 		{
-			WebConnection cnc;
-			
 			lock (this) {
 				bool created;
-				WebConnectionGroup cncGroup = GetConnectionGroup (groupName);
-				cnc = cncGroup.GetConnection (request, out created);
+				var cncGroup = GetConnectionGroup (groupName);
+				var cnc = cncGroup.GetConnection (request, out created);
 				if (created) {
 					++currentConnections;
 					if (idleTimer == null)
 						idleTimer = new Timer (IdleTimerCallback, null, maxIdleTime, maxIdleTime);
 				}
+
+				return cnc;
 			}
-			
-			return cnc.SendRequest (request);
 		}
+
 		public bool CloseConnectionGroup (string connectionGroupName)
 		{
 			WebConnectionGroup cncGroup = null;

@@ -269,15 +269,6 @@ namespace System.Net
 			}
 		}
 
-		internal void CheckComplete ()
-		{
-			bool nrc = nextReadCalled;
-			if (!nrc && readBufferSize - readBufferOffset == contentLength) {
-				nextReadCalled = true;
-				cnc.NextRead ();
-			}
-		}
-
 		internal async Task ReadAllAsync (CancellationToken cancellationToken)
 		{
 			WebConnection.Debug ($"WCS READ ALL ASYNC: {cnc.ID}");
@@ -793,10 +784,11 @@ namespace System.Net
 
 			if (isRead) {
 				if (!nextReadCalled) {
-					CheckComplete ();
-					// If we have not read all the contents
-					if (!nextReadCalled) {
-						nextReadCalled = true;
+					nextReadCalled = true;
+					if (readBufferSize - readBufferOffset == contentLength) {
+						cnc.NextRead ();
+					} else {
+						// If we have not read all the contents
 						cnc.Close (true);
 					}
 				}
