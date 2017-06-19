@@ -97,9 +97,6 @@ namespace System.Net
 		long totalRead;
 		internal long totalWritten;
 		bool nextReadCalled;
-		int pendingReads;
-		int pendingWrites;
-		AsyncManualResetEvent pending;
 		bool allowBuffering;
 		bool sendChunked;
 		MemoryStream writeBuffer;
@@ -111,7 +108,6 @@ namespace System.Net
 		TaskCompletionSource<int> readTcs;
 		TaskCompletionSource<int> pendingWrite;
 		int nestedRead;
-		int nestedWrite;
 		bool initRead;
 		bool read_eof;
 		bool complete_request_written;
@@ -128,7 +124,6 @@ namespace System.Net
 			if (data.request == null)
 				throw new InvalidOperationException ("data.request was not initialized");
 			isRead = true;
-			pending = new AsyncManualResetEvent (true);
 			this.request = data.request;
 			read_timeout = request.ReadWriteTimeout;
 			write_timeout = read_timeout;
@@ -175,9 +170,7 @@ namespace System.Net
 			this.request = request;
 			allowBuffering = request.InternalAllowBuffering;
 			sendChunked = request.SendChunked;
-			if (sendChunked)
-				pending = new AsyncManualResetEvent (true);
-			else if (allowBuffering)
+			if (!sendChunked && allowBuffering)
 				writeBuffer = new MemoryStream ();
 		}
 
@@ -439,9 +432,6 @@ namespace System.Net
 					myReadTcs.TrySetException (throwMe);
 					readTcs = null;
 					nestedRead = 0;
-					pendingReads--;
-					if (pendingReads == 0)
-						pending.Set ();
 				}
 
 				nextReadCalled = true;
@@ -462,9 +452,6 @@ namespace System.Net
 				readTcs.TrySetResult (oldBytes + nbytes);
 				readTcs = null;
 				nestedRead = 0;
-				pendingReads--;
-				if (pendingReads == 0)
-					pending.Set ();
 			}
 
 			if (totalRead >= contentLength && !nextReadCalled) {
@@ -558,7 +545,7 @@ namespace System.Net
 
 				if (!initRead) {
 					initRead = true;
-					cnc.InitRead ();
+					cnc.InitReadAsync (cancellationToken);
 				}
 
 				if (allowBuffering && !sendChunked && request.ContentLength > 0 && totalWritten == request.ContentLength)
@@ -583,8 +570,6 @@ namespace System.Net
 
 		async Task ProcessWrite (byte[] buffer, int offset, int size, CancellationToken cancellationToken)
 		{
-			bool asyncWriteAll = false;
-
 			if (sendChunked) {
 				requestWritten = true;
 
@@ -618,7 +603,6 @@ namespace System.Net
 					if (request.ContentLength <= 0 || totalWritten < request.ContentLength)
 						return;
 
-					asyncWriteAll = true;
 					requestWritten = true;
 					buffer = writeBuffer.GetBuffer ();
 					offset = 0;
@@ -628,7 +612,7 @@ namespace System.Net
 
 			try {
 				await cnc.WriteAsync (request, buffer, offset, size, cancellationToken).ConfigureAwait (false);
-			} catch (Exception ex) {
+			} catch {
 				if (!IgnoreIOErrors)
 					throw;
 			}
@@ -750,7 +734,7 @@ namespace System.Net
 
 			if (!initRead) {
 				initRead = true;
-				cnc.InitRead ();
+				cnc.InitReadAsync (cancellationToken);
 			}
 
 			if (length == 0) {
@@ -821,7 +805,7 @@ namespace System.Net
 				complete_request_written = true;
 				if (!initRead) {
 					initRead = true;
-					cnc.InitRead ();
+					cnc.InitReadAsync (CancellationToken.None);
 				}
 				return;
 			}

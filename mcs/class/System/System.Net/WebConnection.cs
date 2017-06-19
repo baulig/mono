@@ -52,11 +52,9 @@ namespace System.Net
 	class WebConnection
 	{
 		ServicePoint sPoint;
-		Socket _socket;
 		object socketLock = new object ();
 		IWebConnectionState state;
 		WebExceptionStatus status;
-		WaitCallback initConn;
 		bool keepAlive;
 		byte[] buffer;
 		EventHandler abortHandler;
@@ -408,7 +406,6 @@ namespace System.Net
 
 		static int nextID, nextRequestID;
 		public readonly int ID = ++nextID;
-		bool csActive;
 
 		bool CreateStream (HttpWebRequest request)
 		{
@@ -416,7 +413,6 @@ namespace System.Net
 			var data = Data;
 
 			try {
-				csActive = true;
 				NetworkStream serverStream = new NetworkStream (data.Socket, false);
 
 				Debug ($"WC CREATE STREAM: {ID} {requestID}");
@@ -453,7 +449,6 @@ namespace System.Net
 				return false;
 			} finally {
 				Debug ($"WC CREATE STREAM DONE: {ID} {requestID}");
-				csActive = false;
 			}
 
 			return true;
@@ -491,14 +486,6 @@ namespace System.Net
 			if (method == "HEAD")
 				return false;
 			return (statusCode >= 200 && statusCode != 204 && statusCode != 304);
-		}
-
-		static int nextRequestId;
-
-		[Obsolete ("Use InitReadAsync()")]
-		internal void InitRead ()
-		{
-			InitReadAsync (CancellationToken.None);
 		}
 
 		internal void InitReadAsync (CancellationToken cancellationToken)

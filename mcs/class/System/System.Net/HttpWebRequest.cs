@@ -107,7 +107,6 @@ namespace System.Net
 		byte[] bodyBuffer;
 		int bodyBufferLength;
 		bool getResponseCalled;
-		Exception saved_exc;
 		object locker = new object ();
 		bool finished_reading;
 		internal WebConnection WebConnection;
@@ -1131,20 +1130,10 @@ namespace System.Net
 			}
 
 			WebException throwMe = null;
-			bool ntlm = false;
-			bool mustReadAll = false;
-			if (throwMe == null && (method == "POST" || method == "PUT"))
-				(mustReadAll, throwMe) = CheckSendError (data);
-
-			if (mustReadAll) {
-				// FIXME: this is only set if we're about to throw.
-				await response.ReadAllAsync (cancellationToken).ConfigureAwait (false);
-			}
-
-			if (throwMe != null)
-				throw throwMe;
-
 			bool redirect = false;
+			bool mustReadAll = false;
+			bool ntlm = false;
+
 			lock (locker) {
 				(redirect, mustReadAll, throwMe) = CheckFinalStatus (response);
 			}
@@ -1634,31 +1623,6 @@ namespace System.Net
 					return;
 				}
 			}
-		}
-
-		(bool, WebException) CheckSendError (WebConnectionData data)
-		{
-#if FIXME
-			// Got here, but no one called GetResponse
-			int status = data.StatusCode;
-			if (status < 400 || status == 401 || status == 407)
-				return (false, null);
-
-			if (writeStream != null && asyncRead == null && !writeStream.CompleteRequestWritten) {
-				throw new NotImplementedException ("SHOULD NEVER HAPPEN!");
-				// The request has not been completely sent and we got here!
-				// We should probably just close and cause an error in any case,
-				var saved_exc = new WebException (data.StatusDescription, null, WebExceptionStatus.ProtocolError, webResponse);
-				if (allowBuffering || sendChunked || writeStream.totalWritten >= contentLength) {
-					return (true, saved_exc);
-				} else {
-					writeStream.IgnoreIOErrors = true;
-					return (false, saved_exc);
-				}
-			}
-#endif
-
-			return (false, null);
 		}
 
 		bool HandleNtlmAuth (HttpWebResponse response)
