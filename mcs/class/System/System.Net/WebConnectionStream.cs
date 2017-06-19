@@ -260,14 +260,15 @@ namespace System.Net
 			get { return writeBuffer != null ? (int)writeBuffer.Length : (-1); }
 		}
 
-		internal void ForceCompletion ()
+		internal bool ForceCompletion ()
 		{
 			if (!closed && !nextReadCalled) {
 				if (contentLength == Int64.MaxValue)
 					contentLength = 0;
 				nextReadCalled = true;
-				cnc.NextRead ();
+				return true;
 			}
+			return false;
 		}
 
 		internal async Task ReadAllAsync (CancellationToken cancellationToken)

@@ -608,8 +608,10 @@ namespace System.Net
 
 			data.stream = stream;
 
-			if (!expect_content)
-				stream.ForceCompletion ();
+			if (!expect_content) {
+				if (stream.ForceCompletion ())
+					NextRead ();
+			}
 
 			try {
 				data.request.SetResponseData (data);
