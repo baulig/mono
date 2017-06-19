@@ -835,7 +835,7 @@ namespace System.Net
 			webHeaders.ChangeInternal ("Range", r);
 		}
 
-		TaskCompletionSource<WebConnectionData> SendRequest (bool redirecting)
+		TaskCompletionSource<WebConnectionData> SendRequest (bool redirecting, CancellationToken cancellationToken)
 		{
 			lock (locker) {
 				WebConnection.Debug ($"HWR SEND REQUEST: {ID} {requestSent} {redirecting}");
@@ -859,7 +859,8 @@ namespace System.Net
 					redirects = 0;
 				servicePoint = GetServicePoint ();
 				var connection = servicePoint.GetConnection (this, connectionGroup);
-				abortHandler = connection.SendRequest (this);
+				WebOperation operation;
+				(operation,abortHandler) = connection.SendRequest (this, cancellationToken);
 				return task;
 			}
 		}
@@ -905,7 +906,7 @@ namespace System.Net
 				}
 
 				gotRequestStream = true;
-				SendRequest (false);
+				SendRequest (false, cancellationToken);
 			}
 
 			try {
@@ -1018,7 +1019,7 @@ namespace System.Net
 				initialMethod = method;
 				forceWrite = CheckIfForceWrite ();
 
-				myDataTcs = SendRequest (false);
+				myDataTcs = SendRequest (false, cancellationToken);
 			}
 
 			while (true) {
@@ -1106,7 +1107,7 @@ namespace System.Net
 					}
 
 					if (!ntlm) {
-						SendRequest (true);
+						SendRequest (true, cancellationToken);
 					}
 				}
 			}

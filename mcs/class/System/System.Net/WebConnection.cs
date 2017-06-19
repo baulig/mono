@@ -49,6 +49,25 @@ namespace System.Net
 		Aborted
 	}
 
+	class WebOperation
+	{
+		public WebConnection Connection {
+			get;
+		}
+		public HttpWebRequest Request {
+			get;
+		}
+
+		static int nextID;
+		public readonly int ID = ++nextID;
+
+		public WebOperation (WebConnection connection, HttpWebRequest request)
+		{
+			Connection = connection;
+			Request = request;
+		}
+	}
+
 	class WebConnection
 	{
 		ServicePoint sPoint;
@@ -739,10 +758,11 @@ namespace System.Net
 			return -1;
 		}
 
-		void InitConnection (HttpWebRequest request, int debugID)
+		void InitConnection (WebOperation operation)
 		{
-			Debug ($"WC INIT CONNECTION: {ID} {request.ID} {debugID}"); 
+			Debug ($"WC INIT CONNECTION: {ID} {operation.Request.ID} {operation.ID}");
 
+			var request = operation.Request;
 			request.WebConnection = this;
 			if (request.ReuseConnection)
 				request.StoredConnection = this;
@@ -796,24 +816,28 @@ namespace System.Net
 		static bool warned_about_queue = false;
 #endif
 
-		static int nextSendID;
-
-		internal EventHandler SendRequest (HttpWebRequest request)
+		internal (WebOperation, EventHandler) SendRequest (HttpWebRequest request, CancellationToken cancellationToken)
 		{
 			if (request.Aborted)
-				return null;
+				return (null, null);
 
+			var operation = new WebOperation (this, request);
+			SendRequest (operation);
+			return (operation, abortHandler);
+		}
+
+		void SendRequest (WebOperation operation)
+		{
 			lock (this) {
-				var requestID = ++nextSendID;
-				Debug ($"WC SEND REQUEST: {ID} {request.ID} {requestID}");
+				Debug ($"WC SEND REQUEST: {ID} {operation.ID}");
 				if (state.TrySetBusy ()) {
 					status = WebExceptionStatus.Success;
 					ThreadPool.QueueUserWorkItem (_ => {
 						try {
-							Debug ($"WC SEND REQUEST #1: {ID} {request.ID} {requestID}");
-							InitConnection (request, requestID);
+							Debug ($"WC SEND REQUEST #1: {ID} {operation.ID}");
+							InitConnection (operation);
 						} catch (Exception ex) {
-							Debug ($"WC SEND REQUEST EX: {ID} {request.ID} {requestID} - {ex}");
+							Debug ($"WC SEND REQUEST EX: {ID} {operation.ID} - {ex}");
 							throw;
 						}
 					}, null);
@@ -825,13 +849,11 @@ namespace System.Net
 							Console.WriteLine ("WARNING: An HttpWebRequest was added to the ConnectionGroup queue because the connection limit was reached.");
 						}
 #endif
-						queue.Enqueue (request);
-						Debug ($"WC SEND REQUEST - QUEUED: {ID} {request.ID} {requestID}");
+						queue.Enqueue (operation);
+						Debug ($"WC SEND REQUEST - QUEUED: {ID} {operation.ID}");
 					}
 				}
 			}
-
-			return abortHandler;
 		}
 
 		void SendNext ()
@@ -839,7 +861,7 @@ namespace System.Net
 			lock (queue) {
 				Debug ($"WC SEND NEXT: {ID} {queue.Count}");
 				if (queue.Count > 0) {
-					SendRequest ((HttpWebRequest)queue.Dequeue ());
+					SendRequest ((WebOperation)queue.Dequeue ());
 				}
 			}
 		}
@@ -866,9 +888,10 @@ namespace System.Net
 				}
 
 				state.SetIdle ();
-				if (priority_request != null) {
-					SendRequest (priority_request);
-					priority_request = null;
+				var priority = Interlocked.Exchange (ref priority_request, null);
+				if (priority != null) {
+					var operation = new WebOperation (this, priority);
+					SendRequest (operation);
 				} else {
 					SendNext ();
 				}
@@ -1101,8 +1124,9 @@ namespace System.Net
 							status = WebExceptionStatus.RequestCanceled;
 							Close (false);
 							if (queue.Count > 0) {
-								Data.Request = (HttpWebRequest) queue.Dequeue ();
-								SendRequest (Data.Request);
+								var operation = (WebOperation)queue.Dequeue ();
+								Data.Request = operation.Request;
+								SendRequest (operation);
 							}
 						}
 						return;
