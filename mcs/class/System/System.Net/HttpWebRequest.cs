@@ -100,7 +100,6 @@ namespace System.Net
 		TaskCompletionSource<WebConnectionData> responseDataTask;
 		TaskCompletionSource<Stream> requestTask;
 		WebOperation currentOperation;
-		EventHandler abortHandler;
 		int aborted;
 		bool gotRequestStream;
 		int redirects;
@@ -855,7 +854,7 @@ namespace System.Net
 						throw new InvalidOperationException ("Invalid nested call.");
 				}
 
-				var operation = new WebOperation (this);
+				var operation = new WebOperation (this, cancellationToken);
 				if (Interlocked.CompareExchange (ref currentOperation, operation, null) != null)
 					throw new InvalidOperationException ("Invalid nested call.");
 
@@ -864,7 +863,7 @@ namespace System.Net
 					redirects = 0;
 				servicePoint = GetServicePoint ();
 				var connection = servicePoint.GetConnection (this, connectionGroup);
-				abortHandler = operation.Run (connection, cancellationToken);
+				operation.Run (connection);
 				return task;
 			}
 		}
@@ -1172,7 +1171,7 @@ namespace System.Net
 					webHeaders.RemoveInternal ("Transfer-Encoding");
 				}
 
-				ntlm = HandleNtlmAuth (data, response);
+				ntlm = HandleNtlmAuth (data, response, cancellationToken);
 				WebConnection.Debug ($"HWR REDIRECT: {ntlm} {mustReadAll}");
 				if (ntlm)
 					mustReadAll = true;
@@ -1249,12 +1248,9 @@ namespace System.Net
 				return;
 
 			haveResponse = true;
-			if (abortHandler != null) {
-				try {
-					abortHandler (this, EventArgs.Empty);
-				} catch (Exception) { }
-				abortHandler = null;
-			}
+			var operation = currentOperation;
+			if (operation != null)
+				operation.Abort ();
 
 			requestTask?.TrySetCanceled ();
 			responseDataTask?.TrySetCanceled ();
@@ -1628,13 +1624,13 @@ namespace System.Net
 			}
 		}
 
-		bool HandleNtlmAuth (WebConnectionData data, HttpWebResponse response)
+		bool HandleNtlmAuth (WebConnectionData data, HttpWebResponse response, CancellationToken cancellationToken)
 		{
 			bool isProxy = response.StatusCode == HttpStatusCode.ProxyAuthenticationRequired;
 			if ((isProxy ? proxy_auth_state : auth_state).NtlmAuthState == NtlmAuthState.None)
 				return false;
 
-			data.Connection.PriorityRequest = this;
+			data.Connection.PriorityRequest = new WebOperation (this, cancellationToken);
 			var creds = (!isProxy || proxy == null) ? credentials : proxy.Credentials;
 			if (creds != null) {
 				data.Connection.NtlmCredential = creds.GetCredential (requestUri, "NTLM");

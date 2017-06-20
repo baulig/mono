@@ -58,31 +58,40 @@ namespace System.Net
 		static int nextID;
 		public readonly int ID = ++nextID;
 
-		public WebOperation (HttpWebRequest request)
+		public WebOperation (HttpWebRequest request, CancellationToken cancellationToken)
 		{
 			Request = request;
-			task = new TaskCompletionSource<WebConnectionData> (); 
+			task = new TaskCompletionSource<WebConnectionData> ();
+			cts = CancellationTokenSource.CreateLinkedTokenSource (cancellationToken);
 		}
 
 		CancellationTokenSource cts;
 		TaskCompletionSource<WebConnectionData> task;
 
-		public EventHandler Run (WebConnection connection, CancellationToken cancellationToken)
+		public bool Aborted => Request.Aborted || cts == null || cts.IsCancellationRequested;
+
+		public void Abort ()
 		{
-			return connection.SendRequest (this, cancellationToken);
+			cts.Cancel ();
 		}
 
-		public void Run (Func<CancellationToken, (WebConnectionData, WebConnectionStream, Exception)> func, CancellationToken cancellationToken)
+		public void Run (WebConnection connection)
+		{
+			cts.Token.Register (() => connection.Abort (this));
+			connection.SendRequest (this);
+		}
+
+		public void Run (Func<CancellationToken, (WebConnectionData, WebConnectionStream, Exception)> func)
 		{
 			try {
-				if (Request.Aborted || cancellationToken.IsCancellationRequested) {
+				if (Aborted) {
 					task.TrySetCanceled ();
 					return;
 				}
-				var (data,stream,error) = func (cancellationToken);
+				var (data,stream,error) = func (cts.Token);
 				if (error != null)
 					task.TrySetException (error);
-				else if (data == null || Request.Aborted || cancellationToken.IsCancellationRequested)
+				else if (data == null || Aborted)
 					task.TrySetCanceled ();
 				else
 					task.TrySetResult (data);
@@ -90,6 +99,9 @@ namespace System.Net
 				task.TrySetCanceled ();
 			} catch (Exception e) {
 				task.TrySetException (e);
+			} finally {
+				cts.Dispose ();
+				cts = null;
 			}
 		}
 	}
@@ -102,14 +114,12 @@ namespace System.Net
 		WebExceptionStatus status;
 		bool keepAlive;
 		byte[] buffer;
-		EventHandler abortHandler;
-		AbortHelper abortHelper;
 		bool chunkedRead;
 		MonoChunkStream chunkStream;
 		Queue queue;
 		bool reused;
 		int position;
-		HttpWebRequest priority_request;
+		WebOperation priority_request;
 		NetworkCredential ntlm_credentials;
 		bool ntlm_authenticated;
 		bool unsafe_sharing;
@@ -145,9 +155,6 @@ namespace System.Net
 			buffer = new byte[4096];
 			Data = new WebConnectionData ();
 			queue = wcs.Group.Queue;
-			abortHelper = new AbortHelper ();
-			abortHelper.Connection = this;
-			abortHandler = new EventHandler (abortHelper.Abort);
 		}
 
 		[Conditional ("MARTIN_DEBUG")]
@@ -160,19 +167,6 @@ namespace System.Net
 		internal static void Debug (string message)
 		{
 			Console.Error.WriteLine (message);
-		}
-
-		class AbortHelper
-		{
-			public WebConnection Connection;
-
-			public void Abort (object sender, EventArgs args)
-			{
-				WebConnection other = ((HttpWebRequest)sender).WebConnection;
-				if (other == null)
-					other = Connection;
-				other.Abort (sender, args);
-			}
 		}
 
 		bool CanReuse (Socket socket)
@@ -845,23 +839,18 @@ namespace System.Net
 		static bool warned_about_queue = false;
 #endif
 
-		internal EventHandler SendRequest (WebOperation operation)
-		{
-			return SendRequest (operation, CancellationToken.None);	
-		}
-
-		internal EventHandler SendRequest (WebOperation operation, CancellationToken cancellationToken)
+		internal void SendRequest (WebOperation operation)
 		{
 			lock (this) {
 				if (operation.Request.Aborted)
-					return null;
+					return;
 				Debug ($"WC SEND REQUEST: {ID} {operation.ID}");
 				if (state.TrySetBusy ()) {
 					status = WebExceptionStatus.Success;
 					ThreadPool.QueueUserWorkItem (_ => {
 						try {
 							Debug ($"WC SEND REQUEST #1: {ID} {operation.ID}");
-							operation.Run (token => InitConnection (operation, token), cancellationToken );
+							operation.Run (token => InitConnection (operation, token));
 						} catch (Exception ex) {
 							Debug ($"WC SEND REQUEST EX: {ID} {operation.ID} - {ex}");
 							throw;
@@ -879,7 +868,6 @@ namespace System.Net
 						Debug ($"WC SEND REQUEST - QUEUED: {ID} {operation.ID}");
 					}
 				}
-				return abortHandler;
 			}
 		}
 
@@ -915,13 +903,11 @@ namespace System.Net
 				}
 
 				state.SetIdle ();
-				var priority = Interlocked.Exchange (ref priority_request, null);
-				if (priority != null) {
-					var operation = new WebOperation (priority);
+				var operation = Interlocked.Exchange (ref priority_request, null);
+				if (operation != null)
 					SendRequest (operation);
-				} else {
+				else
 					SendNext ();
-				}
 			}
 		}
 
@@ -1141,17 +1127,17 @@ namespace System.Net
 			}
 		}
 
-		void Abort (object sender, EventArgs args)
+		internal void Abort (WebOperation operation)
 		{
 			lock (this) {
 				lock (queue) {
-					HttpWebRequest req = (HttpWebRequest) sender;
+					HttpWebRequest req = operation.Request;
 					if (Data.Request == req || Data.Request == null) {
 						if (!req.FinishedReading) {
 							status = WebExceptionStatus.RequestCanceled;
 							Close (false);
 							if (queue.Count > 0) {
-								var operation = (WebOperation)queue.Dequeue ();
+								operation = (WebOperation)queue.Dequeue ();
 								Data.Request = operation.Request;
 								SendRequest (operation);
 							}
@@ -1161,13 +1147,13 @@ namespace System.Net
 
 					req.FinishedReading = true;
 					req.SetResponseError (WebExceptionStatus.RequestCanceled, null, "User aborted");
-					if (queue.Count > 0 && queue.Peek () == sender) {
+					if (queue.Count > 0 && queue.Peek () == operation) {
 						queue.Dequeue ();
 					} else if (queue.Count > 0) {
 						object [] old = queue.ToArray ();
 						queue.Clear ();
 						for (int i = old.Length - 1; i >= 0; i--) {
-							if (old [i] != sender)
+							if (old [i] != operation)
 								queue.Enqueue (old [i]);
 						}
 					}
@@ -1191,7 +1177,7 @@ namespace System.Net
 		}
 
 		// -Used for NTLM authentication
-		internal HttpWebRequest PriorityRequest {
+		internal WebOperation PriorityRequest {
 			set { priority_request = value; }
 		}
 
