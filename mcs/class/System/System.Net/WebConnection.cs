@@ -51,9 +51,6 @@ namespace System.Net
 
 	class WebOperation
 	{
-		public WebConnection Connection {
-			get;
-		}
 		public HttpWebRequest Request {
 			get;
 		}
@@ -61,17 +58,20 @@ namespace System.Net
 		static int nextID;
 		public readonly int ID = ++nextID;
 
-		public WebOperation (WebConnection connection, HttpWebRequest request, CancellationToken cancellationToken)
+		public WebOperation (HttpWebRequest request)
 		{
-			Connection = connection;
 			Request = request;
-
-			cts = CancellationTokenSource.CreateLinkedTokenSource (cancellationToken);
 			task = new TaskCompletionSource<WebConnectionData> (); 
 		}
 
 		CancellationTokenSource cts;
 		TaskCompletionSource<WebConnectionData> task;
+
+		public EventHandler Run (WebConnection connection, CancellationToken cancellationToken)
+		{
+			cts = CancellationTokenSource.CreateLinkedTokenSource (cancellationToken);
+			return connection.SendRequest (this);
+		}
 
 		public void Run (Func<CancellationToken, (WebConnectionData,WebConnectionStream,Exception)> func)
 		{
@@ -848,19 +848,11 @@ namespace System.Net
 		static bool warned_about_queue = false;
 #endif
 
-		internal (WebOperation, EventHandler) SendRequest (HttpWebRequest request, CancellationToken cancellationToken)
-		{
-			if (request.Aborted)
-				return (null, null);
-
-			var operation = new WebOperation (this, request, cancellationToken);
-			SendRequest (operation);
-			return (operation, abortHandler);
-		}
-
-		void SendRequest (WebOperation operation)
+		internal EventHandler SendRequest (WebOperation operation)
 		{
 			lock (this) {
+				if (operation.Request.Aborted)
+					return null;
 				Debug ($"WC SEND REQUEST: {ID} {operation.ID}");
 				if (state.TrySetBusy ()) {
 					status = WebExceptionStatus.Success;
@@ -885,6 +877,7 @@ namespace System.Net
 						Debug ($"WC SEND REQUEST - QUEUED: {ID} {operation.ID}");
 					}
 				}
+				return abortHandler;
 			}
 		}
 
@@ -922,7 +915,7 @@ namespace System.Net
 				state.SetIdle ();
 				var priority = Interlocked.Exchange (ref priority_request, null);
 				if (priority != null) {
-					var operation = new WebOperation (this, priority, CancellationToken.None);
+					var operation = new WebOperation (priority);
 					SendRequest (operation);
 				} else {
 					SendNext ();

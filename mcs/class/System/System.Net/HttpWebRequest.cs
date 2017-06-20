@@ -99,6 +99,7 @@ namespace System.Net
 		TaskCompletionSource<HttpWebResponse> responseTask;
 		TaskCompletionSource<WebConnectionData> responseDataTask;
 		TaskCompletionSource<Stream> requestTask;
+		WebOperation currentOperation;
 		EventHandler abortHandler;
 		int aborted;
 		bool gotRequestStream;
@@ -848,19 +849,22 @@ namespace System.Net
 							throw new InvalidOperationException ("Should never happen!");
 						return task;
 					}
-
-					task = new TaskCompletionSource<WebConnectionData> ();
-					if (Interlocked.CompareExchange (ref responseDataTask, task, null) != null)
-						throw new InvalidOperationException ("Invalid nested call.");
 				}
+
+				var operation = new WebOperation (this);
+				if (Interlocked.CompareExchange (ref currentOperation, operation, null) != null)
+					throw new InvalidOperationException ("Invalid nested call.");
+
+				task = new TaskCompletionSource<WebConnectionData> ();
+				if (Interlocked.CompareExchange (ref responseDataTask, task, null) != null)
+					throw new InvalidOperationException ("Invalid nested call.");
 
 				requestSent = true;
 				if (!redirecting)
 					redirects = 0;
 				servicePoint = GetServicePoint ();
 				var connection = servicePoint.GetConnection (this, connectionGroup);
-				WebOperation operation;
-				(operation,abortHandler) = connection.SendRequest (this, cancellationToken);
+				abortHandler = operation.Run (connection, cancellationToken);
 				return task;
 			}
 		}
