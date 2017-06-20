@@ -72,7 +72,7 @@ namespace System.Net
 
 		public void Abort ()
 		{
-			cts.Cancel ();
+			cts?.Cancel ();
 		}
 
 		public void Run (WebConnection connection)

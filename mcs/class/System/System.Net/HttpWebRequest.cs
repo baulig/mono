@@ -1038,19 +1038,12 @@ namespace System.Net
 					if (forceWrite)
 						await writeStream.WriteRequestAsync (cancellationToken).ConfigureAwait (false);
 
-					try {
-						var anyTask = await Task.WhenAny (timeoutTask, myDataTcs.Task).ConfigureAwait (false);
-						if (anyTask == timeoutTask) {
-							Abort ();
-							throw new WebException ("The request timed out", WebExceptionStatus.Timeout);
-						}
-						data = myDataTcs.Task.Result;
-					} catch (Exception e) {
-						FlattenException (ref e);
-						if (e is OperationCanceledException || e is WebException)
-							throw;
-						throw new WebException (e.Message, e, WebExceptionStatus.ProtocolError, null);
+					var anyTask = await Task.WhenAny (timeoutTask, myDataTcs.Task).ConfigureAwait (false);
+					if (anyTask == timeoutTask) {
+						Abort ();
+						throw new WebException ("The request timed out", WebExceptionStatus.Timeout);
 					}
+					data = myDataTcs.Task.Result;
 
 					/*
 					 * WebConnection has either called SetResponseData() or SetResponseError().
@@ -1060,11 +1053,12 @@ namespace System.Net
 						throw new WebException ("Got WebConnectionData == null and no exception.", WebExceptionStatus.ProtocolError);
 
 					(response, redirect, mustReadAll, ntlm) = await GetResponseFromData (data, cancellationToken).ConfigureAwait (false);
-				} catch (OperationCanceledException) {
-					throwMe = new WebException ("Request canceled.", WebExceptionStatus.RequestCanceled);
 				} catch (Exception e) {
 					FlattenException (ref e);
-					throwMe = (e as WebException) ?? new WebException (e.Message, e, WebExceptionStatus.ProtocolError, null);
+					if (Aborted || e is OperationCanceledException)
+						throwMe = new WebException ("Request canceled.", WebExceptionStatus.RequestCanceled);
+					else
+						throwMe = (e as WebException) ?? new WebException (e.Message, e, WebExceptionStatus.ProtocolError, null);
 				}
 
 				lock (locker) {
