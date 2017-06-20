@@ -856,10 +856,8 @@ namespace System.Net
 				}
 
 				var operation = new WebOperation (this);
-#if FIXME
 				if (Interlocked.CompareExchange (ref currentOperation, operation, null) != null)
 					throw new InvalidOperationException ("Invalid nested call.");
-#endif
 
 				requestSent = true;
 				if (!redirecting)
@@ -1090,6 +1088,7 @@ namespace System.Net
 					forceWrite = false;
 					myDataTcs = new TaskCompletionSource<WebConnectionData> ();
 					responseDataTask = myDataTcs;
+					currentOperation = null;
 					WebConnection.Debug ($"HWR GET RESPONSE ASYNC - REDIRECT: {ID} {mustReadAll} {ntlm}");
 				}
 
