@@ -109,7 +109,6 @@ namespace System.Net
 		TaskCompletionSource<int> readTcs;
 		TaskCompletionSource<int> pendingWrite;
 		int nestedRead;
-		bool initRead;
 		bool read_eof;
 		bool complete_request_written;
 		int read_timeout;
@@ -251,12 +250,6 @@ namespace System.Net
 				return true;
 			}
 			return false;
-		}
-
-		internal void InitRead ()
-		{
-			initRead = true;
-			cnc.InitReadAsync (CancellationToken.None);
 		}
 
 		internal async Task ReadAllAsync (CancellationToken cancellationToken)
@@ -524,11 +517,6 @@ namespace System.Net
 			try {
 				await ProcessWrite (buffer, offset, size, cancellationToken).ConfigureAwait (false);
 
-				if (!initRead) {
-					initRead = true;
-					cnc.InitReadAsync (cancellationToken);
-				}
-
 				if (allowBuffering && !sendChunked && request.ContentLength > 0 && totalWritten == request.ContentLength)
 					complete_request_written = true;
 
@@ -675,10 +663,6 @@ namespace System.Net
 
 			try {
 				await cnc.WriteAsync (request, headers, 0, headers.Length, cancellationToken).ConfigureAwait (false);
-				if (!initRead) {
-					initRead = true;
-					cnc.InitReadAsync (cancellationToken);
-				}
 				var cl = request.ContentLength;
 				if (!sendChunked && cl == 0)
 					requestWritten = true;
@@ -712,11 +696,6 @@ namespace System.Net
 
 			if (cnc.Data.StatusCode != 0 && cnc.Data.StatusCode != 100)
 				return;
-
-			if (!initRead) {
-				initRead = true;
-				cnc.InitReadAsync (cancellationToken);
-			}
 
 			if (length == 0) {
 				complete_request_written = true;
@@ -786,10 +765,6 @@ namespace System.Net
 				return;
 			} else if (!allowBuffering) {
 				complete_request_written = true;
-				if (!initRead) {
-					initRead = true;
-					cnc.InitReadAsync (CancellationToken.None);
-				}
 				return;
 			}
 

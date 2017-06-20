@@ -533,10 +533,8 @@ namespace System.Net
 			return (statusCode >= 200 && statusCode != 204 && statusCode != 304);
 		}
 
-		internal void InitReadAsync (CancellationToken cancellationToken)
+		void InitReadAsync (WebConnectionData data, CancellationToken cancellationToken)
 		{
-			WebConnectionData data = Data;
-
 			try {
 				int size = buffer.Length - position;
 				int requestId = ++nextRequestID;
@@ -612,7 +610,7 @@ namespace System.Net
 				buffer = newBuffer;
 				position = nread;
 				data.ReadState = ReadState.None;
-				InitReadAsync (cancellationToken);
+				InitReadAsync (data, cancellationToken);
 				return;
 			}
 
@@ -797,7 +795,9 @@ namespace System.Net
 				return (null, null, null);
 
 			keepAlive = request.KeepAlive;
-			Data = new WebConnectionData (this, request);
+			var data = new WebConnectionData (this, request);
+			Data = data;
+
 		retry:
 			Connect (request);
 			if (request.Aborted)
@@ -816,16 +816,16 @@ namespace System.Net
 					return (null, null, null);
 
 				WebExceptionStatus st = status;
-				if (Data.Challenge != null)
+				if (data.Challenge != null)
 					goto retry;
 
 				Exception cnc_exc = connect_exception;
-				if (cnc_exc == null && (Data.StatusCode == 401 || Data.StatusCode == 407)) {
+				if (cnc_exc == null && (data.StatusCode == 401 || data.StatusCode == 407)) {
 					st = WebExceptionStatus.ProtocolError;
-					if (Data.Headers == null)
-						Data.Headers = new WebHeaderCollection ();
+					if (data.Headers == null)
+						data.Headers = new WebHeaderCollection ();
 
-					var webResponse = new HttpWebResponse (sPoint.Address, "CONNECT", Data, null);
+					var webResponse = new HttpWebResponse (sPoint.Address, "CONNECT", data, null);
 					cnc_exc = new WebException (Data.StatusCode == 407 ? "(407) Proxy Authentication Required" : "(401) Unauthorized", null, st, webResponse);
 				}
 
@@ -836,10 +836,9 @@ namespace System.Net
 			}
 
 			var stream = new WebConnectionStream (this, request);
-			stream.InitRead ();
-
+			InitReadAsync (data, cancellationToken);
 			request.SetWriteStream (stream);
-			return (Data, stream, null);
+			return (data, stream, null);
 		}
 
 #if MONOTOUCH
