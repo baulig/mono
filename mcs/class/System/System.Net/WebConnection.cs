@@ -69,21 +69,20 @@ namespace System.Net
 
 		public EventHandler Run (WebConnection connection, CancellationToken cancellationToken)
 		{
-			cts = CancellationTokenSource.CreateLinkedTokenSource (cancellationToken);
-			return connection.SendRequest (this);
+			return connection.SendRequest (this, cancellationToken);
 		}
 
-		public void Run (Func<CancellationToken, (WebConnectionData,WebConnectionStream,Exception)> func)
+		public void Run (Func<CancellationToken, (WebConnectionData, WebConnectionStream, Exception)> func, CancellationToken cancellationToken)
 		{
 			try {
-				if (Request.Aborted || cts.Token.IsCancellationRequested) {
+				if (Request.Aborted || cancellationToken.IsCancellationRequested) {
 					task.TrySetCanceled ();
 					return;
 				}
-				var (data,stream,error) = func (cts.Token);
+				var (data,stream,error) = func (cancellationToken);
 				if (error != null)
 					task.TrySetException (error);
-				else if (data == null || Request.Aborted || cts.Token.IsCancellationRequested)
+				else if (data == null || Request.Aborted || cancellationToken.IsCancellationRequested)
 					task.TrySetCanceled ();
 				else
 					task.TrySetResult (data);
@@ -91,9 +90,6 @@ namespace System.Net
 				task.TrySetCanceled ();
 			} catch (Exception e) {
 				task.TrySetException (e);
-			} finally {
-				cts.Dispose ();
-				cts = null;
 			}
 		}
 	}
@@ -840,6 +836,8 @@ namespace System.Net
 			}
 
 			var stream = new WebConnectionStream (this, request);
+			stream.InitRead ();
+
 			request.SetWriteStream (stream);
 			return (Data, stream, null);
 		}
@@ -850,6 +848,11 @@ namespace System.Net
 
 		internal EventHandler SendRequest (WebOperation operation)
 		{
+			return SendRequest (operation, CancellationToken.None);	
+		}
+
+		internal EventHandler SendRequest (WebOperation operation, CancellationToken cancellationToken)
+		{
 			lock (this) {
 				if (operation.Request.Aborted)
 					return null;
@@ -859,7 +862,7 @@ namespace System.Net
 					ThreadPool.QueueUserWorkItem (_ => {
 						try {
 							Debug ($"WC SEND REQUEST #1: {ID} {operation.ID}");
-							operation.Run (token => InitConnection (operation, token));
+							operation.Run (token => InitConnection (operation, token), cancellationToken );
 						} catch (Exception ex) {
 							Debug ($"WC SEND REQUEST EX: {ID} {operation.ID} - {ex}");
 							throw;

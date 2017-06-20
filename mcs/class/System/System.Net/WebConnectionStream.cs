@@ -253,6 +253,12 @@ namespace System.Net
 			return false;
 		}
 
+		internal void InitRead ()
+		{
+			initRead = true;
+			cnc.InitReadAsync (CancellationToken.None);
+		}
+
 		internal async Task ReadAllAsync (CancellationToken cancellationToken)
 		{
 			WebConnection.Debug ($"WCS READ ALL ASYNC: {cnc.ID}");

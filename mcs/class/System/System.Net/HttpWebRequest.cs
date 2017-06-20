@@ -849,15 +849,17 @@ namespace System.Net
 							throw new InvalidOperationException ("Should never happen!");
 						return task;
 					}
+
+					task = new TaskCompletionSource<WebConnectionData> ();
+					if (Interlocked.CompareExchange (ref responseDataTask, task, null) != null)
+						throw new InvalidOperationException ("Invalid nested call.");
 				}
 
 				var operation = new WebOperation (this);
+#if FIXME
 				if (Interlocked.CompareExchange (ref currentOperation, operation, null) != null)
 					throw new InvalidOperationException ("Invalid nested call.");
-
-				task = new TaskCompletionSource<WebConnectionData> ();
-				if (Interlocked.CompareExchange (ref responseDataTask, task, null) != null)
-					throw new InvalidOperationException ("Invalid nested call.");
+#endif
 
 				requestSent = true;
 				if (!redirecting)
