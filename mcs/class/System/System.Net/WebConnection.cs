@@ -478,11 +478,12 @@ namespace System.Net
 					data.Initialize (serverStream);
 				}
 			} catch (Exception ex) {
+				ex = HttpWebRequest.FlattenException (ex);
+				Debug ($"WC CREATE STREAM EX: {ID} {requestID} {request.Aborted} - {status} - {ex.Message}");
 				if (request.Aborted || data.MonoTlsStream == null)
 					status = WebExceptionStatus.ConnectFailure;
 				else {
 					status = data.MonoTlsStream.ExceptionStatus;
-					Debug ($"WC CREATE STREAM EX: {ID} {requestID} - {status} - {ex.Message}");
 				}
 				connect_exception = ex;
 				return false;
