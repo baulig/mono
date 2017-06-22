@@ -123,12 +123,8 @@ namespace System.Net
 		bool unsafe_sharing;
 
 		WebConnectionData currentData;
-
-		internal WebConnectionData Data {
+		WebConnectionData Data {
 			get { return currentData; }
-			private set {
-				currentData = value;
-			}
 		}
 
 		enum NtlmAuthState
@@ -150,7 +146,7 @@ namespace System.Net
 			this.state = wcs;
 			this.sPoint = sPoint;
 			buffer = new byte[4096];
-			Data = new WebConnectionData ();
+			currentData = new WebConnectionData ();
 			queue = wcs.Group.Queue;
 		}
 
@@ -497,7 +493,7 @@ namespace System.Net
 			status = st;
 			lock (this) {
 				if (st == WebExceptionStatus.RequestCanceled)
-					Data = new WebConnectionData ();
+					currentData = new WebConnectionData ();
 			}
 
 			if (e == null) { // At least we now where it comes from
@@ -834,7 +830,7 @@ namespace System.Net
 				return (null, null, streamResult.error);
 			}
 
-			var stream = new WebConnectionStream (this, request);
+			var stream = new WebConnectionStream (this, data, request);
 			InitReadAsync (data, cancellationToken);
 			request.SetWriteStream (stream);
 			return (data, stream, null);
@@ -1107,7 +1103,7 @@ namespace System.Net
 				if (ntlm_authenticated)
 					ResetNtlm ();
 				state.SetIdle ();
-				Data = new WebConnectionData ();
+				currentData = new WebConnectionData ();
 				if (sendNext)
 					SendNext ();
 				

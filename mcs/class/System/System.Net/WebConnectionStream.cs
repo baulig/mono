@@ -88,6 +88,7 @@ namespace System.Net
 		static byte[] crlf = new byte[] { 13, 10 };
 		bool isRead;
 		WebConnection cnc;
+		WebConnectionData data;
 		HttpWebRequest request;
 		byte[] readBuffer;
 		int readBufferOffset;
@@ -124,6 +125,7 @@ namespace System.Net
 			if (data.Request == null)
 				throw new InvalidOperationException ("data.Request was not initialized");
 			isRead = true;
+			this.data = data;
 			this.request = data.Request;
 			read_timeout = request.ReadWriteTimeout;
 			write_timeout = read_timeout;
@@ -143,12 +145,13 @@ namespace System.Net
 				stream_length = -1;
 		}
 
-		public WebConnectionStream (WebConnection cnc, HttpWebRequest request)
+		public WebConnectionStream (WebConnection cnc, WebConnectionData data, HttpWebRequest request)
 		{
 			read_timeout = request.ReadWriteTimeout;
 			write_timeout = read_timeout;
 			isRead = false;
 			this.cnc = cnc;
+			this.data = data;
 			this.request = request;
 			allowBuffering = request.InternalAllowBuffering;
 			sendChunked = request.SendChunked;
@@ -158,7 +161,7 @@ namespace System.Net
 
 		bool CheckAuthHeader (string headerName)
 		{
-			var authHeader = cnc.Data.Headers[headerName];
+			var authHeader = data.Headers[headerName];
 			return (authHeader != null && authHeader.IndexOf ("NTLM", StringComparison.Ordinal) != -1);
 		}
 
@@ -694,7 +697,7 @@ namespace System.Net
 
 			await SetHeadersAsync (true, cancellationToken).ConfigureAwait (false);
 
-			if (cnc.Data.StatusCode != 0 && cnc.Data.StatusCode != 100)
+			if (data.StatusCode != 0 && data.StatusCode != 100)
 				return;
 
 			if (length == 0) {
