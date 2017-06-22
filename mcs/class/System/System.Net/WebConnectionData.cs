@@ -29,6 +29,8 @@
 //
 
 using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Net.Sockets;
 using Mono.Net.Security;
 
@@ -129,10 +131,10 @@ namespace System.Net
 		}
 
 #if SECURITY_DEP
-		public void Initialize (NetworkStream stream, byte[] buffer)
+		public async Task Initialize (NetworkStream stream, byte[] buffer, CancellationToken cancellationToken)
 		{
 			tlsStream = new MonoTlsStream (Request, stream);
-			networkStream = tlsStream.CreateStream (buffer);
+			networkStream = await tlsStream.CreateStream (buffer, cancellationToken).ConfigureAwait (false);
 		}
 #endif
 	}

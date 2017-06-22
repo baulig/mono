@@ -194,7 +194,8 @@ namespace System.Net
 			}
 		}
 
-		(WebExceptionStatus status, Socket socket, Exception error) Connect (WebOperation operation, WebConnectionData data)
+		async Task<(WebExceptionStatus status, Socket socket, Exception error)> Connect (
+			WebOperation operation, WebConnectionData data, CancellationToken cancellationToken)
 		{
 			IPHostEntry hostEntry = sPoint.HostEntry;
 
@@ -213,6 +214,9 @@ namespace System.Net
 
 			//WebConnectionData data = Data;
 			foreach (IPAddress address in hostEntry.AddressList) {
+				if (operation.Aborted)
+					return (WebExceptionStatus.RequestCanceled, null, null);
+
 				Socket socket;
 				try {
 					socket = new Socket (address.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
@@ -236,7 +240,7 @@ namespace System.Net
 					try {
 						if (operation.Aborted)
 							return (WebExceptionStatus.RequestCanceled, null, null);
-						socket.Connect (remote);
+						await socket.ConnectAsync (remote).ConfigureAwait (false);
 					} catch (ThreadAbortException) {
 						// program exiting...
 						Socket s = socket;
@@ -439,7 +443,8 @@ namespace System.Net
 		static int nextID, nextRequestID;
 		public readonly int ID = ++nextID;
 
-		(WebExceptionStatus status, bool success, Exception error) CreateStream (WebConnectionData data, bool reused)
+		async Task<(WebExceptionStatus status, bool success, Exception error)> CreateStream (
+			WebConnectionData data, bool reused, CancellationToken cancellationToken)
 		{
 			var requestID = ++nextRequestID;
 
@@ -457,7 +462,7 @@ namespace System.Net
 							if (!ok)
 								return (WebExceptionStatus.Success, false, null);
 						}
-						data.Initialize (serverStream, buffer);
+						await data.Initialize (serverStream, buffer, cancellationToken).ConfigureAwait (false);
 					}
 					// we also need to set ServicePoint.Certificate 
 					// and ServicePoint.ClientCertificate but this can
@@ -787,7 +792,7 @@ namespace System.Net
 		retry:
 			bool reused = CheckReusable (data);
 			if (!reused) {
-				var connectResult = Connect (operation, data);
+				var connectResult = await Connect (operation, data, cancellationToken).ConfigureAwait (false);
 				if (operation.Aborted)
 					return (null, null, null);
 
@@ -800,7 +805,7 @@ namespace System.Net
 				data.Socket = connectResult.socket;
 			}
 
-			var streamResult = CreateStream (data, reused);
+			var streamResult = await CreateStream (data, reused, cancellationToken).ConfigureAwait (false);
 			if (!streamResult.success) {
 				if (operation.Aborted)
 					return (null, null, null);

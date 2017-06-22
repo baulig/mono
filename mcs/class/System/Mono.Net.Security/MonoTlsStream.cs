@@ -41,6 +41,7 @@ using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using System.Net.Security;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Security.Authentication;
 using System.Security.Cryptography.X509Certificates;
@@ -93,7 +94,7 @@ namespace Mono.Net.Security
 			/*validationHelper =*/ ChainValidationHelper.Create (provider, ref settings, this);
 		}
 
-		internal Stream CreateStream (byte[] buffer)
+		internal async Task<Stream> CreateStream (byte[] buffer, CancellationToken cancellationToken)
 		{
 			var socket = networkStream.InternalSocket;
 			WebConnection.Debug ($"MONO TLS STREAM CREATE STREAM: {socket.ID}");
@@ -107,10 +108,10 @@ namespace Mono.Net.Security
 						host = host.Substring (0, pos);
 				}
 
-				sslStream.AuthenticateAsClient (
+				await sslStream.AuthenticateAsClientAsync (
 					host, request.ClientCertificates,
 					(SslProtocols)ServicePointManager.SecurityProtocol,
-					ServicePointManager.CheckCertificateRevocationList);
+					ServicePointManager.CheckCertificateRevocationList).ConfigureAwait (false);
 
 				status = WebExceptionStatus.Success;
 			} catch (Exception ex) {
@@ -135,7 +136,7 @@ namespace Mono.Net.Security
 
 			try {
 				if (buffer != null)
-					sslStream.Write (buffer, 0, buffer.Length);
+					await sslStream.WriteAsync (buffer, 0, buffer.Length, cancellationToken).ConfigureAwait (false);
 			} catch {
 				status = WebExceptionStatus.SendFailure;
 				sslStream = null;
