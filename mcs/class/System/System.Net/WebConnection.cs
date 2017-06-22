@@ -81,14 +81,14 @@ namespace System.Net
 			connection.SendRequest (this);
 		}
 
-		public async void Run (Func<CancellationToken, Task<(WebConnectionData, WebConnectionStream, Exception)>> func)
+		public void Run (Func<CancellationToken, (WebConnectionData, WebConnectionStream, Exception)> func)
 		{
 			try {
 				if (Aborted) {
 					task.TrySetCanceled ();
 					return;
 				}
-				var (data, stream, error) = await func (cts.Token).ConfigureAwait (false);
+				var (data,stream,error) = func (cts.Token);
 				if (error != null)
 					task.TrySetException (error);
 				else if (data == null || Aborted)
@@ -775,11 +775,8 @@ namespace System.Net
 			return -1;
 		}
 
-		async Task<(WebConnectionData,WebConnectionStream,Exception)> InitConnection (
-			WebOperation operation, CancellationToken cancellationToken)
+		(WebConnectionData,WebConnectionStream,Exception) InitConnection (WebOperation operation, CancellationToken cancellationToken)
 		{
-			await Task.Yield ();
-
 			Debug ($"WC INIT CONNECTION: {ID} {operation.Request.ID} {operation.ID}");
 
 			var request = operation.Request;
@@ -849,13 +846,15 @@ namespace System.Net
 				Debug ($"WC SEND REQUEST: {ID} {operation.ID}");
 				if (state.TrySetBusy ()) {
 					status = WebExceptionStatus.Success;
-					try {
-						Debug ($"WC SEND REQUEST #1: {ID} {operation.ID}");
-						operation.Run (token => InitConnection (operation, token));
-					} catch (Exception ex) {
-						Debug ($"WC SEND REQUEST EX: {ID} {operation.ID} - {ex}");
-						throw;
-					}
+					ThreadPool.QueueUserWorkItem (_ => {
+						try {
+							Debug ($"WC SEND REQUEST #1: {ID} {operation.ID}");
+							operation.Run (token => InitConnection (operation, token));
+						} catch (Exception ex) {
+							Debug ($"WC SEND REQUEST EX: {ID} {operation.ID} - {ex}");
+							throw;
+						}
+					}, null);
 				} else {
 					lock (queue) {
 #if MONOTOUCH
