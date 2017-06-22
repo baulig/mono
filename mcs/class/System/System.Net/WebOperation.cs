@@ -46,12 +46,11 @@ namespace System.Net
 		public WebOperation (HttpWebRequest request, CancellationToken cancellationToken)
 		{
 			Request = request;
-			task = new TaskCompletionSource<WebConnectionData> ();
 			cts = CancellationTokenSource.CreateLinkedTokenSource (cancellationToken);
 		}
 
 		CancellationTokenSource cts;
-		TaskCompletionSource<WebConnectionData> task;
+		TaskCompletionSource<(WebConnectionData,WebConnectionStream)> requestTask;
 		ExceptionDispatchInfo disposed;
 
 		public bool Aborted {
@@ -93,8 +92,12 @@ namespace System.Net
 			}
 		}
 
-		public void Run (WebConnection connection)
+		public void SendRequest (WebConnection connection)
 		{
+			var task = new TaskCompletionSource<(WebConnectionData, WebConnectionStream)> ();
+			if (Interlocked.CompareExchange (ref requestTask, task, null) != null)
+				throw new InvalidOperationException ("Invalid nested call!");
+
 			cts.Token.Register (() => {
 				SetDisposed ();
 				connection.Abort (this);
@@ -106,20 +109,20 @@ namespace System.Net
 		{
 			try {
 				if (Aborted) {
-					task.TrySetCanceled ();
+					requestTask.TrySetCanceled ();
 					return;
 				}
 				var (data, stream, error) = await func (cts.Token).ConfigureAwait (false);
 				if (error != null)
-					task.TrySetException (error);
+					requestTask.TrySetException (error);
 				else if (data == null || Aborted)
-					task.TrySetCanceled ();
+					requestTask.TrySetCanceled ();
 				else
-					task.TrySetResult (data);
+					requestTask.TrySetResult ((data, stream));
 			} catch (OperationCanceledException) {
-				task.TrySetCanceled ();
+				requestTask.TrySetCanceled ();
 			} catch (Exception e) {
-				task.TrySetException (e);
+				requestTask.TrySetException (e);
 			} finally {
 				cts.Dispose ();
 				cts = null;

@@ -863,7 +863,7 @@ namespace System.Net
 					redirects = 0;
 				servicePoint = GetServicePoint ();
 				var connection = servicePoint.GetConnection (this, connectionGroup);
-				operation.Run (connection);
+				operation.SendRequest (connection);
 				return task;
 			}
 		}
