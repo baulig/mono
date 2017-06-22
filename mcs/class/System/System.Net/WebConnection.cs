@@ -439,7 +439,7 @@ namespace System.Net
 		static int nextID, nextRequestID;
 		public readonly int ID = ++nextID;
 
-		bool CreateStream (WebConnectionData data, bool reused)
+		(WebExceptionStatus status, bool success, Exception error) CreateStream (WebConnectionData data, bool reused)
 		{
 			var requestID = ++nextRequestID;
 
@@ -455,7 +455,7 @@ namespace System.Net
 						if (sPoint.UseConnect) {
 							bool ok = CreateTunnel (data, data.Request, sPoint.Address, serverStream, out buffer);
 							if (!ok)
-								return false;
+								return (WebExceptionStatus.Success, false, null);
 						}
 						data.Initialize (serverStream, buffer);
 					}
@@ -473,17 +473,13 @@ namespace System.Net
 				ex = HttpWebRequest.FlattenException (ex);
 				Debug ($"WC CREATE STREAM EX: {ID} {requestID} {data.Request.Aborted} - {status} - {ex.Message}");
 				if (data.Request.Aborted || data.MonoTlsStream == null)
-					status = WebExceptionStatus.ConnectFailure;
-				else {
-					status = data.MonoTlsStream.ExceptionStatus;
-				}
-				connect_exception = ex;
-				return false;
+					return (WebExceptionStatus.ConnectFailure, false, ex);
+				return (data.MonoTlsStream.ExceptionStatus, false, ex);
 			} finally {
 				Debug ($"WC CREATE STREAM DONE: {ID} {requestID}");
 			}
 
-			return true;
+			return (WebExceptionStatus.Success, true, null);
 		}
 
 		void HandleError (WebExceptionStatus st, Exception e, string where)
@@ -801,28 +797,28 @@ namespace System.Net
 				data.Socket = connectResult.socket;
 			}
 
-			if (!CreateStream (data, reused)) {
-				if (request.Aborted)
+			var streamResult = CreateStream (data, reused);
+			if (!streamResult.success) {
+				if (operation.Aborted)
 					return (null, null, null);
 
-				WebExceptionStatus st = status;
-				if (data.Challenge != null)
+				if (streamResult.status == WebExceptionStatus.Success && data.Challenge != null)
 					goto retry;
 
-				Exception cnc_exc = connect_exception;
-				if (cnc_exc == null && (data.StatusCode == 401 || data.StatusCode == 407)) {
-					st = WebExceptionStatus.ProtocolError;
+				if (streamResult.error == null && (data.StatusCode == 401 || data.StatusCode == 407)) {
+					streamResult.status = WebExceptionStatus.ProtocolError;
 					if (data.Headers == null)
 						data.Headers = new WebHeaderCollection ();
 
 					var webResponse = new HttpWebResponse (sPoint.Address, "CONNECT", data, null);
-					cnc_exc = new WebException (Data.StatusCode == 407 ? "(407) Proxy Authentication Required" : "(401) Unauthorized", null, st, webResponse);
+					streamResult.error = new WebException (
+						Data.StatusCode == 407 ? "(407) Proxy Authentication Required" : "(401) Unauthorized",
+						null, streamResult.status, webResponse);
 				}
 
-				connect_exception = null;
-				request.SetWriteStreamError (st, cnc_exc);
+				request.SetWriteStreamError (streamResult.status, streamResult.error);
 				Close (true);
-				return (null, null, cnc_exc);
+				return (null, null, streamResult.error);
 			}
 
 			var stream = new WebConnectionStream (this, request);
