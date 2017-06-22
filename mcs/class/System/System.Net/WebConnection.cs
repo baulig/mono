@@ -446,26 +446,25 @@ namespace System.Net
 		static int nextID, nextRequestID;
 		public readonly int ID = ++nextID;
 
-		bool CreateStream (HttpWebRequest request)
+		bool CreateStream (WebConnectionData data)
 		{
 			var requestID = ++nextRequestID;
-			var data = Data;
 
 			try {
 				NetworkStream serverStream = new NetworkStream (data.Socket, false);
 
 				Debug ($"WC CREATE STREAM: {ID} {requestID}");
 
-				if (request.Address.Scheme == Uri.UriSchemeHttps) {
+				if (data.Request.Address.Scheme == Uri.UriSchemeHttps) {
 #if SECURITY_DEP
 					if (!reused || data.NetworkStream == null || data.MonoTlsStream == null) {
 						byte [] buffer = null;
 						if (sPoint.UseConnect) {
-							bool ok = CreateTunnel (data, request, sPoint.Address, serverStream, out buffer);
+							bool ok = CreateTunnel (data, data.Request, sPoint.Address, serverStream, out buffer);
 							if (!ok)
 								return false;
 						}
-						data.Initialize (request, serverStream, buffer);
+						data.Initialize (serverStream, buffer);
 					}
 					// we also need to set ServicePoint.Certificate 
 					// and ServicePoint.ClientCertificate but this can
@@ -479,8 +478,8 @@ namespace System.Net
 				}
 			} catch (Exception ex) {
 				ex = HttpWebRequest.FlattenException (ex);
-				Debug ($"WC CREATE STREAM EX: {ID} {requestID} {request.Aborted} - {status} - {ex.Message}");
-				if (request.Aborted || data.MonoTlsStream == null)
+				Debug ($"WC CREATE STREAM EX: {ID} {requestID} {data.Request.Aborted} - {status} - {ex.Message}");
+				if (data.Request.Aborted || data.MonoTlsStream == null)
 					status = WebExceptionStatus.ConnectFailure;
 				else {
 					status = data.MonoTlsStream.ExceptionStatus;
@@ -806,7 +805,7 @@ namespace System.Net
 				return (null, null, connect_exception);
 			}
 
-			if (!CreateStream (request)) {
+			if (!CreateStream (data)) {
 				if (request.Aborted)
 					return (null, null, null);
 

@@ -67,7 +67,7 @@ namespace System.Net
 		}
 
 		public HttpWebRequest Request {
-			get; set;
+			get;
 		}
 
 		public ReadState ReadState {
@@ -129,9 +129,9 @@ namespace System.Net
 		}
 
 #if SECURITY_DEP
-		public void Initialize (HttpWebRequest request, NetworkStream stream, byte[] buffer)
+		public void Initialize (NetworkStream stream, byte[] buffer)
 		{
-			tlsStream = new MonoTlsStream (request, stream);
+			tlsStream = new MonoTlsStream (Request, stream);
 			networkStream = tlsStream.CreateStream (buffer);
 		}
 #endif
