@@ -175,21 +175,24 @@ namespace System.Net
 
 		bool CheckReusable (WebConnectionData data)
 		{
-			lock (socketLock) {
-				if (data.Socket != null && data.Socket.Connected && status == WebExceptionStatus.Success) {
-					// Take the chunked stream to the expected state (State.None)
-					if (CanReuse (data.Socket) && CompleteChunkedRead (data))
-						return true;
-				}
-
-				if (data.Socket != null) {
-					data.Socket.Close ();
-					data.Socket = null;
-				}
-
+			if (data == null) {
 				chunkStream = null;
 				return false;
 			}
+
+			if (data.Socket != null && data.Socket.Connected && status == WebExceptionStatus.Success) {
+				// Take the chunked stream to the expected state (State.None)
+				if (CanReuse (data.Socket) && CompleteChunkedRead (data))
+					return true;
+			}
+
+			if (data.Socket != null) {
+				data.Socket.Close ();
+				data.Socket = null;
+			}
+
+			chunkStream = null;
+			return false;
 		}
 
 		async Task<(WebExceptionStatus status, Socket socket, Exception error)> Connect (
@@ -784,7 +787,7 @@ namespace System.Net
 				return (null, null, null);
 
 			keepAlive = request.KeepAlive;
-			var data = new WebConnectionData (this, request);
+			var data = new WebConnectionData (this, operation);
 			Data = data;
 
 		retry:

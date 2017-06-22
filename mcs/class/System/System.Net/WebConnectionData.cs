@@ -58,13 +58,18 @@ namespace System.Net
 			_readState = ReadState.None;
 		}
 
-		public WebConnectionData (WebConnection connection, HttpWebRequest request)
+		public WebConnectionData (WebConnection connection, WebOperation operation)
 		{
 			Connection = connection;
-			Request = request;
+			Operation = operation;
+			Request = operation.Request;
 		}
 
 		public WebConnection Connection {
+			get;
+		}
+
+		public WebOperation Operation {
 			get;
 		}
 
