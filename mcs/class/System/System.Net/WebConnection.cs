@@ -35,6 +35,7 @@ using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Runtime.ExceptionServices;
 using System.Diagnostics;
 using Mono.Net.Security;
 
@@ -67,17 +68,53 @@ namespace System.Net
 
 		CancellationTokenSource cts;
 		TaskCompletionSource<WebConnectionData> task;
+		ExceptionDispatchInfo disposed;
 
-		public bool Aborted => Request.Aborted || cts == null || cts.IsCancellationRequested;
+		public bool Aborted {
+			get {
+				if (disposed != null || Request.Aborted)
+					return true;
+				if (cts != null && cts.IsCancellationRequested)
+					return true;
+				return false;
+			}
+		}
 
 		public void Abort ()
 		{
-			cts?.Cancel ();
+			var (exception, disposed) = SetDisposed ();
+			if (disposed)
+				cts?.Cancel ();
+		}
+
+		(ExceptionDispatchInfo,bool) SetDisposed ()
+		{
+			var exception = ExceptionDispatchInfo.Capture (new ObjectDisposedException (GetType ().ToString ()));
+			var old = Interlocked.CompareExchange (ref disposed, exception, null);
+			return (old ?? exception, old == null);
+		}
+
+		internal void ThrowIfDisposed ()
+		{
+			ThrowIfDisposed (CancellationToken.None);
+		}
+
+		internal void ThrowIfDisposed (CancellationToken cancellationToken)
+		{
+			if (Aborted || cancellationToken.IsCancellationRequested) {
+				var (exception, disposed) = SetDisposed ();
+				if (disposed)
+					cts?.Cancel ();
+				exception.Throw ();
+			}
 		}
 
 		public void Run (WebConnection connection)
 		{
-			cts.Token.Register (() => connection.Abort (this));
+			cts.Token.Register (() => {
+				SetDisposed ();
+				connection.Abort (this);
+			});
 			connection.SendRequest (this);
 		}
 
@@ -528,7 +565,7 @@ namespace System.Net
 				int size = buffer.Length - position;
 				int requestId = ++nextRequestID;
 				Debug ($"WC INIT READ ASYNC: {ID} {data.ID} {requestId}");
-				cancellationToken.ThrowIfCancellationRequested ();
+				operation.ThrowIfDisposed (cancellationToken);
 				var task = data.NetworkStream.ReadAsync (buffer, position, size, cancellationToken);
 				task.ContinueWith (t => ReadDoneAsync (operation, data, t, cancellationToken));
 				Debug ($"WC INIT READ ASYNC DONE: {ID} {data.ID} {requestId} - {task}");
@@ -549,7 +586,7 @@ namespace System.Net
 
 		async void ReadDoneAsync (WebOperation operation, WebConnectionData data, Task<int> task, CancellationToken cancellationToken)
 		{
-			if (task.IsCanceled)
+			if (task.IsCanceled || operation.Aborted)
 				return;
 			if (task.IsFaulted) {
 				var e = HttpWebRequest.FlattenException (task.Exception);
@@ -952,22 +989,15 @@ namespace System.Net
 			return true;
 		}
 
-		internal async Task<int> ReadAsync (HttpWebRequest request, byte[] buffer, int offset, int size, CancellationToken cancellationToken)
+		internal async Task<int> ReadAsync (WebOperation operation, WebConnectionData data,
+		                                    byte[] buffer, int offset, int size, CancellationToken cancellationToken)
 		{
 			Debug ($"WC READ ASYNC: {ID}");
 
-			cancellationToken.ThrowIfCancellationRequested ();
-
-			WebConnectionData data;
-			Stream s;
-			lock (this) {
-				if (Data.Request != request)
-					throw new ObjectDisposedException (typeof (NetworkStream).FullName);
-				data = Data;
-				s = data.NetworkStream;
-				if (s == null)
-					throw new ObjectDisposedException (typeof (NetworkStream).FullName);
-			}
+			operation.ThrowIfDisposed (cancellationToken);
+			var s = data.NetworkStream;
+			if (s == null)
+				throw new ObjectDisposedException (typeof (NetworkStream).FullName);
 
 			int nbytes = 0;
 			bool done = false;

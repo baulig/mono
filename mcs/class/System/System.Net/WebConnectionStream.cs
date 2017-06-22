@@ -311,7 +311,7 @@ namespace System.Net
 						buffer = new byte[8192];
 
 					int read;
-					while ((read = await cnc.ReadAsync (request, buffer, 0, buffer.Length, cancellationToken)) != 0)
+					while ((read = await cnc.ReadAsync (operation, data, buffer, 0, buffer.Length, cancellationToken)) != 0)
 						ms.Write (buffer, 0, read);
 
 					b = ms.GetBuffer ();
@@ -330,7 +330,7 @@ namespace System.Net
 					int remaining = new_size - diff;
 					int r = -1;
 					while (remaining > 0 && r != 0) {
-						r = await cnc.ReadAsync (request, b, diff, remaining, cancellationToken);
+						r = await cnc.ReadAsync (operation, data, b, diff, remaining, cancellationToken);
 						remaining -= r;
 						diff += r;
 					}
@@ -473,7 +473,7 @@ namespace System.Net
 			if (read_eof)
 				return (oldBytes, 0);
 
-			var ret = await cnc.ReadAsync (request, buffer, offset, size, cancellationToken).ConfigureAwait (false);
+			var ret = await cnc.ReadAsync (operation, data, buffer, offset, size, cancellationToken).ConfigureAwait (false);
 			return (oldBytes, ret);
 		}
 
