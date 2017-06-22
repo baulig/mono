@@ -774,7 +774,7 @@ namespace System.Net
 			if (request.ReuseConnection)
 				request.StoredConnection = this;
 
-			if (request.Aborted || cancellationToken.IsCancellationRequested)
+			if (operation.Aborted)
 				return (null, null, null);
 
 			keepAlive = request.KeepAlive;
@@ -834,7 +834,7 @@ namespace System.Net
 		internal void SendRequest (WebOperation operation)
 		{
 			lock (this) {
-				if (operation.Request.Aborted)
+				if (operation.Aborted)
 					return;
 				Debug ($"WC SEND REQUEST: {ID} {operation.ID}");
 				if (state.TrySetBusy ()) {
