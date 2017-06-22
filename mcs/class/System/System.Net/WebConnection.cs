@@ -136,8 +136,6 @@ namespace System.Net
 		NtlmAuthState connect_ntlm_auth_state;
 		HttpWebRequest connect_request;
 
-		Exception connect_exception;
-
 #if MONOTOUCH && !MONOTOUCH_TV && !MONOTOUCH_WATCH
 		[System.Runtime.InteropServices.DllImport ("__Internal")]
 		static extern void xamarin_start_wwan (string uri);
@@ -267,8 +265,8 @@ namespace System.Net
 			return (WebExceptionStatus.ConnectFailure, null, null);
 		}
 
-		bool CreateTunnel (WebConnectionData data, HttpWebRequest request, Uri connectUri,
-				   Stream stream, out byte[] buffer)
+		async Task<(bool,byte[])> CreateTunnel (WebConnectionData data, HttpWebRequest request, Uri connectUri,
+		                                        Stream stream, CancellationToken cancellationToken)
 		{
 			StringBuilder sb = new StringBuilder ();
 			sb.Append ("CONNECT ");
@@ -327,10 +325,9 @@ namespace System.Net
 
 			data.StatusCode = 0;
 			byte[] connectBytes = Encoding.Default.GetBytes (sb.ToString ());
-			stream.Write (connectBytes, 0, connectBytes.Length);
+			await stream.WriteAsync (connectBytes, 0, connectBytes.Length, cancellationToken).ConfigureAwait (false);
 
-			int status;
-			WebHeaderCollection result = ReadHeaders (stream, out buffer, out status);
+			var (result, buffer, status) = await ReadHeaders (stream, cancellationToken).ConfigureAwait (false);
 			if ((!have_auth || connect_ntlm_auth_state == NtlmAuthState.Challenge) &&
 			    result != null && status == 407) { // Needs proxy auth
 				var connectionHeader = result["Connection"];
@@ -344,31 +341,32 @@ namespace System.Net
 				data.StatusCode = status;
 				data.Challenge = result.GetValues ("Proxy-Authenticate");
 				data.Headers = result;
-				return false;
+				return (false, buffer);
 			}
 
 			if (status != 200) {
 				data.StatusCode = status;
 				data.Headers = result;
-				return false;
+				return (false, buffer);
 			}
 
-			return (result != null);
+			return (result != null, buffer);
 		}
 
-		WebHeaderCollection ReadHeaders (Stream stream, out byte[] retBuffer, out int status)
+		async Task<(WebHeaderCollection,byte[],int)> ReadHeaders (Stream stream, CancellationToken cancellationToken)
 		{
-			retBuffer = null;
-			status = 200;
+			byte[] retBuffer = null;
+			int status = 200;
 
 			byte[] buffer = new byte[1024];
 			MemoryStream ms = new MemoryStream ();
 
 			while (true) {
-				int n = stream.Read (buffer, 0, 1024);
+				cancellationToken.ThrowIfCancellationRequested ();
+				int n = await stream.ReadAsync (buffer, 0, 1024, cancellationToken).ConfigureAwait (false);
 				if (n == 0) {
 					HandleError (WebExceptionStatus.ServerProtocolViolation, null, "ReadHeaders");
-					return null;
+					return (null, null, 200);
 				}
 
 				ms.Write (buffer, 0, n);
@@ -395,7 +393,7 @@ namespace System.Net
 							FlushContents (stream, contentLen - (int)(ms.Length - start));
 						}
 
-						return headers;
+						return (headers, retBuffer, status);
 					}
 
 					if (gotStatus) {
@@ -406,7 +404,7 @@ namespace System.Net
 					string[] parts = str.Split (' ');
 					if (parts.Length < 2) {
 						HandleError (WebExceptionStatus.ServerProtocolViolation, null, "ReadHeaders2");
-						return null;
+						return (null, null, 200);
 					}
 
 					if (String.Compare (parts[0], "HTTP/1.1", true) == 0)
@@ -415,7 +413,7 @@ namespace System.Net
 						Data.ProxyVersion = HttpVersion.Version10;
 					else {
 						HandleError (WebExceptionStatus.ServerProtocolViolation, null, "ReadHeaders2");
-						return null;
+						return (null, null, 200);
 					}
 
 					status = (int)UInt32.Parse (parts[1]);
@@ -456,9 +454,12 @@ namespace System.Net
 				if (data.Request.Address.Scheme == Uri.UriSchemeHttps) {
 #if SECURITY_DEP
 					if (!reused || data.NetworkStream == null || data.MonoTlsStream == null) {
-						byte [] buffer = null;
+						byte[] buffer = null;
 						if (sPoint.UseConnect) {
-							bool ok = CreateTunnel (data, data.Request, sPoint.Address, serverStream, out buffer);
+							bool ok;
+							(ok, buffer) = await CreateTunnel (
+								data, data.Request, sPoint.Address,
+								serverStream, cancellationToken).ConfigureAwait (false);
 							if (!ok)
 								return (WebExceptionStatus.Success, false, null);
 						}
@@ -773,8 +774,6 @@ namespace System.Net
 		async Task<(WebConnectionData,WebConnectionStream,Exception)> InitConnection (
 			WebOperation operation, CancellationToken cancellationToken)
 		{
-			await Task.Yield ();
-
 			Debug ($"WC INIT CONNECTION: {ID} {operation.Request.ID} {operation.ID}");
 
 			var request = operation.Request;
