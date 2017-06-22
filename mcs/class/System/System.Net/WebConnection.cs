@@ -176,10 +176,9 @@ namespace System.Net
 			return (socket.Poll (0, SelectMode.SelectRead) == false);
 		}
 
-		void Connect (HttpWebRequest request)
+		void Connect (WebOperation operation, WebConnectionData data)
 		{
 			lock (socketLock) {
-				WebConnectionData data = Data;
 				if (data.Socket != null && data.Socket.Connected && status == WebExceptionStatus.Success) {
 					// Take the chunked stream to the expected state (State.None)
 					if (CanReuse (data.Socket) && CompleteChunkedRead (data)) {
@@ -218,7 +217,7 @@ namespace System.Net
 						socket = new Socket (address.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
 					} catch (Exception se) {
 						// The Socket ctor can throw if we run out of FD's
-						if (!request.Aborted)
+						if (!operation.Aborted)
 							status = WebExceptionStatus.ConnectFailure;
 						connect_exception = se;
 						return;
@@ -237,7 +236,7 @@ namespace System.Net
 						status = WebExceptionStatus.ConnectFailure;
 					} else {
 						try {
-							if (request.Aborted)
+							if (operation.Aborted)
 								return;
 							socket.Connect (remote);
 						} catch (ThreadAbortException) {
@@ -255,7 +254,7 @@ namespace System.Net
 							socket = null;
 							if (s != null)
 								s.Close ();
-							if (!request.Aborted)
+							if (!operation.Aborted)
 								status = WebExceptionStatus.ConnectFailure;
 							connect_exception = exc;
 						}
@@ -793,7 +792,7 @@ namespace System.Net
 			Data = data;
 
 		retry:
-			Connect (request);
+			Connect (operation, data);
 			if (request.Aborted)
 				return (null, null, null);
 
