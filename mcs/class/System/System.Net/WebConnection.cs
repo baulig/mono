@@ -1139,7 +1139,6 @@ namespace System.Net
 							Close (false);
 							if (queue.Count > 0) {
 								operation = (WebOperation)queue.Dequeue ();
-								Data.Request = operation.Request;
 								SendRequest (operation);
 							}
 						}
