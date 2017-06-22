@@ -45,6 +45,7 @@ namespace System.Net
 		public Version ProxyVersion;
 		public Stream stream;
 		public string[] Challenge;
+		public MonoChunkStream ChunkStream;
 		ReadState _readState;
 		Stream networkStream;
 		Socket socket;
@@ -63,6 +64,16 @@ namespace System.Net
 			Connection = connection;
 			Operation = operation;
 			Request = operation.Request;
+		}
+
+		public void ReuseConnection (WebConnectionData old)
+		{
+			lock (this) {
+				socket = Interlocked.Exchange (ref old.socket, null);
+				networkStream = Interlocked.Exchange (ref old.networkStream, null);
+				tlsStream = Interlocked.Exchange (ref old.tlsStream, null);
+				old.ChunkStream = null;
+			}
 		}
 
 		public WebConnection Connection {

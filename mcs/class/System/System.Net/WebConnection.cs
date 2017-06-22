@@ -115,7 +115,6 @@ namespace System.Net
 		bool keepAlive;
 		byte[] buffer;
 		bool chunkedRead;
-		MonoChunkStream chunkStream;
 		Queue queue;
 		int position;
 		WebOperation priority_request;
@@ -123,8 +122,13 @@ namespace System.Net
 		bool ntlm_authenticated;
 		bool unsafe_sharing;
 
+		WebConnectionData currentData;
+
 		internal WebConnectionData Data {
-			get; private set;
+			get { return currentData; }
+			private set {
+				currentData = value;
+			}
 		}
 
 		enum NtlmAuthState
@@ -140,10 +144,6 @@ namespace System.Net
 		[System.Runtime.InteropServices.DllImport ("__Internal")]
 		static extern void xamarin_start_wwan (string uri);
 #endif
-
-		internal MonoChunkStream MonoChunkStream {
-			get { return chunkStream; }
-		}
 
 		public WebConnection (IWebConnectionState wcs, ServicePoint sPoint)
 		{
@@ -173,17 +173,19 @@ namespace System.Net
 			return (socket.Poll (0, SelectMode.SelectRead) == false);
 		}
 
-		bool CheckReusable (WebConnectionData data)
+		async Task<bool> CheckReusable (WebConnectionData data, CancellationToken cancellationToken)
 		{
-			if (data == null) {
-				chunkStream = null;
+			if (data == null || cancellationToken.IsCancellationRequested)
 				return false;
-			}
 
 			if (data.Socket != null && data.Socket.Connected && status == WebExceptionStatus.Success) {
 				// Take the chunked stream to the expected state (State.None)
-				if (CanReuse (data.Socket) && CompleteChunkedRead (data))
-					return true;
+				try {
+					if (CanReuse (data.Socket) && await CompleteChunkedRead (data, cancellationToken).ConfigureAwait (false))
+						return true;
+				} catch {
+					return false;
+				}
 			}
 
 			if (data.Socket != null) {
@@ -191,7 +193,7 @@ namespace System.Net
 				data.Socket = null;
 			}
 
-			chunkStream = null;
+			data.ChunkStream = null;
 			return false;
 		}
 
@@ -623,17 +625,17 @@ namespace System.Net
 				} catch (Exception e) {
 					HandleError (WebExceptionStatus.ReceiveFailure, e, "ReadDoneAsync6");
 				}
-			} else if (chunkStream == null) {
+			} else if (data.ChunkStream == null) {
 				try {
-					chunkStream = new MonoChunkStream (buffer, pos, nread, data.Headers);
+					data.ChunkStream = new MonoChunkStream (buffer, pos, nread, data.Headers);
 				} catch (Exception e) {
 					HandleError (WebExceptionStatus.ServerProtocolViolation, e, "ReadDoneAsync7");
 					return;
 				}
 			} else {
-				chunkStream.ResetBuffer ();
+				data.ChunkStream.ResetBuffer ();
 				try {
-					chunkStream.Write (buffer, pos, nread);
+					data.ChunkStream.Write (buffer, pos, nread);
 				} catch (Exception e) {
 					HandleError (WebExceptionStatus.ServerProtocolViolation, e, "ReadDoneAsync8");
 					return;
@@ -788,11 +790,13 @@ namespace System.Net
 
 			keepAlive = request.KeepAlive;
 			var data = new WebConnectionData (this, operation);
-			Data = data;
+			var oldData = Interlocked.Exchange (ref currentData, data);
 
 		retry:
-			bool reused = CheckReusable (data);
-			if (!reused) {
+			bool reused = await CheckReusable (oldData, cancellationToken).ConfigureAwait (false);
+			if (reused) {
+				data.ReuseConnection (oldData);
+			} else {
 				var connectResult = await Connect (operation, data, cancellationToken).ConfigureAwait (false);
 				if (operation.Aborted)
 					return (null, null, null);
@@ -972,7 +976,7 @@ namespace System.Net
 			int nbytes = 0;
 			bool done = false;
 
-			if (!chunkedRead || (!chunkStream.DataAvailable && chunkStream.WantMore)) {
+			if (!chunkedRead || (!data.ChunkStream.DataAvailable && data.ChunkStream.WantMore)) {
 				nbytes = await s.ReadAsync (buffer, offset, size, cancellationToken).ConfigureAwait (false);
 				Debug ($"WC READ ASYNC #1: {ID} {nbytes} {chunkedRead}");
 				if (!chunkedRead)
@@ -981,9 +985,9 @@ namespace System.Net
 			}
 
 			try {
-				chunkStream.WriteAndReadBack (buffer, offset, size, ref nbytes);
-				Debug ($"WC READ ASYNC #1: {ID} {done} {nbytes} {chunkStream.WantMore}");
-				if (!done && nbytes == 0 && chunkStream.WantMore)
+				data.ChunkStream.WriteAndReadBack (buffer, offset, size, ref nbytes);
+				Debug ($"WC READ ASYNC #1: {ID} {done} {nbytes} {data.ChunkStream.WantMore}");
+				if (!done && nbytes == 0 && data.ChunkStream.WantMore)
 					nbytes = await EnsureReadAsync (data, buffer, offset, size, cancellationToken).ConfigureAwait (false);
 			} catch (Exception e) {
 				if (e is WebException || e is OperationCanceledException)
@@ -991,7 +995,7 @@ namespace System.Net
 				throw new WebException ("Invalid chunked data.", e, WebExceptionStatus.ServerProtocolViolation, null);
 			}
 
-			if ((done || nbytes == 0) && chunkStream.ChunkLeft != 0) {
+			if ((done || nbytes == 0) && data.ChunkStream.ChunkLeft != 0) {
 				HandleError (WebExceptionStatus.ReceiveFailure, null, "chunked EndRead");
 				throw new WebException ("Read error", null, WebExceptionStatus.ReceiveFailure, null);
 			}
@@ -1003,8 +1007,8 @@ namespace System.Net
 		{
 			byte[] morebytes = null;
 			int nbytes = 0;
-			while (nbytes == 0 && chunkStream.WantMore && !cancellationToken.IsCancellationRequested) {
-				int localsize = chunkStream.ChunkLeft;
+			while (nbytes == 0 && data.ChunkStream.WantMore && !cancellationToken.IsCancellationRequested) {
+				int localsize = data.ChunkStream.ChunkLeft;
 				if (localsize <= 0) // not read chunk size yet
 					localsize = 1024;
 				else if (localsize > 16384)
@@ -1017,24 +1021,26 @@ namespace System.Net
 				if (nread <= 0)
 					return 0; // Error
 
-				chunkStream.Write (morebytes, 0, nread);
-				nbytes += chunkStream.Read (buffer, offset + nbytes, size - nbytes);
+				data.ChunkStream.Write (morebytes, 0, nread);
+				nbytes += data.ChunkStream.Read (buffer, offset + nbytes, size - nbytes);
 			}
 
 			return nbytes;
 		}
 
-		bool CompleteChunkedRead (WebConnectionData data)
+		async Task<bool> CompleteChunkedRead (WebConnectionData data, CancellationToken cancellationToken)
 		{
-			if (!chunkedRead || chunkStream == null)
+			if (!chunkedRead || data.ChunkStream == null)
 				return true;
 
-			while (chunkStream.WantMore) {
-				int nbytes = data.NetworkStream.Read (buffer, 0, buffer.Length);
+			while (data.ChunkStream.WantMore) {
+				if (cancellationToken.IsCancellationRequested)
+					return false;
+				int nbytes = await data.NetworkStream.ReadAsync (buffer, 0, buffer.Length, cancellationToken).ConfigureAwait (false);
 				if (nbytes <= 0)
 					return false; // Socket was disconnected
 
-				chunkStream.Write (buffer, 0, nbytes);
+				data.ChunkStream.Write (buffer, 0, nbytes);
 			}
 
 			return true;
