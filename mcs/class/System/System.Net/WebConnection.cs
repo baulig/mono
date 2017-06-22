@@ -188,80 +188,79 @@ namespace System.Net
 					data.Socket.Close ();
 					data.Socket = null;
 				}
+
+				chunkStream = null;
 				return false;
 			}
 		}
 
 		(WebExceptionStatus status, Socket socket, Exception error) Connect (WebOperation operation, WebConnectionData data)
 		{
-			lock (socketLock) {
-				chunkStream = null;
-				IPHostEntry hostEntry = sPoint.HostEntry;
+			IPHostEntry hostEntry = sPoint.HostEntry;
 
-				if (hostEntry == null || hostEntry.AddressList.Length == 0) {
+			if (hostEntry == null || hostEntry.AddressList.Length == 0) {
 #if MONOTOUCH && !MONOTOUCH_TV && !MONOTOUCH_WATCH
 					xamarin_start_wwan (sPoint.Address.ToString ());
 					hostEntry = sPoint.HostEntry;
 					if (hostEntry == null) {
 #endif
-					return (sPoint.UsesProxy ? WebExceptionStatus.ProxyNameResolutionFailure :
-						WebExceptionStatus.NameResolutionFailure, null, null);
+				return (sPoint.UsesProxy ? WebExceptionStatus.ProxyNameResolutionFailure :
+					WebExceptionStatus.NameResolutionFailure, null, null);
 #if MONOTOUCH && !MONOTOUCH_TV && !MONOTOUCH_WATCH
 					}
 #endif
-				}
-
-				//WebConnectionData data = Data;
-				foreach (IPAddress address in hostEntry.AddressList) {
-					Socket socket;
-					try {
-						socket = new Socket (address.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
-					} catch (Exception se) {
-						// The Socket ctor can throw if we run out of FD's
-						return (WebExceptionStatus.ConnectFailure, null, se);
-					}
-					IPEndPoint remote = new IPEndPoint (address, sPoint.Address.Port);
-					socket.NoDelay = !sPoint.UseNagleAlgorithm;
-					try {
-						sPoint.KeepAliveSetup (socket);
-					} catch {
-						// Ignore. Not supported in all platforms.
-					}
-
-					if (!sPoint.CallEndPointDelegate (socket, remote)) {
-						socket.Close ();
-						socket = null;
-						continue;
-					} else {
-						try {
-							if (operation.Aborted)
-								return (WebExceptionStatus.RequestCanceled, null, null);
-							socket.Connect (remote);
-						} catch (ThreadAbortException) {
-							// program exiting...
-							Socket s = socket;
-							socket = null;
-							if (s != null)
-								s.Close ();
-							return (WebExceptionStatus.RequestCanceled, null, null);
-						} catch (ObjectDisposedException) {
-							// socket closed from another thread
-							return (WebExceptionStatus.RequestCanceled, null, null);
-						} catch (Exception exc) {
-							Socket s = socket;
-							socket = null;
-							if (s != null)
-								s.Close ();
-							return (WebExceptionStatus.ConnectFailure, null, exc);
-						}
-					}
-
-					if (socket != null)
-						return (WebExceptionStatus.Success, socket, null);
-				}
-
-				return (WebExceptionStatus.ConnectFailure, null, null);
 			}
+
+			//WebConnectionData data = Data;
+			foreach (IPAddress address in hostEntry.AddressList) {
+				Socket socket;
+				try {
+					socket = new Socket (address.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+				} catch (Exception se) {
+					// The Socket ctor can throw if we run out of FD's
+					return (WebExceptionStatus.ConnectFailure, null, se);
+				}
+				IPEndPoint remote = new IPEndPoint (address, sPoint.Address.Port);
+				socket.NoDelay = !sPoint.UseNagleAlgorithm;
+				try {
+					sPoint.KeepAliveSetup (socket);
+				} catch {
+					// Ignore. Not supported in all platforms.
+				}
+
+				if (!sPoint.CallEndPointDelegate (socket, remote)) {
+					socket.Close ();
+					socket = null;
+					continue;
+				} else {
+					try {
+						if (operation.Aborted)
+							return (WebExceptionStatus.RequestCanceled, null, null);
+						socket.Connect (remote);
+					} catch (ThreadAbortException) {
+						// program exiting...
+						Socket s = socket;
+						socket = null;
+						if (s != null)
+							s.Close ();
+						return (WebExceptionStatus.RequestCanceled, null, null);
+					} catch (ObjectDisposedException) {
+						// socket closed from another thread
+						return (WebExceptionStatus.RequestCanceled, null, null);
+					} catch (Exception exc) {
+						Socket s = socket;
+						socket = null;
+						if (s != null)
+							s.Close ();
+						return (WebExceptionStatus.ConnectFailure, null, exc);
+					}
+				}
+
+				if (socket != null)
+					return (WebExceptionStatus.Success, socket, null);
+			}
+
+			return (WebExceptionStatus.ConnectFailure, null, null);
 		}
 
 		bool CreateTunnel (WebConnectionData data, HttpWebRequest request, Uri connectUri,
