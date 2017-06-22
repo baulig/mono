@@ -151,7 +151,6 @@ namespace System.Net
 		WebExceptionStatus status;
 		bool keepAlive;
 		byte[] buffer;
-		bool chunkedRead;
 		Queue queue;
 		int position;
 		WebOperation priority_request;
@@ -648,8 +647,8 @@ namespace System.Net
 			if (expect_content)
 				tencoding = data.Headers["Transfer-Encoding"];
 
-			chunkedRead = (tencoding != null && tencoding.IndexOf ("chunked", StringComparison.OrdinalIgnoreCase) != -1);
-			if (!chunkedRead) {
+			data.ChunkedRead = (tencoding != null && tencoding.IndexOf ("chunked", StringComparison.OrdinalIgnoreCase) != -1);
+			if (!data.ChunkedRead) {
 				stream.ReadBuffer = buffer;
 				stream.ReadBufferOffset = pos;
 				stream.ReadBufferSize = nread;
@@ -1002,10 +1001,10 @@ namespace System.Net
 			int nbytes = 0;
 			bool done = false;
 
-			if (!chunkedRead || (!data.ChunkStream.DataAvailable && data.ChunkStream.WantMore)) {
+			if (!data.ChunkedRead || (!data.ChunkStream.DataAvailable && data.ChunkStream.WantMore)) {
 				nbytes = await s.ReadAsync (buffer, offset, size, cancellationToken).ConfigureAwait (false);
-				Debug ($"WC READ ASYNC #1: {ID} {nbytes} {chunkedRead}");
-				if (!chunkedRead)
+				Debug ($"WC READ ASYNC #1: {ID} {nbytes} {data.ChunkedRead}");
+				if (!data.ChunkedRead)
 					return nbytes;
 				done = nbytes == 0;
 			}
@@ -1056,7 +1055,7 @@ namespace System.Net
 
 		async Task<bool> CompleteChunkedRead (WebConnectionData data, CancellationToken cancellationToken)
 		{
-			if (!chunkedRead || data.ChunkStream == null)
+			if (!data.ChunkedRead || data.ChunkStream == null)
 				return true;
 
 			while (data.ChunkStream.WantMore) {

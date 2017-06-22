@@ -45,6 +45,7 @@ namespace System.Net
 		public Version ProxyVersion;
 		public Stream stream;
 		public string[] Challenge;
+		public bool ChunkedRead;
 		public MonoChunkStream ChunkStream;
 		ReadState _readState;
 		Stream networkStream;
