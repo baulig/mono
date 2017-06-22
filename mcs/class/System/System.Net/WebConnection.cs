@@ -210,7 +210,6 @@ namespace System.Net
 #endif
 			}
 
-			//WebConnectionData data = Data;
 			foreach (IPAddress address in hostEntry.AddressList) {
 				if (operation.Aborted)
 					return (WebExceptionStatus.RequestCanceled, null, null);
@@ -819,7 +818,7 @@ namespace System.Net
 
 					var webResponse = new HttpWebResponse (sPoint.Address, "CONNECT", data, null);
 					streamResult.error = new WebException (
-						Data.StatusCode == 407 ? "(407) Proxy Authentication Required" : "(401) Unauthorized",
+						data.StatusCode == 407 ? "(407) Proxy Authentication Required" : "(401) Unauthorized",
 						null, streamResult.status, webResponse);
 				}
 
@@ -948,22 +947,6 @@ namespace System.Net
 
 			output = text.ToString ();
 			return true;
-		}
-
-		internal WebConnectionAsyncResult StartAsyncOperation (HttpWebRequest request, AsyncCallback callback, object state)
-		{
-			WebConnectionData data;
-			Stream s;
-			lock (this) {
-				if (Data.Request != request)
-					throw new ObjectDisposedException (typeof (NetworkStream).FullName);
-				data = Data;
-				s = data.NetworkStream;
-				if (s == null)
-					throw new ObjectDisposedException (typeof (NetworkStream).FullName);
-			}
-
-			return new WebConnectionAsyncResult (callback, state, data, request, s);
 		}
 
 		internal async Task<int> ReadAsync (HttpWebRequest request, byte[] buffer, int offset, int size, CancellationToken cancellationToken)
