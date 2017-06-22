@@ -192,21 +192,20 @@ namespace System.Net
 			}
 		}
 
-		void Connect (WebOperation operation, WebConnectionData data)
+		(WebExceptionStatus status, Socket socket, Exception error) Connect (WebOperation operation, WebConnectionData data)
 		{
 			lock (socketLock) {
 				chunkStream = null;
 				IPHostEntry hostEntry = sPoint.HostEntry;
 
-				if (hostEntry == null) {
+				if (hostEntry == null || hostEntry.AddressList.Length == 0) {
 #if MONOTOUCH && !MONOTOUCH_TV && !MONOTOUCH_WATCH
 					xamarin_start_wwan (sPoint.Address.ToString ());
 					hostEntry = sPoint.HostEntry;
 					if (hostEntry == null) {
 #endif
-					status = sPoint.UsesProxy ? WebExceptionStatus.ProxyNameResolutionFailure :
-								    WebExceptionStatus.NameResolutionFailure;
-					return;
+					return (sPoint.UsesProxy ? WebExceptionStatus.ProxyNameResolutionFailure :
+						WebExceptionStatus.NameResolutionFailure, null, null);
 #if MONOTOUCH && !MONOTOUCH_TV && !MONOTOUCH_WATCH
 					}
 #endif
@@ -219,10 +218,7 @@ namespace System.Net
 						socket = new Socket (address.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
 					} catch (Exception se) {
 						// The Socket ctor can throw if we run out of FD's
-						if (!operation.Aborted)
-							status = WebExceptionStatus.ConnectFailure;
-						connect_exception = se;
-						return;
+						return (WebExceptionStatus.ConnectFailure, null, se);
 					}
 					IPEndPoint remote = new IPEndPoint (address, sPoint.Address.Port);
 					socket.NoDelay = !sPoint.UseNagleAlgorithm;
@@ -235,11 +231,11 @@ namespace System.Net
 					if (!sPoint.CallEndPointDelegate (socket, remote)) {
 						socket.Close ();
 						socket = null;
-						status = WebExceptionStatus.ConnectFailure;
+						continue;
 					} else {
 						try {
 							if (operation.Aborted)
-								return;
+								return (WebExceptionStatus.RequestCanceled, null, null);
 							socket.Connect (remote);
 						} catch (ThreadAbortException) {
 							// program exiting...
@@ -247,27 +243,24 @@ namespace System.Net
 							socket = null;
 							if (s != null)
 								s.Close ();
-							return;
+							return (WebExceptionStatus.RequestCanceled, null, null);
 						} catch (ObjectDisposedException) {
 							// socket closed from another thread
-							return;
+							return (WebExceptionStatus.RequestCanceled, null, null);
 						} catch (Exception exc) {
 							Socket s = socket;
 							socket = null;
 							if (s != null)
 								s.Close ();
-							if (!operation.Aborted)
-								status = WebExceptionStatus.ConnectFailure;
-							connect_exception = exc;
+							return (WebExceptionStatus.ConnectFailure, null, exc);
 						}
 					}
 
-					if (socket != null) {
-						status = WebExceptionStatus.Success;
-						data.Socket = socket;
-						break;
-					}
+					if (socket != null)
+						return (WebExceptionStatus.Success, socket, null);
 				}
+
+				return (WebExceptionStatus.ConnectFailure, null, null);
 			}
 		}
 
@@ -795,18 +788,18 @@ namespace System.Net
 
 		retry:
 			bool reused = CheckReusable (data);
-			if (!reused)
-				Connect (operation, data);
+			if (!reused) {
+				var connectResult = Connect (operation, data);
+				if (operation.Aborted)
+					return (null, null, null);
 
-			if (operation.Aborted)
-				return (null, null, null);
-
-			if (status != WebExceptionStatus.Success) {
-				if (!request.Aborted) {
-					request.SetWriteStreamError (status, connect_exception);
+				if (connectResult.status != WebExceptionStatus.Success) {
+					request.SetWriteStreamError (connectResult.status, connectResult.error);
 					Close (true);
+					return (null, null, connectResult.error);
 				}
-				return (null, null, connect_exception);
+
+				data.Socket = connectResult.socket;
 			}
 
 			if (!CreateStream (data, reused)) {
