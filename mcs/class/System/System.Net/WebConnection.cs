@@ -549,7 +549,7 @@ namespace System.Net
 
 			position = 0;
 
-			WebConnectionStream stream = new WebConnectionStream (this, operation, data);
+			WebConnectionStream stream = new WebResponseStream (this, operation, data);
 			bool expect_content = ExpectContent (data.StatusCode, data.Request.Method);
 			string tencoding = null;
 			if (expect_content)
@@ -775,7 +775,7 @@ namespace System.Net
 				return (data, null, GetException (streamResult.status, streamResult.error));
 			}
 
-			var stream = new WebConnectionStream (this, operation, data, request);
+			var stream = new WebRequestStream (this, operation, data);
 			InitReadAsync (operation, data, cancellationToken);
 
 			try {

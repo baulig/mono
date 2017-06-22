@@ -83,7 +83,7 @@ namespace System.Net
 		}
 	}
 
-	class WebConnectionStream : Stream
+	abstract class WebConnectionStream : Stream
 	{
 		static byte[] crlf = new byte[] { 13, 10 };
 		bool isRead;
@@ -190,6 +190,9 @@ namespace System.Net
 
 		internal WebConnection Connection {
 			get { return cnc; }
+		}
+		internal WebOperation Operation {
+			get { return operation; }
 		}
 		public override bool CanTimeout {
 			get { return true; }

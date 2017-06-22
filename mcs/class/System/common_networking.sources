@@ -48,6 +48,8 @@ System.Net/WebConnectionData.cs
 System.Net/WebConnectionGroup.cs
 System.Net/WebConnectionStream.cs
 System.Net/WebOperation.cs
+System.Net/WebRequestStream.cs
+System.Net/WebResponseStream.cs
 
 ../referencesource/System/net/System/Net/Sockets/TCPClient.cs
 ../referencesource/System/net/System/Net/Sockets/TCPListener.cs
