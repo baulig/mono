@@ -88,6 +88,7 @@ namespace System.Net
 		static byte[] crlf = new byte[] { 13, 10 };
 		bool isRead;
 		WebConnection cnc;
+		WebOperation operation;
 		WebConnectionData data;
 		HttpWebRequest request;
 		byte[] readBuffer;
@@ -116,7 +117,7 @@ namespace System.Net
 		int write_timeout;
 		internal bool IgnoreIOErrors;
 
-		public WebConnectionStream (WebConnection cnc, WebConnectionData data)
+		public WebConnectionStream (WebConnection cnc, WebOperation operation, WebConnectionData data)
 		{
 			if (data == null)
 				throw new InvalidOperationException ("data was not initialized");
@@ -125,6 +126,7 @@ namespace System.Net
 			if (data.Request == null)
 				throw new InvalidOperationException ("data.Request was not initialized");
 			isRead = true;
+			this.operation = operation;
 			this.data = data;
 			this.request = data.Request;
 			read_timeout = request.ReadWriteTimeout;
@@ -145,12 +147,13 @@ namespace System.Net
 				stream_length = -1;
 		}
 
-		public WebConnectionStream (WebConnection cnc, WebConnectionData data, HttpWebRequest request)
+		public WebConnectionStream (WebConnection cnc, WebOperation operation, WebConnectionData data, HttpWebRequest request)
 		{
 			read_timeout = request.ReadWriteTimeout;
 			write_timeout = read_timeout;
 			isRead = false;
 			this.cnc = cnc;
+			this.operation = operation;
 			this.data = data;
 			this.request = request;
 			allowBuffering = request.InternalAllowBuffering;

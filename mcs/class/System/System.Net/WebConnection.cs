@@ -522,7 +522,7 @@ namespace System.Net
 			return (statusCode >= 200 && statusCode != 204 && statusCode != 304);
 		}
 
-		void InitReadAsync (WebConnectionData data, CancellationToken cancellationToken)
+		void InitReadAsync (WebOperation operation, WebConnectionData data, CancellationToken cancellationToken)
 		{
 			try {
 				int size = buffer.Length - position;
@@ -530,7 +530,7 @@ namespace System.Net
 				Debug ($"WC INIT READ ASYNC: {ID} {data.ID} {requestId}");
 				cancellationToken.ThrowIfCancellationRequested ();
 				var task = data.NetworkStream.ReadAsync (buffer, position, size, cancellationToken);
-				task.ContinueWith (t => ReadDoneAsync (data, t, cancellationToken));
+				task.ContinueWith (t => ReadDoneAsync (operation, data, t, cancellationToken));
 				Debug ($"WC INIT READ ASYNC DONE: {ID} {data.ID} {requestId} - {task}");
 			} catch (ObjectDisposedException) {
 				return;
@@ -547,7 +547,7 @@ namespace System.Net
 
 		}
 
-		async void ReadDoneAsync (WebConnectionData data, Task<int> task, CancellationToken cancellationToken)
+		async void ReadDoneAsync (WebOperation operation, WebConnectionData data, Task<int> task, CancellationToken cancellationToken)
 		{
 			if (task.IsCanceled)
 				return;
@@ -566,7 +566,7 @@ namespace System.Net
 			}
 
 			if (nread < 0) {
-				HandleError (WebExceptionStatus.ServerProtocolViolation, null, "ReadDoneAsync3");
+				HandleError (WebExceptionStatus.ServerProtocolViolation, null, "`Async3");
 				return;
 			}
 
@@ -599,13 +599,13 @@ namespace System.Net
 				buffer = newBuffer;
 				position = nread;
 				data.ReadState = ReadState.None;
-				InitReadAsync (data, cancellationToken);
+				InitReadAsync (operation, data, cancellationToken);
 				return;
 			}
 
 			position = 0;
 
-			WebConnectionStream stream = new WebConnectionStream (this, data);
+			WebConnectionStream stream = new WebConnectionStream (this, operation, data);
 			bool expect_content = ExpectContent (data.StatusCode, data.Request.Method);
 			string tencoding = null;
 			if (expect_content)
@@ -830,8 +830,8 @@ namespace System.Net
 				return (null, null, streamResult.error);
 			}
 
-			var stream = new WebConnectionStream (this, data, request);
-			InitReadAsync (data, cancellationToken);
+			var stream = new WebConnectionStream (this, operation, data, request);
+			InitReadAsync (operation, data, cancellationToken);
 			request.SetWriteStream (stream);
 			return (data, stream, null);
 		}
