@@ -326,7 +326,7 @@ namespace System.Net
 			byte[] connectBytes = Encoding.Default.GetBytes (sb.ToString ());
 			await stream.WriteAsync (connectBytes, 0, connectBytes.Length, cancellationToken).ConfigureAwait (false);
 
-			var (result, buffer, status) = await ReadHeaders (stream, cancellationToken).ConfigureAwait (false);
+			var (result, buffer, status) = await ReadHeaders (data, stream, cancellationToken).ConfigureAwait (false);
 			if ((!have_auth || connect_ntlm_auth_state == NtlmAuthState.Challenge) &&
 			    result != null && status == 407) { // Needs proxy auth
 				var connectionHeader = result["Connection"];
@@ -352,7 +352,7 @@ namespace System.Net
 			return (result != null, buffer);
 		}
 
-		async Task<(WebHeaderCollection,byte[],int)> ReadHeaders (Stream stream, CancellationToken cancellationToken)
+		async Task<(WebHeaderCollection,byte[],int)> ReadHeaders (WebConnectionData data, Stream stream, CancellationToken cancellationToken)
 		{
 			byte[] retBuffer = null;
 			int status = 200;
@@ -407,9 +407,9 @@ namespace System.Net
 					}
 
 					if (String.Compare (parts[0], "HTTP/1.1", true) == 0)
-						Data.ProxyVersion = HttpVersion.Version11;
+						data.ProxyVersion = HttpVersion.Version11;
 					else if (String.Compare (parts[0], "HTTP/1.0", true) == 0)
-						Data.ProxyVersion = HttpVersion.Version10;
+						data.ProxyVersion = HttpVersion.Version10;
 					else {
 						HandleError (WebExceptionStatus.ServerProtocolViolation, null, "ReadHeaders2");
 						return (null, null, 200);
@@ -417,7 +417,7 @@ namespace System.Net
 
 					status = (int)UInt32.Parse (parts[1]);
 					if (parts.Length >= 3)
-						Data.StatusDescription = String.Join (" ", parts, 2, parts.Length - 2);
+						data.StatusDescription = String.Join (" ", parts, 2, parts.Length - 2);
 
 					gotStatus = true;
 				}
