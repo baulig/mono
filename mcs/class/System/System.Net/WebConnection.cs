@@ -117,7 +117,6 @@ namespace System.Net
 		bool chunkedRead;
 		MonoChunkStream chunkStream;
 		Queue queue;
-		bool reused;
 		int position;
 		WebOperation priority_request;
 		NetworkCredential ntlm_credentials;
@@ -176,23 +175,26 @@ namespace System.Net
 			return (socket.Poll (0, SelectMode.SelectRead) == false);
 		}
 
-		void Connect (WebOperation operation, WebConnectionData data)
+		bool CheckReusable (WebConnectionData data)
 		{
 			lock (socketLock) {
 				if (data.Socket != null && data.Socket.Connected && status == WebExceptionStatus.Success) {
 					// Take the chunked stream to the expected state (State.None)
-					if (CanReuse (data.Socket) && CompleteChunkedRead (data)) {
-						reused = true;
-						return;
-					}
+					if (CanReuse (data.Socket) && CompleteChunkedRead (data))
+						return true;
 				}
 
-				reused = false;
 				if (data.Socket != null) {
 					data.Socket.Close ();
 					data.Socket = null;
 				}
+				return false;
+			}
+		}
 
+		void Connect (WebOperation operation, WebConnectionData data)
+		{
+			lock (socketLock) {
 				chunkStream = null;
 				IPHostEntry hostEntry = sPoint.HostEntry;
 
@@ -445,7 +447,7 @@ namespace System.Net
 		static int nextID, nextRequestID;
 		public readonly int ID = ++nextID;
 
-		bool CreateStream (WebConnectionData data)
+		bool CreateStream (WebConnectionData data, bool reused)
 		{
 			var requestID = ++nextRequestID;
 
@@ -792,8 +794,11 @@ namespace System.Net
 			Data = data;
 
 		retry:
-			Connect (operation, data);
-			if (request.Aborted)
+			bool reused = CheckReusable (data);
+			if (!reused)
+				Connect (operation, data);
+
+			if (operation.Aborted)
 				return (null, null, null);
 
 			if (status != WebExceptionStatus.Success) {
@@ -804,7 +809,7 @@ namespace System.Net
 				return (null, null, connect_exception);
 			}
 
-			if (!CreateStream (data)) {
+			if (!CreateStream (data, reused)) {
 				if (request.Aborted)
 					return (null, null, null);
 
