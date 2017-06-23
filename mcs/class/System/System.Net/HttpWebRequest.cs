@@ -1451,37 +1451,6 @@ namespace System.Net
 			usedPreAuth = true;
 		}
 
-		internal void SetWriteStreamError (WebExceptionStatus status, Exception exc)
-		{
-			if (Aborted)
-				return;
-
-			WebConnection.Debug ($"HWR SET WRITE STREAM ERROR: {ID} {currentOperation != null} {responseTask != null}");
-
-			string msg;
-			WebException wex;
-			if (exc == null) {
-				msg = "Error: " + status;
-				wex = new WebException (msg, status);
-			} else {
-				wex = exc as WebException;
-				if (wex == null) {
-					msg = String.Format ("Error: {0} ({1})", status, exc.Message);
-					wex = new WebException (msg, status, WebExceptionInternalStatus.RequestFatal, exc);
-				}
-			}
-
-			// var tcs = requestTask;
-			var operation = currentOperation;
-
-			WebConnection.Debug ($"HWR SET WRITE STREAM ERROR #1: {ID} {operation != null}");
-
-			if (operation != null)
-				operation.SetError (wex);
-			else
-				WebConnection.Debug ($"HWR SET WRITE STREAM ERROR #2");
-		}
-
 		internal byte[] GetRequestHeaders ()
 		{
 			StringBuilder req = new StringBuilder ();
@@ -1507,20 +1476,6 @@ namespace System.Net
 			return Encoding.UTF8.GetBytes (reqstr);
 		}
 
-		internal void SetWriteStream (WebConnectionStream stream)
-		{
-			try {
-				WebConnection.Debug ($"HWR SET WRITE STREAM: {ID}");
-				SetWriteStreamAsync (stream, CancellationToken.None).Wait ();
-			} catch (Exception ex) {
-				Console.Error.WriteLine ($"SET WRITE STREAM FAILED: {ex}");
-				SetWriteStreamError (ex);
-				throw;
-			} finally {
-				WebConnection.Debug ($"HWR SET WRITE STREAM DONE: {ID}");
-			}
-		}
-
 		internal async Task SetWriteStreamAsync (WebConnectionStream stream, CancellationToken cancellationToken)
 		{
 			if (Aborted)
@@ -1533,53 +1488,28 @@ namespace System.Net
 				writeStream.SendChunked = false;
 			}
 
-			try {
-				await writeStream.SetHeadersAsync (false, cancellationToken).ConfigureAwait (false);
-			} catch (Exception ex) {
-				WebConnection.Debug ($"HWR SET WRITE STREAM FAILED: {ID} - {ex}");
-				SetWriteStreamError (ex);
-				return;
-			}
+			await writeStream.SetHeadersAsync (false, cancellationToken).ConfigureAwait (false);
 
-			if (cancellationToken.IsCancellationRequested) {
-				SetWriteStreamError (WebExceptionStatus.RequestCanceled, new OperationCanceledException ("HttpWebRequest"));
+			if (Aborted || cancellationToken.IsCancellationRequested)
 				return;
-			}
 
 			WebConnection.Debug ($"HWR SET WRITE STREAM ASYNC #1: {ID} {bodyBuffer != null} {MethodWithBuffer}");
 
 			haveRequest = true;
 
-			try {
-				if (bodyBuffer != null) {
-					// The body has been written and buffered. The request "user"
-					// won't write it again, so we must do it.
-					if (auth_state.NtlmAuthState != NtlmAuthState.Challenge && proxy_auth_state.NtlmAuthState != NtlmAuthState.Challenge) {
-						// FIXME: this is a blocking call on the thread pool that could lead to thread pool exhaustion
-						await writeStream.WriteAsync (bodyBuffer, 0, bodyBufferLength, cancellationToken).ConfigureAwait (false);
-						bodyBuffer = null;
-						writeStream.Close ();
-					}
-				} else if (MethodWithBuffer) {
-					if (getResponseCalled && !writeStream.RequestWritten)
-						await writeStream.WriteRequestAsync (cancellationToken).ConfigureAwait (false);
+			if (bodyBuffer != null) {
+				// The body has been written and buffered. The request "user"
+				// won't write it again, so we must do it.
+				if (auth_state.NtlmAuthState != NtlmAuthState.Challenge && proxy_auth_state.NtlmAuthState != NtlmAuthState.Challenge) {
+					// FIXME: this is a blocking call on the thread pool that could lead to thread pool exhaustion
+					await writeStream.WriteAsync (bodyBuffer, 0, bodyBufferLength, cancellationToken).ConfigureAwait (false);
+					bodyBuffer = null;
+					writeStream.Close ();
 				}
-
-				// requestTask?.TrySetResult (writeStream);
-			} catch (Exception ex) {
-				WebConnection.Debug ($"HWR SET WRITE STREAM FAILED #1: {ID} - {ex}");
-				SetWriteStreamError (ex);
-				return;
+			} else if (MethodWithBuffer) {
+				if (getResponseCalled && !writeStream.RequestWritten)
+					await writeStream.WriteRequestAsync (cancellationToken).ConfigureAwait (false);
 			}
-		}
-
-		void SetWriteStreamError (Exception exc)
-		{
-			WebException wexc = exc as WebException;
-			if (wexc != null)
-				SetWriteStreamError (wexc.Status, wexc);
-			else
-				SetWriteStreamError (WebExceptionStatus.SendFailure, exc);
 		}
 
 		internal void SetResponseError (WebExceptionStatus status, Exception e, string where)

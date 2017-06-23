@@ -127,11 +127,13 @@ namespace System.Net
 					return;
 				}
 				var (data, stream, error) = await func (cts.Token).ConfigureAwait (false);
-				if (error != null)
-					requestTask.TrySetException (error);
-				else if (data == null || Aborted)
+				if (data == null || Aborted) {
 					requestTask.TrySetCanceled ();
-				else
+					responseDataTask.TrySetCanceled ();
+				} else if (error != null) {
+					requestTask.TrySetException (error);
+					responseDataTask.TrySetException (error);
+				} else
 					requestTask.TrySetResult ((data, stream));
 			} catch (OperationCanceledException) {
 				requestTask.TrySetCanceled ();

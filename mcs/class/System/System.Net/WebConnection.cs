@@ -744,9 +744,8 @@ namespace System.Net
 					return (null, null, null);
 
 				if (connectResult.status != WebExceptionStatus.Success) {
-					request.SetWriteStreamError (connectResult.status, connectResult.error);
 					Close (true);
-					return (null, null, connectResult.error);
+					return (data, null, GetException (connectResult.status, connectResult.error));
 				}
 
 				data.Socket = connectResult.socket;
@@ -772,15 +771,30 @@ namespace System.Net
 						null, streamResult.status, webResponse);
 				}
 
-				request.SetWriteStreamError (streamResult.status, streamResult.error);
 				Close (true);
-				return (null, null, streamResult.error);
+				return (data, null, GetException (streamResult.status, streamResult.error));
 			}
 
 			var stream = new WebConnectionStream (this, operation, data, request);
 			InitReadAsync (operation, data, cancellationToken);
-			request.SetWriteStream (stream);
+
+			try {
+				await request.SetWriteStreamAsync (stream, cancellationToken);
+			} catch (Exception ex) {
+				return (data, stream, GetException (WebExceptionStatus.SendFailure, ex));
+			}
+
 			return (data, stream, null);
+		}
+
+		static WebException GetException (WebExceptionStatus status, Exception error)
+		{
+			if (error == null)
+				return new WebException ($"Error: {status}", status);
+			if (error is WebException wex)
+				return wex;
+			return new WebException ($"Error: {status} ({error.Message})", status,
+			                         WebExceptionInternalStatus.RequestFatal, error);
 		}
 
 #if MONOTOUCH
