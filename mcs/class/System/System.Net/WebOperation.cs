@@ -48,12 +48,14 @@ namespace System.Net
 			Request = request;
 			cts = CancellationTokenSource.CreateLinkedTokenSource (cancellationToken);
 			requestTask = new TaskCompletionSource<(WebConnectionData data, WebRequestStream stream)> ();
-			responseDataTask = new TaskCompletionSource<WebConnectionData> (); 
+			responseDataTask = new TaskCompletionSource<WebConnectionData> ();
+			requestWrittenTask = new TaskCompletionSource<WebRequestStream> (); 
 		}
 
 		CancellationTokenSource cts;
 		TaskCompletionSource<(WebConnectionData data, WebRequestStream stream)> requestTask;
 		TaskCompletionSource<WebConnectionData> responseDataTask;
+		TaskCompletionSource<WebRequestStream> requestWrittenTask;
 		WebRequestStream writeStream;
 		ExceptionDispatchInfo disposedInfo;
 		ExceptionDispatchInfo closedInfo;
@@ -82,6 +84,7 @@ namespace System.Net
 			cts?.Cancel ();
 			requestTask.TrySetCanceled ();
 			responseDataTask.TrySetCanceled ();
+			requestWrittenTask.TrySetCanceled ();
 			Close (); 
 		}
 
@@ -157,6 +160,11 @@ namespace System.Net
 			return result.stream;
 		}
 
+		public Task WaitUntilRequestWritten ()
+		{
+			return requestWrittenTask.Task;
+		}
+
 		public WebRequestStream WriteStream {
 			get {
 				ThrowIfDisposed ();
@@ -177,13 +185,16 @@ namespace System.Net
 				if (data == null || Aborted) {
 					requestTask.TrySetCanceled ();
 					responseDataTask.TrySetCanceled ();
-				} else if (error != null) {
+					return;
+				}
+				if (error != null) {
 					requestTask.TrySetException (error);
 					responseDataTask.TrySetException (error);
-				} else {
-					writeStream = stream;
-					requestTask.TrySetResult ((data, stream));
+					return;
 				}
+
+				writeStream = stream;
+				requestTask.TrySetResult ((data, stream));
 			} catch (OperationCanceledException) {
 				requestTask.TrySetCanceled ();
 			} catch (Exception e) {
@@ -192,6 +203,14 @@ namespace System.Net
 				cts.Dispose ();
 				cts = null;
 			}
+		}
+
+		internal void CompleteRequestWritten (WebRequestStream stream, Exception error = null)
+		{
+			if (error != null)
+				requestWrittenTask.TrySetException (error);
+			else
+				requestWrittenTask.TrySetResult (stream);
 		}
 	}
 }

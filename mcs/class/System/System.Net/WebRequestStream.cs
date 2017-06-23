@@ -16,7 +16,6 @@ namespace System.Net
 		bool allowBuffering;
 		bool sendChunked;
 		TaskCompletionSource<int> pendingWrite;
-		bool complete_request_written;
 		byte[] headers;
 		bool headersSent;
 
@@ -27,10 +26,6 @@ namespace System.Net
 			sendChunked = operation.Request.SendChunked;
 			if (!sendChunked && allowBuffering)
 				writeBuffer = new MemoryStream ();
-		}
-
-		internal bool CompleteRequestWritten {
-			get { return complete_request_written; }
 		}
 
 		internal bool SendChunked {
@@ -72,7 +67,7 @@ namespace System.Net
 				await ProcessWrite (buffer, offset, size, cancellationToken).ConfigureAwait (false);
 
 				if (allowBuffering && !sendChunked && Request.ContentLength > 0 && totalWritten == Request.ContentLength)
-					complete_request_written = true;
+					Operation.CompleteRequestWritten (this);
 
 				pendingWrite = null;
 				myWriteTcs.TrySetResult (0);
@@ -83,6 +78,8 @@ namespace System.Net
 
 				if (ex is SocketException)
 					ex = new IOException ("Error writing request", ex);
+
+				Operation.CompleteRequestWritten (this, ex);
 
 				pendingWrite = null;
 				myWriteTcs.TrySetException (ex);
@@ -223,12 +220,12 @@ namespace System.Net
 				return;
 
 			if (length == 0) {
-				complete_request_written = true;
+				Operation.CompleteRequestWritten (this);
 				return;
 			}
 
 			await Data.NetworkStream.WriteAsync (bytes, 0, length, cancellationToken).ConfigureAwait (false);
-			complete_request_written = true;
+			Operation.CompleteRequestWritten (this);
 		}
 
 		async Task WriteChunkTrailer ()
@@ -274,7 +271,7 @@ namespace System.Net
 			}
 
 			if (!allowBuffering) {
-				complete_request_written = true;
+				Operation.CompleteRequestWritten (this);
 				return;
 			}
 
