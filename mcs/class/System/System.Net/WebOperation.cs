@@ -40,12 +40,17 @@ namespace System.Net
 			get;
 		}
 
+		public BufferOffsetSize WriteBuffer {
+			get;
+		}
+
 		static int nextID;
 		public readonly int ID = ++nextID;
 
-		public WebOperation (HttpWebRequest request, CancellationToken cancellationToken)
+		public WebOperation (HttpWebRequest request, BufferOffsetSize writeBuffer, CancellationToken cancellationToken)
 		{
 			Request = request;
+			WriteBuffer = writeBuffer;
 			cts = CancellationTokenSource.CreateLinkedTokenSource (cancellationToken);
 			requestTask = new TaskCompletionSource<(WebConnectionData data, WebRequestStream stream)> ();
 			responseDataTask = new TaskCompletionSource<WebConnectionData> ();

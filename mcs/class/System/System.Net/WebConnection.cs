@@ -779,7 +779,7 @@ namespace System.Net
 			InitReadAsync (operation, data, cancellationToken);
 
 			try {
-				await request.SetWriteStreamAsync (stream, cancellationToken);
+				await request.SetWriteStreamAsync (stream, operation.WriteBuffer, cancellationToken);
 			} catch (Exception ex) {
 				return (data, stream, GetException (WebExceptionStatus.SendFailure, ex));
 			}

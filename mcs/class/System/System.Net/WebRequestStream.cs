@@ -41,6 +41,14 @@ namespace System.Net
 			get { return writeBuffer != null ? (int)writeBuffer.Length : (-1); }
 		}
 
+		internal BufferOffsetSize GetWriteBuffer ()
+		{
+			if (writeBuffer == null || writeBuffer.Length == 0)
+				return null;
+			var buffer = writeBuffer.GetBuffer ();
+			return new BufferOffsetSize (buffer, 0, buffer.Length, false);
+		}
+
 		internal bool RequestWritten {
 			get { return requestWritten; }
 		}

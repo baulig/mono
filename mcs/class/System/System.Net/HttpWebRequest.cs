@@ -103,8 +103,6 @@ namespace System.Net
 		bool gotRequestStream;
 		int redirects;
 		bool expectContinue;
-		byte[] bodyBuffer;
-		int bodyBufferLength;
 		bool getResponseCalled;
 		object locker = new object ();
 		bool finished_reading;
@@ -834,7 +832,7 @@ namespace System.Net
 			webHeaders.ChangeInternal ("Range", r);
 		}
 
-		WebOperation SendRequest (bool redirecting, CancellationToken cancellationToken)
+		WebOperation SendRequest (bool redirecting, BufferOffsetSize writeBuffer, CancellationToken cancellationToken)
 		{
 			lock (locker) {
 				WebConnection.Debug ($"HWR SEND REQUEST: {ID} {requestSent} {redirecting}");
@@ -849,7 +847,7 @@ namespace System.Net
 					}
 				}
 
-				operation = new WebOperation (this, cancellationToken);
+				operation = new WebOperation (this, writeBuffer, cancellationToken);
 				if (Interlocked.CompareExchange (ref currentOperation, operation, null) != null)
 					throw new InvalidOperationException ("Invalid nested call.");
 
@@ -902,7 +900,7 @@ namespace System.Net
 
 				if (operation == null) {
 					gotRequestStream = true;
-					operation = SendRequest (false, cancellationToken);
+					operation = SendRequest (false, null, cancellationToken);
 				}
 			}
 
@@ -1018,7 +1016,7 @@ namespace System.Net
 
 				initialMethod = method;
 
-				operation = SendRequest (false, cancellationToken);
+				operation = SendRequest (false, null, cancellationToken);
 			}
 
 			while (true) {
@@ -1028,6 +1026,7 @@ namespace System.Net
 				bool redirect = false;
 				bool mustReadAll = false;
 				WebOperation ntlm = null;
+				BufferOffsetSize writeBuffer = null;
 
 				try {
 					cancellationToken.ThrowIfCancellationRequested ();
@@ -1058,7 +1057,8 @@ namespace System.Net
 					if (data == null)
 						throw new WebException ("Got WebConnectionData == null and no exception.", WebExceptionStatus.ProtocolError);
 
-					(response, redirect, mustReadAll, ntlm) = await GetResponseFromData (data, cancellationToken).ConfigureAwait (false);
+					(response, redirect, mustReadAll, writeBuffer, ntlm) = await GetResponseFromData (
+						data, cancellationToken).ConfigureAwait (false);
 				} catch (Exception e) {
 					FlattenException (ref e);
 					if (Aborted || e is OperationCanceledException)
@@ -1091,7 +1091,7 @@ namespace System.Net
 				try {
 					if (mustReadAll)
 						await response.ReadAllAsync (cancellationToken).ConfigureAwait (false);
-					response.Close (); 
+					response.Close ();
 				} catch (OperationCanceledException) {
 					throwMe = new WebException ("Request canceled.", WebExceptionStatus.RequestCanceled);
 				} catch (Exception e) {
@@ -1108,7 +1108,7 @@ namespace System.Net
 					}
 
 					if (ntlm == null) {
-						operation = SendRequest (true, cancellationToken);
+						operation = SendRequest (true, writeBuffer, cancellationToken);
 					} else {
 						operation = ntlm;
 					}
@@ -1116,8 +1116,8 @@ namespace System.Net
 			}
 		}
 
-		async Task<(HttpWebResponse response, bool redirect, bool mustReadAll, WebOperation ntlm)> GetResponseFromData (
-			WebConnectionData data, CancellationToken cancellationToken)
+		async Task<(HttpWebResponse response, bool redirect, bool mustReadAll, BufferOffsetSize writeBuffer, WebOperation ntlm)>
+			GetResponseFromData (WebConnectionData data, CancellationToken cancellationToken)
 		{
 			/*
 			 * WebConnection has either called SetResponseData() or SetResponseError().
@@ -1138,9 +1138,10 @@ namespace System.Net
 			bool redirect = false;
 			bool mustReadAll = false;
 			WebOperation ntlm = null;
+			BufferOffsetSize writeBuffer = null;
 
 			lock (locker) {
-				(redirect, mustReadAll, throwMe) = CheckFinalStatus (response);
+				(redirect, mustReadAll, writeBuffer, throwMe) = CheckFinalStatus (response);
 			}
 
 			if (throwMe != null) {
@@ -1162,7 +1163,7 @@ namespace System.Net
 					if (writeStream != null)
 						writeStream.KillBuffer ();
 
-					return (response, false, false, null);
+					return (response, false, false, writeBuffer, null);
 				}
 
 				if (sendChunked) {
@@ -1170,13 +1171,13 @@ namespace System.Net
 					webHeaders.RemoveInternal ("Transfer-Encoding");
 				}
 
-				ntlm = HandleNtlmAuth (data, response, cancellationToken);
+				ntlm = HandleNtlmAuth (data, response, writeBuffer, cancellationToken);
 				WebConnection.Debug ($"HWR REDIRECT: {ntlm} {mustReadAll}");
 				if (ntlm != null)
 					mustReadAll = true;
 			}
 
-			return (response, true, mustReadAll, ntlm);
+			return (response, true, mustReadAll, writeBuffer, ntlm);
 		}
 
 		internal static void FlattenException (ref Exception e)
@@ -1483,7 +1484,7 @@ namespace System.Net
 			return Encoding.UTF8.GetBytes (reqstr);
 		}
 
-		internal async Task SetWriteStreamAsync (WebRequestStream stream, CancellationToken cancellationToken)
+		internal async Task SetWriteStreamAsync (WebRequestStream stream, BufferOffsetSize bodyBuffer, CancellationToken cancellationToken)
 		{
 			if (Aborted)
 				return;
@@ -1496,7 +1497,7 @@ namespace System.Net
 				if (stream.SendChunked)
 					throw new NotImplementedException ("SHOULD NEVER HAPPEN!");
 				webHeaders.RemoveInternal ("Transfer-Encoding");
-				contentLength = bodyBufferLength;
+				contentLength = bodyBuffer.Size;
 				stream.SendChunked = false;
 			}
 
@@ -1511,7 +1512,7 @@ namespace System.Net
 				// The body has been written and buffered. The request "user"
 				// won't write it again, so we must do it.
 				if (auth_state.NtlmAuthState != NtlmAuthState.Challenge && proxy_auth_state.NtlmAuthState != NtlmAuthState.Challenge) {
-					await stream.WriteAsync (bodyBuffer, 0, bodyBufferLength, cancellationToken).ConfigureAwait (false);
+					await stream.WriteAsync (bodyBuffer.Buffer, 0, bodyBuffer.Size, cancellationToken).ConfigureAwait (false);
 					bodyBuffer = null;
 					stream.Close ();
 				}
@@ -1543,13 +1544,14 @@ namespace System.Net
 			}
 		}
 
-		WebOperation HandleNtlmAuth (WebConnectionData data, HttpWebResponse response, CancellationToken cancellationToken)
+		WebOperation HandleNtlmAuth (WebConnectionData data, HttpWebResponse response,
+		                             BufferOffsetSize writeBuffer, CancellationToken cancellationToken)
 		{
 			bool isProxy = response.StatusCode == HttpStatusCode.ProxyAuthenticationRequired;
 			if ((isProxy ? proxy_auth_state : auth_state).NtlmAuthState == NtlmAuthState.None)
 				return null;
 
-			var operation = new WebOperation (this, cancellationToken);
+			var operation = new WebOperation (this, writeBuffer, cancellationToken);
 			data.Connection.PriorityRequest = operation;
 			var creds = (!isProxy || proxy == null) ? credentials : proxy.Credentials;
 			if (creds != null) {
@@ -1664,7 +1666,7 @@ namespace System.Net
 		}
 
 		// Returns true if redirected
-		(bool, bool, WebException) CheckFinalStatus (HttpWebResponse response)
+		(bool, bool, BufferOffsetSize, WebException) CheckFinalStatus (HttpWebResponse response)
 		{
 			WebException throwMe = null;
 
@@ -1679,12 +1681,8 @@ namespace System.Net
 					// Keep the written body, so it can be rewritten in the retry
 					if (MethodWithBuffer) {
 						if (AllowWriteStreamBuffering) {
-							if (writeStream.WriteBufferLength > 0) {
-								bodyBuffer = writeStream.WriteBuffer;
-								bodyBufferLength = writeStream.WriteBufferLength;
-							}
-
-							return (true, false, null);
+							var buffer = writeStream.GetWriteBuffer ();
+							return (true, false, buffer, null);
 						}
 
 						//
@@ -1694,32 +1692,29 @@ namespace System.Net
 						if (ResendContentFactory != null) {
 							using (var ms = new MemoryStream ()) {
 								ResendContentFactory (ms);
-								bodyBuffer = ms.ToArray ();
-								bodyBufferLength = bodyBuffer.Length;
+								var buffer = ms.ToArray ();
+								var bos = new BufferOffsetSize (buffer, 0, buffer.Length, false);
+								return (true, false, bos, null);
 							}
-							return (true, false, null);
 						}
 					} else if (method != "PUT" && method != "POST") {
-						bodyBuffer = null;
-						return (true, false, null);
+						return (true, false, null, null);
 					}
 
 					if (!ThrowOnError)
-						return (false, false, null);
+						return (false, false, null, null);
 
 					writeStream.InternalClose ();
 					writeStream = null;
 					response.Close ();
-					bodyBuffer = null;
 
 					throwMe = new WebException ("This request requires buffering " +
 					                            "of data for authentication or " +
 					                            "redirection to be sucessful.");
-					return (false, false, throwMe);
+					return (false, false, null, throwMe);
 				}
 			}
 
-			bodyBuffer = null;
 			if ((int)code >= 400) {
 				string err = String.Format ("The remote server returned an error: ({0}) {1}.",
 				                            (int)code, response.StatusDescription);
@@ -1734,17 +1729,15 @@ namespace System.Net
 				                            protoError, response);
 				mustReadAll = true;
 			}
-			bodyBuffer = null;
 
 			if (throwMe == null) {
 				int c = (int)code;
 				bool b = false;
+				BufferOffsetSize buffer = null;
 				if (allowAutoRedirect && c >= 300) {
 					b = Redirect (code, response);
-					if (InternalAllowBuffering && writeStream.WriteBufferLength > 0) {
-						bodyBuffer = writeStream.WriteBuffer;
-						bodyBufferLength = writeStream.WriteBufferLength;
-					}
+					if (InternalAllowBuffering)
+						buffer = writeStream.GetWriteBuffer ();
 					if (b && !unsafe_auth_blah) {
 						auth_state.Reset ();
 						proxy_auth_state.Reset ();
@@ -1754,7 +1747,7 @@ namespace System.Net
 				if (c >= 300 && c != 304)
 					mustReadAll = true;
 
-				return (b, mustReadAll, null);
+				return (b, mustReadAll, buffer, null);
 			}
 
 			if (writeStream != null) {
@@ -1762,7 +1755,7 @@ namespace System.Net
 				writeStream = null;
 			}
 
-			return (false, mustReadAll, throwMe);
+			return (false, mustReadAll, null, throwMe);
 		}
 
 		internal bool ReuseConnection {
