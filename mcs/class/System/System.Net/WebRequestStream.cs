@@ -29,6 +29,7 @@ namespace System.Net
 		}
 
 		internal bool SendChunked {
+			get { return sendChunked; }
 			set { sendChunked = value; }
 		}
 

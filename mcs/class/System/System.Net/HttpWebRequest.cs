@@ -1488,7 +1488,13 @@ namespace System.Net
 			if (Aborted)
 				return;
 
+			WebConnection.Debug ($"HWR SET WRITE STREAM ASYNC #1: {ID} {bodyBuffer != null} {MethodWithBuffer}");
+
 			if (bodyBuffer != null) {
+				if (webHeaders["Transfer-Encoding"] != null)
+					throw new NotImplementedException ("SHOULD NEVER HAPPEN!");
+				if (stream.SendChunked)
+					throw new NotImplementedException ("SHOULD NEVER HAPPEN!");
 				webHeaders.RemoveInternal ("Transfer-Encoding");
 				contentLength = bodyBufferLength;
 				stream.SendChunked = false;
@@ -1498,8 +1504,6 @@ namespace System.Net
 
 			if (Aborted || cancellationToken.IsCancellationRequested)
 				return;
-
-			WebConnection.Debug ($"HWR SET WRITE STREAM ASYNC #1: {ID} {bodyBuffer != null} {MethodWithBuffer}");
 
 			haveRequest = true;
 
