@@ -733,10 +733,12 @@ namespace System.Net
 
 		retry:
 			bool reused = await CheckReusable (oldData, cancellationToken).ConfigureAwait (false);
+			Debug ($"WC INIT CONNECTION #1: {ID} {operation.ID} - {reused}");
 			if (reused) {
 				data.ReuseConnection (oldData);
 			} else {
 				var connectResult = await Connect (operation, data, cancellationToken).ConfigureAwait (false);
+				Debug ($"WC INIT CONNECTION #2: {ID} {operation.ID} - {connectResult.status}");
 				if (operation.Aborted)
 					return (null, null, null);
 
@@ -750,6 +752,7 @@ namespace System.Net
 			}
 
 			var streamResult = await CreateStream (data, reused, cancellationToken).ConfigureAwait (false);
+			Debug ($"WC INIT CONNECTION #3: {ID} {operation.ID} - {streamResult.status} {streamResult.success}");
 			if (!streamResult.success) {
 				if (operation.Aborted)
 					return (null, null, null);

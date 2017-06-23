@@ -97,8 +97,7 @@ namespace System.Net
 		WebConnectionStream writeStream;
 		HttpWebResponse webResponse;
 		TaskCompletionSource<HttpWebResponse> responseTask;
-		TaskCompletionSource<WebConnectionData> responseDataTask;
-		TaskCompletionSource<Stream> requestTask;
+		int nestedRequestStream;
 		WebOperation currentOperation;
 		int aborted;
 		bool gotRequestStream;
@@ -835,26 +834,22 @@ namespace System.Net
 			webHeaders.ChangeInternal ("Range", r);
 		}
 
-		TaskCompletionSource<WebConnectionData> SendRequest (bool redirecting, CancellationToken cancellationToken)
+		WebOperation SendRequest (bool redirecting, CancellationToken cancellationToken)
 		{
 			lock (locker) {
 				WebConnection.Debug ($"HWR SEND REQUEST: {ID} {requestSent} {redirecting}");
 
-				TaskCompletionSource<WebConnectionData> task = null;
+				WebOperation operation;
 				if (!redirecting) {
 					if (requestSent) {
-						task = responseDataTask;
-						if (task == null)
+						operation = currentOperation;
+						if (operation == null)
 							throw new InvalidOperationException ("Should never happen!");
-						return task;
+						return operation;
 					}
-
-					task = new TaskCompletionSource<WebConnectionData> ();
-					if (Interlocked.CompareExchange (ref responseDataTask, task, null) != null)
-						throw new InvalidOperationException ("Invalid nested call.");
 				}
 
-				var operation = new WebOperation (this, cancellationToken);
+				operation = new WebOperation (this, cancellationToken);
 				if (Interlocked.CompareExchange (ref currentOperation, operation, null) != null)
 					throw new InvalidOperationException ("Invalid nested call.");
 
@@ -864,7 +859,7 @@ namespace System.Net
 				servicePoint = GetServicePoint ();
 				var connection = servicePoint.GetConnection (this, connectionGroup);
 				operation.SendRequest (connection);
-				return task;
+				return operation;
 			}
 		}
 
@@ -890,32 +885,28 @@ namespace System.Net
 			if (!sendChunked && transferEncoding != null && transferEncoding.Trim () != "")
 				throw new ProtocolViolationException ("SendChunked should be true.");
 
-			var myTcs = new TaskCompletionSource<Stream> ();
+			WebOperation operation;
 			lock (locker) {
 				if (getResponseCalled)
 					throw new InvalidOperationException ("The operation cannot be performed once the request has been submitted.");
 
-				var oldTcs = Interlocked.CompareExchange (ref requestTask, myTcs, null);
-				if (oldTcs != null)
+				if (Interlocked.CompareExchange (ref nestedRequestStream, 1, 0) != 0)
 					throw new InvalidOperationException ("Cannot re-call start of asynchronous " +
 								"method while a previous call is still in progress.");
 
 				initialMethod = method;
-				if (haveRequest) {
-					if (writeStream != null) {
-						myTcs.TrySetResult (writeStream);
-						return writeStream;
-					}
-				}
+				operation = currentOperation;
 
-				gotRequestStream = true;
-				SendRequest (false, cancellationToken);
+				if (operation == null) {
+					gotRequestStream = true;
+					operation = SendRequest (false, cancellationToken);
+				}
 			}
 
 			try {
-				return await myTcs.Task.ConfigureAwait (false);
+				return await operation.GetRequestStream ().ConfigureAwait (false);
 			} finally {
-				requestTask = null;
+				nestedRequestStream = 0;
 			}
 		}
 
@@ -1007,7 +998,7 @@ namespace System.Net
 
 			bool forceWrite;
 			var myTcs = new TaskCompletionSource<HttpWebResponse> ();
-			TaskCompletionSource<WebConnectionData> myDataTcs;
+			WebOperation operation;
 			lock (locker) {
 				getResponseCalled = true;
 				var oldTcs = Interlocked.CompareExchange (ref responseTask, myTcs, null);
@@ -1022,7 +1013,7 @@ namespace System.Net
 				initialMethod = method;
 				forceWrite = CheckIfForceWrite ();
 
-				myDataTcs = SendRequest (false, cancellationToken);
+				operation = SendRequest (false, cancellationToken);
 			}
 
 			while (true) {
@@ -1031,19 +1022,19 @@ namespace System.Net
 				HttpWebResponse response = null;
 				bool redirect = false;
 				bool mustReadAll = false;
-				bool ntlm = false;
+				WebOperation ntlm = null;
 
 				try {
 					cancellationToken.ThrowIfCancellationRequested ();
 					if (forceWrite)
 						await writeStream.WriteRequestAsync (cancellationToken).ConfigureAwait (false);
 
-					var anyTask = await Task.WhenAny (timeoutTask, myDataTcs.Task).ConfigureAwait (false);
+					var anyTask = await Task.WhenAny (timeoutTask, operation.ResponseDataTask.Task).ConfigureAwait (false);
 					if (anyTask == timeoutTask) {
 						Abort ();
 						throw new WebException ("The request timed out", WebExceptionStatus.Timeout);
 					}
-					data = myDataTcs.Task.Result;
+					data = operation.ResponseDataTask.Task.Result;
 
 					/*
 					 * WebConnection has either called SetResponseData() or SetResponseError().
@@ -1079,9 +1070,7 @@ namespace System.Net
 					haveResponse = false;
 					webResponse = null;
 					forceWrite = false;
-					myDataTcs = new TaskCompletionSource<WebConnectionData> ();
-					responseDataTask = myDataTcs;
-					currentOperation = null;
+					currentOperation = ntlm;
 					WebConnection.Debug ($"HWR GET RESPONSE ASYNC - REDIRECT: {ID} {mustReadAll} {ntlm}");
 				}
 
@@ -1104,14 +1093,16 @@ namespace System.Net
 						throw throwMe;
 					}
 
-					if (!ntlm) {
-						SendRequest (true, cancellationToken);
+					if (ntlm == null) {
+						operation = SendRequest (true, cancellationToken);
+					} else {
+						operation = ntlm;
 					}
 				}
 			}
 		}
 
-		async Task<(HttpWebResponse response, bool redirect, bool mustReadAll, bool ntlm)> GetResponseFromData (
+		async Task<(HttpWebResponse response, bool redirect, bool mustReadAll, WebOperation ntlm)> GetResponseFromData (
 			WebConnectionData data, CancellationToken cancellationToken)
 		{
 			/*
@@ -1132,7 +1123,7 @@ namespace System.Net
 			WebException throwMe = null;
 			bool redirect = false;
 			bool mustReadAll = false;
-			bool ntlm = false;
+			WebOperation ntlm = null;
 
 			lock (locker) {
 				(redirect, mustReadAll, throwMe) = CheckFinalStatus (response);
@@ -1157,7 +1148,7 @@ namespace System.Net
 					if (writeStream != null)
 						writeStream.KillBuffer ();
 
-					return (response, false, false, false);
+					return (response, false, false, null);
 				}
 
 				if (sendChunked) {
@@ -1167,7 +1158,7 @@ namespace System.Net
 
 				ntlm = HandleNtlmAuth (data, response, cancellationToken);
 				WebConnection.Debug ($"HWR REDIRECT: {ntlm} {mustReadAll}");
-				if (ntlm)
+				if (ntlm != null)
 					mustReadAll = true;
 			}
 
@@ -1246,8 +1237,6 @@ namespace System.Net
 			if (operation != null)
 				operation.Abort ();
 
-			requestTask?.TrySetCanceled ();
-			responseDataTask?.TrySetCanceled ();
 			responseTask?.TrySetCanceled ();
 
 			if (writeStream != null) {
@@ -1467,7 +1456,7 @@ namespace System.Net
 			if (Aborted)
 				return;
 
-			WebConnection.Debug ($"HWR SET WRITE STREAM ERROR: {ID} {requestTask != null} {responseDataTask != null} {responseTask != null}");
+			WebConnection.Debug ($"HWR SET WRITE STREAM ERROR: {ID} {currentOperation != null} {responseTask != null}");
 
 			string msg;
 			WebException wex;
@@ -1482,15 +1471,13 @@ namespace System.Net
 				}
 			}
 
-			var tcs = requestTask;
-			var tcs2 = responseDataTask;
+			// var tcs = requestTask;
+			var operation = currentOperation;
 
-			WebConnection.Debug ($"HWR SET WRITE STREAM ERROR #1: {ID} {tcs != null} {tcs2 != null}");
+			WebConnection.Debug ($"HWR SET WRITE STREAM ERROR #1: {ID} {operation != null}");
 
-			if (tcs != null)
-				tcs.TrySetException (wex);
-			else if (tcs2 != null)
-				tcs2.TrySetException (wex);
+			if (operation != null)
+				operation.SetError (wex);
 			else
 				WebConnection.Debug ($"HWR SET WRITE STREAM ERROR #2");
 		}
@@ -1578,7 +1565,7 @@ namespace System.Net
 						await writeStream.WriteRequestAsync (cancellationToken).ConfigureAwait (false);
 				}
 
-				requestTask?.TrySetResult (writeStream);
+				// requestTask?.TrySetResult (writeStream);
 			} catch (Exception ex) {
 				WebConnection.Debug ($"HWR SET WRITE STREAM FAILED #1: {ID} - {ex}");
 				SetWriteStreamError (ex);
@@ -1601,8 +1588,8 @@ namespace System.Net
 				return;
 			lock (locker) {
 				string msg = String.Format ("Error getting response stream ({0}): {1}", where, status);
-				var tcs = responseDataTask;
-				WebConnection.Debug ($"HWR SET RESPONSE ERROR: {ID} {tcs != null}");
+				var operation = currentOperation;
+				WebConnection.Debug ($"HWR SET RESPONSE ERROR: {ID} {operation != null}");
 
 				WebException wexc;
 				if (e is WebException) {
@@ -1610,49 +1597,49 @@ namespace System.Net
 				} else {
 					wexc = new WebException (msg, e, status, null);
 				}
-				if (tcs != null) {
+				if (operation != null) {
 					haveResponse = true;
-					tcs.TrySetException (wexc);
-					return;
+					operation.SetError (wexc);
 				}
 			}
 		}
 
-		bool HandleNtlmAuth (WebConnectionData data, HttpWebResponse response, CancellationToken cancellationToken)
+		WebOperation HandleNtlmAuth (WebConnectionData data, HttpWebResponse response, CancellationToken cancellationToken)
 		{
 			bool isProxy = response.StatusCode == HttpStatusCode.ProxyAuthenticationRequired;
 			if ((isProxy ? proxy_auth_state : auth_state).NtlmAuthState == NtlmAuthState.None)
-				return false;
+				return null;
 
-			data.Connection.PriorityRequest = new WebOperation (this, cancellationToken);
+			var operation = new WebOperation (this, cancellationToken);
+			data.Connection.PriorityRequest = operation;
 			var creds = (!isProxy || proxy == null) ? credentials : proxy.Credentials;
 			if (creds != null) {
 				data.Connection.NtlmCredential = creds.GetCredential (requestUri, "NTLM");
 				data.Connection.UnsafeAuthenticatedConnectionSharing = unsafe_auth_blah;
 			}
-			return true;
+			return operation;
 		}
 
 		internal void SetResponseData (WebConnectionData data)
 		{
 			lock (locker) {
-				var tcs = responseDataTask;
+				var operation = currentOperation;
 
-				if (tcs == null) {
+				if (operation == null) {
 					WebConnection.Debug ($"HWR SET RESPONSE DATA - NO TASK: {ID}");
 					throw new NotImplementedException ();
 				}
 
-				WebConnection.Debug ($"HWR SET RESPONSE DATA: {ID} {Aborted} {tcs.Task.Status} {webResponse != null}");
+				WebConnection.Debug ($"HWR SET RESPONSE DATA: {ID} {Aborted} {operation.ResponseDataTask.Task.Status} {webResponse != null}");
 
 				if (Aborted) {
 					if (data.stream != null)
 						data.stream.Close ();
-					tcs.TrySetCanceled ();
+					operation.Abort ();
 					return;
 				}
 
-				tcs.TrySetResult (data);
+				operation.ResponseDataTask.TrySetResult (data);
 				return;
 			}
 		}

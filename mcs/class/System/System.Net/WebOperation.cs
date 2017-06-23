@@ -47,10 +47,13 @@ namespace System.Net
 		{
 			Request = request;
 			cts = CancellationTokenSource.CreateLinkedTokenSource (cancellationToken);
+			requestTask = new TaskCompletionSource<(WebConnectionData data, WebConnectionStream stream)> ();
+			responseDataTask = new TaskCompletionSource<WebConnectionData> (); 
 		}
 
 		CancellationTokenSource cts;
-		TaskCompletionSource<(WebConnectionData,WebConnectionStream)> requestTask;
+		TaskCompletionSource<(WebConnectionData data,WebConnectionStream stream)> requestTask;
+		TaskCompletionSource<WebConnectionData> responseDataTask;
 		ExceptionDispatchInfo disposed;
 
 		public bool Aborted {
@@ -66,8 +69,15 @@ namespace System.Net
 		public void Abort ()
 		{
 			var (exception, disposed) = SetDisposed ();
-			if (disposed)
-				cts?.Cancel ();
+			if (!disposed)
+				return;
+			cts?.Cancel ();
+			responseDataTask.TrySetCanceled ();
+		}
+
+		public void SetError (Exception error)
+		{
+			responseDataTask.TrySetException (error);
 		}
 
 		(ExceptionDispatchInfo, bool) SetDisposed ()
@@ -94,10 +104,6 @@ namespace System.Net
 
 		public void SendRequest (WebConnection connection)
 		{
-			var task = new TaskCompletionSource<(WebConnectionData, WebConnectionStream)> ();
-			if (Interlocked.CompareExchange (ref requestTask, task, null) != null)
-				throw new InvalidOperationException ("Invalid nested call!");
-
 			cts.Token.Register (() => {
 				SetDisposed ();
 				connection.Abort (this);
@@ -105,7 +111,15 @@ namespace System.Net
 			connection.SendRequest (this);
 		}
 
-		public async void Run (Func<CancellationToken, Task<(WebConnectionData, WebConnectionStream, Exception)>> func)
+		public async Task<Stream> GetRequestStream ()
+		{
+			var result = await requestTask.Task.ConfigureAwait (false);
+			return result.stream;
+		}
+
+		public TaskCompletionSource<WebConnectionData> ResponseDataTask => responseDataTask;
+
+		internal async void Run (Func<CancellationToken, Task<(WebConnectionData, WebConnectionStream, Exception)>> func)
 		{
 			try {
 				if (Aborted) {

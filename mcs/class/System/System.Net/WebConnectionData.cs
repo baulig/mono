@@ -73,6 +73,8 @@ namespace System.Net
 				socket = Interlocked.Exchange (ref old.socket, null);
 				networkStream = Interlocked.Exchange (ref old.networkStream, null);
 				tlsStream = Interlocked.Exchange (ref old.tlsStream, null);
+				Challenge = Interlocked.Exchange (ref old.Challenge, null);
+				Headers = Interlocked.Exchange (ref old.Headers, null);
 				old.ChunkStream = null;
 			}
 		}
