@@ -94,7 +94,7 @@ namespace System.Net
 		ServicePoint servicePoint;
 		int timeout = 100000;
 
-		WebConnectionStream writeStream;
+		WebRequestStream writeStream;
 		HttpWebResponse webResponse;
 		TaskCompletionSource<HttpWebResponse> responseTask;
 		int nestedRequestStream;
@@ -1483,7 +1483,7 @@ namespace System.Net
 			return Encoding.UTF8.GetBytes (reqstr);
 		}
 
-		internal async Task SetWriteStreamAsync (WebConnectionStream stream, CancellationToken cancellationToken)
+		internal async Task SetWriteStreamAsync (WebRequestStream stream, CancellationToken cancellationToken)
 		{
 			if (Aborted)
 				return;

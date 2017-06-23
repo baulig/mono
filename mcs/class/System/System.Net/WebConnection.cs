@@ -715,7 +715,7 @@ namespace System.Net
 			return -1;
 		}
 
-		async Task<(WebConnectionData,WebConnectionStream,Exception)> InitConnection (
+		async Task<(WebConnectionData,WebRequestStream,Exception)> InitConnection (
 			WebOperation operation, CancellationToken cancellationToken)
 		{
 			Debug ($"WC INIT CONNECTION: {ID} {operation.Request.ID} {operation.ID}");

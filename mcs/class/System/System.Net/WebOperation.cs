@@ -47,14 +47,14 @@ namespace System.Net
 		{
 			Request = request;
 			cts = CancellationTokenSource.CreateLinkedTokenSource (cancellationToken);
-			requestTask = new TaskCompletionSource<(WebConnectionData data, WebConnectionStream stream)> ();
+			requestTask = new TaskCompletionSource<(WebConnectionData data, WebRequestStream stream)> ();
 			responseDataTask = new TaskCompletionSource<WebConnectionData> (); 
 		}
 
 		CancellationTokenSource cts;
-		TaskCompletionSource<(WebConnectionData data,WebConnectionStream stream)> requestTask;
+		TaskCompletionSource<(WebConnectionData data, WebRequestStream stream)> requestTask;
 		TaskCompletionSource<WebConnectionData> responseDataTask;
-		WebConnectionStream writeStream;
+		WebRequestStream writeStream;
 		ExceptionDispatchInfo disposed;
 
 		public bool Aborted {
@@ -124,13 +124,13 @@ namespace System.Net
 			connection.SendRequest (this);
 		}
 
-		public async Task<WebConnectionStream> GetRequestStream ()
+		public async Task<WebRequestStream> GetRequestStream ()
 		{
 			var result = await requestTask.Task.ConfigureAwait (false);
 			return result.stream;
 		}
 
-		public WebConnectionStream WriteStream {
+		public WebRequestStream WriteStream {
 			get {
 				ThrowIfDisposed ();
 				return writeStream;
@@ -139,7 +139,7 @@ namespace System.Net
 
 		public TaskCompletionSource<WebConnectionData> ResponseDataTask => responseDataTask;
 
-		internal async void Run (Func<CancellationToken, Task<(WebConnectionData, WebConnectionStream, Exception)>> func)
+		internal async void Run (Func<CancellationToken, Task<(WebConnectionData, WebRequestStream, Exception)>> func)
 		{
 			try {
 				if (Aborted) {

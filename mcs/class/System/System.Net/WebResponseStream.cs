@@ -79,5 +79,10 @@ namespace System.Net
 
 			return nbytes;
 		}
+
+		protected override void Close_internal (ref bool disposed)
+		{
+			
+		}
 	}
 }

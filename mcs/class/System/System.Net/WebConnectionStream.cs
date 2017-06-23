@@ -85,7 +85,6 @@ namespace System.Net
 
 	abstract class WebConnectionStream : Stream
 	{
-		static byte[] crlf = new byte[] { 13, 10 };
 		bool isRead;
 		WebConnection cnc;
 		WebOperation operation;
@@ -99,20 +98,12 @@ namespace System.Net
 		long totalRead;
 		internal long totalWritten;
 		bool nextReadCalled;
-		bool closed;
-		bool allowBuffering;
-		bool sendChunked;
-		MemoryStream writeBuffer;
-		bool requestWritten;
-		byte[] headers;
+		protected bool closed;
 		bool disposed;
-		bool headersSent;
 		object locker = new object ();
 		TaskCompletionSource<int> readTcs;
-		TaskCompletionSource<int> pendingWrite;
 		int nestedRead;
 		bool read_eof;
-		bool complete_request_written;
 		int read_timeout;
 		int write_timeout;
 		internal bool IgnoreIOErrors;
@@ -156,10 +147,6 @@ namespace System.Net
 			this.operation = operation;
 			this.data = data;
 			this.request = request;
-			allowBuffering = request.InternalAllowBuffering;
-			sendChunked = request.SendChunked;
-			if (!sendChunked && allowBuffering)
-				writeBuffer = new MemoryStream ();
 		}
 
 		bool CheckAuthHeader (string headerName)
@@ -194,6 +181,9 @@ namespace System.Net
 		internal WebOperation Operation {
 			get { return operation; }
 		}
+		internal WebConnectionData Data {
+			get { return data; }
+		}
 		public override bool CanTimeout {
 			get { return true; }
 		}
@@ -222,14 +212,6 @@ namespace System.Net
 			}
 		}
 
-		internal bool CompleteRequestWritten {
-			get { return complete_request_written; }
-		}
-
-		internal bool SendChunked {
-			set { sendChunked = value; }
-		}
-
 		internal byte[] ReadBuffer {
 			set { readBuffer = value; }
 		}
@@ -240,14 +222,6 @@ namespace System.Net
 
 		internal int ReadBufferSize {
 			set { readBufferSize = value; }
-		}
-
-		internal byte[] WriteBuffer {
-			get { return writeBuffer.GetBuffer (); }
-		}
-
-		internal int WriteBufferLength {
-			get { return writeBuffer != null ? (int)writeBuffer.Length : (-1); }
 		}
 
 		internal bool ForceCompletion ()
@@ -499,103 +473,6 @@ namespace System.Net
 			}
 		}
 
-		public override async Task WriteAsync (byte[] buffer, int offset, int size, CancellationToken cancellationToken)
-		{
-			// WebConnection.Debug ($"WCS WRITE ASYNC: {cnc.ID}");
-
-			cancellationToken.ThrowIfCancellationRequested ();
-
-			if (request.Aborted)
-				throw new WebException (SR.GetString (SR.net_webstatus_RequestCanceled));
-			if (isRead)
-				throw new NotSupportedException (SR.GetString (SR.net_readonlystream));
-
-			if (buffer == null)
-				throw new ArgumentNullException ("buffer");
-
-			int length = buffer.Length;
-			if (offset < 0 || length < offset)
-				throw new ArgumentOutOfRangeException ("offset");
-			if (size < 0 || (length - offset) < size)
-				throw new ArgumentOutOfRangeException ("size");
-
-			var myWriteTcs = new TaskCompletionSource<int> ();
-			if (Interlocked.CompareExchange (ref pendingWrite, myWriteTcs, null) != null)
-				throw new InvalidOperationException (SR.GetString (SR.net_repcall));
-
-			try {
-				await ProcessWrite (buffer, offset, size, cancellationToken).ConfigureAwait (false);
-
-				if (allowBuffering && !sendChunked && request.ContentLength > 0 && totalWritten == request.ContentLength)
-					complete_request_written = true;
-
-				pendingWrite = null;
-				myWriteTcs.TrySetResult (0);
-			} catch (Exception ex) {
-				KillBuffer ();
-				closed = true;
-				cnc.CloseError ();
-
-				if (ex is SocketException)
-					ex = new IOException ("Error writing request", ex);
-
-				pendingWrite = null;
-				myWriteTcs.TrySetException (ex);
-				throw;
-			}
-
-		}
-
-		async Task ProcessWrite (byte[] buffer, int offset, int size, CancellationToken cancellationToken)
-		{
-			if (sendChunked) {
-				requestWritten = true;
-
-				string cSize = String.Format ("{0:X}\r\n", size);
-				byte[] head = Encoding.ASCII.GetBytes (cSize);
-				int chunkSize = 2 + size + head.Length;
-				byte[] newBuffer = new byte[chunkSize];
-				Buffer.BlockCopy (head, 0, newBuffer, 0, head.Length);
-				Buffer.BlockCopy (buffer, offset, newBuffer, head.Length, size);
-				Buffer.BlockCopy (crlf, 0, newBuffer, head.Length + size, crlf.Length);
-
-				if (allowBuffering) {
-					if (writeBuffer == null)
-						writeBuffer = new MemoryStream ();
-					writeBuffer.Write (buffer, offset, size);
-					totalWritten += size;
-				}
-
-				buffer = newBuffer;
-				offset = 0;
-				size = chunkSize;
-			} else {
-				CheckWriteOverflow (request.ContentLength, totalWritten, size);
-
-				if (allowBuffering) {
-					if (writeBuffer == null)
-						writeBuffer = new MemoryStream ();
-					writeBuffer.Write (buffer, offset, size);
-					totalWritten += size;
-
-					if (request.ContentLength <= 0 || totalWritten < request.ContentLength)
-						return;
-
-					requestWritten = true;
-					buffer = writeBuffer.GetBuffer ();
-					offset = 0;
-					size = (int)totalWritten;
-				}
-			}
-
-			try {
-				await cnc.WriteAsync (request, buffer, offset, size, cancellationToken).ConfigureAwait (false);
-			} catch {
-				if (!IgnoreIOErrors)
-					throw;
-			}
-			totalWritten += size;
-		}
 
 		public override IAsyncResult BeginWrite (byte[] buffer, int offset, int size,
 							 AsyncCallback cb, object state)
@@ -605,22 +482,6 @@ namespace System.Net
 
 			var task = WriteAsync (buffer, offset, size, CancellationToken.None);
 			return TaskToApm.Begin (task, cb, state);
-		}
-
-		void CheckWriteOverflow (long contentLength, long totalWritten, long size)
-		{
-			if (contentLength == -1)
-				return;
-
-			long avail = contentLength - totalWritten;
-			if (size > avail) {
-				KillBuffer ();
-				closed = true;
-				cnc.CloseError ();
-				throw new ProtocolViolationException (
-					"The number of bytes to be written is greater than " +
-					"the specified ContentLength.");
-			}
 		}
 
 		public override void EndWrite (IAsyncResult r)
@@ -648,117 +509,16 @@ namespace System.Net
 		{
 		}
 
-		internal async Task SetHeadersAsync (bool setInternalLength, CancellationToken cancellationToken)
-		{
-			if (headersSent)
-				return;
-
-			string method = request.Method;
-			bool no_writestream = (method == "GET" || method == "CONNECT" || method == "HEAD" ||
-					      method == "TRACE");
-			bool webdav = (method == "PROPFIND" || method == "PROPPATCH" || method == "MKCOL" ||
-				      method == "COPY" || method == "MOVE" || method == "LOCK" ||
-				      method == "UNLOCK");
-
-			if (setInternalLength && !no_writestream && writeBuffer != null)
-				request.InternalContentLength = writeBuffer.Length;
-
-			bool has_content = !no_writestream && (writeBuffer == null || request.ContentLength > -1);
-			if (!(sendChunked || has_content || no_writestream || webdav))
-				return;
-
-			headersSent = true;
-			headers = request.GetRequestHeaders ();
-
-			try {
-				await cnc.WriteAsync (request, headers, 0, headers.Length, cancellationToken).ConfigureAwait (false);
-				var cl = request.ContentLength;
-				if (!sendChunked && cl == 0)
-					requestWritten = true;
-			} catch (Exception e) {
-				if (e is WebException || e is OperationCanceledException)
-					throw;
-				throw new WebException ("Error writing headers", WebExceptionStatus.SendFailure, WebExceptionInternalStatus.RequestFatal, e);
-			}
-		}
-
-		internal async Task WriteRequestAsync (CancellationToken cancellationToken)
-		{
-			if (requestWritten)
-				return;
-
-			requestWritten = true;
-			if (sendChunked || !allowBuffering || writeBuffer == null)
-				return;
-
-			// Keep the call for a potential side-effect of GetBuffer
-			var bytes = writeBuffer.GetBuffer ();
-			var length = (int)writeBuffer.Length;
-			if (request.ContentLength != -1 && request.ContentLength < length) {
-				closed = true;
-				cnc.CloseError ();
-				throw new WebException ("Specified Content-Length is less than the number of bytes to write", null,
-					WebExceptionStatus.ServerProtocolViolation, null);
-			}
-
-			await SetHeadersAsync (true, cancellationToken).ConfigureAwait (false);
-
-			if (data.StatusCode != 0 && data.StatusCode != 100)
-				return;
-
-			if (length == 0) {
-				complete_request_written = true;
-				return;
-			}
-
-			await cnc.WriteAsync (request, bytes, 0, length, cancellationToken).ConfigureAwait (false);
-			complete_request_written = true;
-		}
-
-		internal bool RequestWritten {
-			get { return requestWritten; }
-		}
-
 		internal void InternalClose ()
 		{
 			disposed = true;
 		}
 
-		async Task WriteChunkTrailer ()
-		{
-			using (var cts = new CancellationTokenSource ()) {
-				cts.CancelAfter (WriteTimeout);
-				var timeoutTask = Task.Delay (WriteTimeout);
-				while (true) {
-					var myWriteTcs = new TaskCompletionSource<int> ();
-					var oldTcs = Interlocked.CompareExchange (ref pendingWrite, myWriteTcs, null);
-					if (oldTcs == null)
-						break;
-					var ret = await Task.WhenAny (timeoutTask, oldTcs.Task).ConfigureAwait (false);
-					if (ret == timeoutTask)
-						throw new WebException ("The operation has timed out.", WebExceptionStatus.Timeout);
-				}
-
-				try {
-					byte[] chunk = Encoding.ASCII.GetBytes ("0\r\n\r\n");
-					await cnc.WriteAsync (request, chunk, 0, chunk.Length, cts.Token).ConfigureAwait (false);
-				} catch {
-					;
-				} finally {
-					pendingWrite = null;
-				}
-			}
-		}
+		protected abstract void Close_internal (ref bool disposed);
 
 		public override void Close ()
 		{
-			if (sendChunked) {
-				if (disposed)
-					return;
-				disposed = true;
-				WriteChunkTrailer ().Wait ();
-				return;
-			}
+			Close_internal (ref disposed);
 
 			if (isRead) {
 				if (!closed && !nextReadCalled) {
@@ -772,31 +532,9 @@ namespace System.Net
 					}
 				}
 				return;
-			} else if (!allowBuffering) {
-				complete_request_written = true;
-				return;
 			}
 
-			if (disposed || requestWritten)
-				return;
-
-			long length = request.ContentLength;
-
-			if (!sendChunked && length != -1 && totalWritten != length) {
-				IOException io = new IOException ("Cannot close the stream until all bytes are written");
-				closed = true;
-				cnc.CloseError ();
-				throw new WebException ("Request was cancelled.", WebExceptionStatus.RequestCanceled, WebExceptionInternalStatus.RequestFatal, io);
-			}
-
-			// Commented out the next line to fix xamarin bug #1512
-			//WriteRequest ();
 			disposed = true;
-		}
-
-		internal void KillBuffer ()
-		{
-			writeBuffer = null;
 		}
 
 		public override long Seek (long a, SeekOrigin b)
