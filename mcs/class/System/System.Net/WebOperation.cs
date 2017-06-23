@@ -54,6 +54,7 @@ namespace System.Net
 		CancellationTokenSource cts;
 		TaskCompletionSource<(WebConnectionData data,WebConnectionStream stream)> requestTask;
 		TaskCompletionSource<WebConnectionData> responseDataTask;
+		WebConnectionStream writeStream;
 		ExceptionDispatchInfo disposed;
 
 		public bool Aborted {
@@ -72,7 +73,19 @@ namespace System.Net
 			if (!disposed)
 				return;
 			cts?.Cancel ();
+			requestTask.TrySetCanceled ();
 			responseDataTask.TrySetCanceled ();
+			Close (); 
+		}
+
+		void Close ()
+		{
+			if (writeStream != null) {
+				try {
+					writeStream.Close ();
+				} catch { }
+				writeStream = null;
+			}
 		}
 
 		public void SetError (Exception error)
@@ -111,10 +124,17 @@ namespace System.Net
 			connection.SendRequest (this);
 		}
 
-		public async Task<Stream> GetRequestStream ()
+		public async Task<WebConnectionStream> GetRequestStream ()
 		{
 			var result = await requestTask.Task.ConfigureAwait (false);
 			return result.stream;
+		}
+
+		public WebConnectionStream WriteStream {
+			get {
+				ThrowIfDisposed ();
+				return writeStream;
+			}
 		}
 
 		public TaskCompletionSource<WebConnectionData> ResponseDataTask => responseDataTask;
@@ -133,8 +153,10 @@ namespace System.Net
 				} else if (error != null) {
 					requestTask.TrySetException (error);
 					responseDataTask.TrySetException (error);
-				} else
+				} else {
+					writeStream = stream;
 					requestTask.TrySetResult ((data, stream));
+				}
 			} catch (OperationCanceledException) {
 				requestTask.TrySetCanceled ();
 			} catch (Exception e) {

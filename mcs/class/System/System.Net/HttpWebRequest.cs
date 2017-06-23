@@ -890,12 +890,15 @@ namespace System.Net
 				if (getResponseCalled)
 					throw new InvalidOperationException ("The operation cannot be performed once the request has been submitted.");
 
+				operation = currentOperation;
+				if (operation != null && operation.WriteStream != null)
+					return operation.WriteStream;
+
 				if (Interlocked.CompareExchange (ref nestedRequestStream, 1, 0) != 0)
 					throw new InvalidOperationException ("Cannot re-call start of asynchronous " +
 								"method while a previous call is still in progress.");
 
 				initialMethod = method;
-				operation = currentOperation;
 
 				if (operation == null) {
 					gotRequestStream = true;
@@ -996,7 +999,6 @@ namespace System.Net
 			if (!sendChunked && transferEncoding != null && transferEncoding.Trim () != "")
 				throw new ProtocolViolationException ("SendChunked should be true.");
 
-			bool forceWrite;
 			var myTcs = new TaskCompletionSource<HttpWebResponse> ();
 			WebOperation operation;
 			lock (locker) {
@@ -1010,8 +1012,11 @@ namespace System.Net
 								"method while a previous call is still in progress.");
 				}
 
+				operation = currentOperation;
+				if (currentOperation != null)
+					writeStream = currentOperation.WriteStream;
+
 				initialMethod = method;
-				forceWrite = CheckIfForceWrite ();
 
 				operation = SendRequest (false, cancellationToken);
 			}
@@ -1026,10 +1031,20 @@ namespace System.Net
 
 				try {
 					cancellationToken.ThrowIfCancellationRequested ();
-					if (forceWrite)
+
+					var writeStreamTask = operation.GetRequestStream ();
+
+					var anyTask = await Task.WhenAny (timeoutTask, writeStreamTask).ConfigureAwait (false);
+					if (anyTask == timeoutTask) {
+						Abort ();
+						throw new WebException ("The request timed out", WebExceptionStatus.Timeout);
+					}
+
+					writeStream = writeStreamTask.Result;
+					if (CheckIfForceWrite ())
 						await writeStream.WriteRequestAsync (cancellationToken).ConfigureAwait (false);
 
-					var anyTask = await Task.WhenAny (timeoutTask, operation.ResponseDataTask.Task).ConfigureAwait (false);
+					anyTask = await Task.WhenAny (timeoutTask, operation.ResponseDataTask.Task).ConfigureAwait (false);
 					if (anyTask == timeoutTask) {
 						Abort ();
 						throw new WebException ("The request timed out", WebExceptionStatus.Timeout);
@@ -1069,7 +1084,6 @@ namespace System.Net
 					finished_reading = false;
 					haveResponse = false;
 					webResponse = null;
-					forceWrite = false;
 					currentOperation = ntlm;
 					WebConnection.Debug ($"HWR GET RESPONSE ASYNC - REDIRECT: {ID} {mustReadAll} {ntlm}");
 				}
@@ -1238,13 +1252,6 @@ namespace System.Net
 				operation.Abort ();
 
 			responseTask?.TrySetCanceled ();
-
-			if (writeStream != null) {
-				try {
-					writeStream.Close ();
-					writeStream = null;
-				} catch { }
-			}
 
 			if (webResponse != null) {
 				try {
@@ -1481,14 +1488,13 @@ namespace System.Net
 			if (Aborted)
 				return;
 
-			writeStream = stream;
 			if (bodyBuffer != null) {
 				webHeaders.RemoveInternal ("Transfer-Encoding");
 				contentLength = bodyBufferLength;
-				writeStream.SendChunked = false;
+				stream.SendChunked = false;
 			}
 
-			await writeStream.SetHeadersAsync (false, cancellationToken).ConfigureAwait (false);
+			await stream.SetHeadersAsync (false, cancellationToken).ConfigureAwait (false);
 
 			if (Aborted || cancellationToken.IsCancellationRequested)
 				return;
@@ -1501,14 +1507,13 @@ namespace System.Net
 				// The body has been written and buffered. The request "user"
 				// won't write it again, so we must do it.
 				if (auth_state.NtlmAuthState != NtlmAuthState.Challenge && proxy_auth_state.NtlmAuthState != NtlmAuthState.Challenge) {
-					// FIXME: this is a blocking call on the thread pool that could lead to thread pool exhaustion
-					await writeStream.WriteAsync (bodyBuffer, 0, bodyBufferLength, cancellationToken).ConfigureAwait (false);
+					await stream.WriteAsync (bodyBuffer, 0, bodyBufferLength, cancellationToken).ConfigureAwait (false);
 					bodyBuffer = null;
-					writeStream.Close ();
+					stream.Close ();
 				}
 			} else if (MethodWithBuffer) {
-				if (getResponseCalled && !writeStream.RequestWritten)
-					await writeStream.WriteRequestAsync (cancellationToken).ConfigureAwait (false);
+				if (getResponseCalled && !stream.RequestWritten)
+					await stream.WriteRequestAsync (cancellationToken).ConfigureAwait (false);
 			}
 		}
 
