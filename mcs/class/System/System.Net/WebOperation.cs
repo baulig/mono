@@ -95,7 +95,8 @@ namespace System.Net
 
 		(ExceptionDispatchInfo, bool) SetDisposed ()
 		{
-			var exception = ExceptionDispatchInfo.Capture (new ObjectDisposedException (GetType ().ToString ()));
+			var wexc = new WebException (SR.GetString (SR.net_webstatus_RequestCanceled), WebExceptionStatus.RequestCanceled);
+			var exception = ExceptionDispatchInfo.Capture (wexc);
 			var old = Interlocked.CompareExchange (ref disposed, exception, null);
 			return (old ?? exception, old == null);
 		}

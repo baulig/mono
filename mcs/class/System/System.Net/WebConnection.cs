@@ -996,49 +996,6 @@ namespace System.Net
 			return true;
   		}
 
-		internal async Task WriteAsync (HttpWebRequest request, byte[] buffer, int offset, int size,
-		                                CancellationToken cancellationToken)
-		{
-			Debug ($"WC WRITE ASYNC: {ID}");
-
-			cancellationToken.ThrowIfCancellationRequested ();
-
-			WebConnectionData data;
-			Stream s;
-			lock (this) {
-				if (status == WebExceptionStatus.RequestCanceled)
-					return;
-				if (Data.Request != request)
-					throw new ObjectDisposedException (typeof (NetworkStream).FullName);
-				data = Data;
-				s = data.NetworkStream;
-				if (s == null)
-					throw new ObjectDisposedException (typeof (NetworkStream).FullName);
-			}
-
-			try {
-				await s.WriteAsync (buffer, offset, size, cancellationToken).ConfigureAwait (false);
-			} catch (ObjectDisposedException) {
-				lock (this) {
-					if (Data != data || data.Request != request)
-						return;
-				}
-				throw;
-			} catch (IOException e) {
-				// FIXME: do we need this?
-				SocketException se = e.InnerException as SocketException;
-				if (se != null && se.SocketErrorCode == SocketError.NotConnected) {
-					return;
-				}
-				throw;
-			} catch {
-				status = WebExceptionStatus.SendFailure;
-				throw;
-			} finally {
-				Debug ($"WC WRITE ASYNC DONE: {ID}");
-			}
-		}
-
 		internal void CloseError ()
 		{
 			Close (true);

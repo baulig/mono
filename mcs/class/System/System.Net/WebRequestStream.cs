@@ -53,10 +53,7 @@ namespace System.Net
 		{
 			// WebConnection.Debug ($"WCS WRITE ASYNC: {Connection.ID}");
 
-			cancellationToken.ThrowIfCancellationRequested ();
-
-			if (Operation.Aborted)
-				throw new WebException (SR.GetString (SR.net_webstatus_RequestCanceled));
+			Operation.ThrowIfDisposed (cancellationToken);
 
 			if (buffer == null)
 				throw new ArgumentNullException ("buffer");
@@ -96,6 +93,8 @@ namespace System.Net
 
 		async Task ProcessWrite (byte[] buffer, int offset, int size, CancellationToken cancellationToken)
 		{
+			Operation.ThrowIfDisposed (cancellationToken);
+
 			if (sendChunked) {
 				requestWritten = true;
 
@@ -137,7 +136,7 @@ namespace System.Net
 			}
 
 			try {
-				await Connection.WriteAsync (Request, buffer, offset, size, cancellationToken).ConfigureAwait (false);
+				await Data.NetworkStream.WriteAsync (buffer, offset, size, cancellationToken).ConfigureAwait (false);
 			} catch {
 				if (!IgnoreIOErrors)
 					throw;
@@ -163,6 +162,8 @@ namespace System.Net
 
 		internal async Task SetHeadersAsync (bool setInternalLength, CancellationToken cancellationToken)
 		{
+			Operation.ThrowIfDisposed (cancellationToken);
+
 			if (headersSent)
 				return;
 
@@ -184,7 +185,7 @@ namespace System.Net
 			headers = Request.GetRequestHeaders ();
 
 			try {
-				await Connection.WriteAsync (Request, headers, 0, headers.Length, cancellationToken).ConfigureAwait (false);
+				await Data.NetworkStream.WriteAsync (headers, 0, headers.Length, cancellationToken).ConfigureAwait (false);
 				var cl = Request.ContentLength;
 				if (!sendChunked && cl == 0)
 					requestWritten = true;
@@ -197,6 +198,8 @@ namespace System.Net
 
 		internal async Task WriteRequestAsync (CancellationToken cancellationToken)
 		{
+			Operation.ThrowIfDisposed (cancellationToken);
+
 			if (requestWritten)
 				return;
 
@@ -224,7 +227,7 @@ namespace System.Net
 				return;
 			}
 
-			await Connection.WriteAsync (Request, bytes, 0, length, cancellationToken).ConfigureAwait (false);
+			await Data.NetworkStream.WriteAsync (bytes, 0, length, cancellationToken).ConfigureAwait (false);
 			complete_request_written = true;
 		}
 
@@ -244,8 +247,9 @@ namespace System.Net
 				}
 
 				try {
+					Operation.ThrowIfDisposed (cts.Token);
 					byte[] chunk = Encoding.ASCII.GetBytes ("0\r\n\r\n");
-					await Connection.WriteAsync (Request, chunk, 0, chunk.Length, cts.Token).ConfigureAwait (false);
+					await Data.NetworkStream.WriteAsync (chunk, 0, chunk.Length, cts.Token).ConfigureAwait (false);
 				} catch {
 					;
 				} finally {
