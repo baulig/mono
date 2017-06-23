@@ -70,12 +70,18 @@ namespace System.Net
 		public void ReuseConnection (WebConnectionData old)
 		{
 			lock (this) {
+				stream = Interlocked.Exchange (ref old.stream, null);
 				socket = Interlocked.Exchange (ref old.socket, null);
 				networkStream = Interlocked.Exchange (ref old.networkStream, null);
 				tlsStream = Interlocked.Exchange (ref old.tlsStream, null);
 				Challenge = Interlocked.Exchange (ref old.Challenge, null);
 				Headers = Interlocked.Exchange (ref old.Headers, null);
-				old.ChunkStream = null;
+				ChunkStream = Interlocked.Exchange (ref old.ChunkStream, null);
+				ChunkedRead = old.ChunkedRead;
+				StatusCode = old.StatusCode;
+				StatusDescription = old.StatusDescription;
+				Version = old.Version;
+				ProxyVersion = old.ProxyVersion;
 			}
 		}
 

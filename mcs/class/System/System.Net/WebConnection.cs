@@ -114,6 +114,7 @@ namespace System.Net
 
 		async Task<bool> CheckReusable (WebConnectionData data, CancellationToken cancellationToken)
 		{
+			return false;
 			if (data == null || cancellationToken.IsCancellationRequested)
 				return false;
 
