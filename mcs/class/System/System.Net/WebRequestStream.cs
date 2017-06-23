@@ -53,7 +53,7 @@ namespace System.Net
 		{
 			// WebConnection.Debug ($"WCS WRITE ASYNC: {Connection.ID}");
 
-			Operation.ThrowIfDisposed (cancellationToken);
+			Operation.ThrowIfClosedOrDisposed (cancellationToken);
 
 			if (buffer == null)
 				throw new ArgumentNullException ("buffer");
@@ -93,7 +93,7 @@ namespace System.Net
 
 		async Task ProcessWrite (byte[] buffer, int offset, int size, CancellationToken cancellationToken)
 		{
-			Operation.ThrowIfDisposed (cancellationToken);
+			Operation.ThrowIfClosedOrDisposed (cancellationToken);
 
 			if (sendChunked) {
 				requestWritten = true;
@@ -162,7 +162,7 @@ namespace System.Net
 
 		internal async Task SetHeadersAsync (bool setInternalLength, CancellationToken cancellationToken)
 		{
-			Operation.ThrowIfDisposed (cancellationToken);
+			Operation.ThrowIfClosedOrDisposed (cancellationToken);
 
 			if (headersSent)
 				return;
@@ -198,7 +198,7 @@ namespace System.Net
 
 		internal async Task WriteRequestAsync (CancellationToken cancellationToken)
 		{
-			Operation.ThrowIfDisposed (cancellationToken);
+			Operation.ThrowIfClosedOrDisposed (cancellationToken);
 
 			if (requestWritten)
 				return;
@@ -247,7 +247,7 @@ namespace System.Net
 				}
 
 				try {
-					Operation.ThrowIfDisposed (cts.Token);
+					Operation.ThrowIfClosedOrDisposed (cts.Token);
 					byte[] chunk = Encoding.ASCII.GetBytes ("0\r\n\r\n");
 					await Data.NetworkStream.WriteAsync (chunk, 0, chunk.Length, cts.Token).ConfigureAwait (false);
 				} catch {

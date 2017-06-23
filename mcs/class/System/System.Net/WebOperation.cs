@@ -55,11 +55,12 @@ namespace System.Net
 		TaskCompletionSource<(WebConnectionData data, WebRequestStream stream)> requestTask;
 		TaskCompletionSource<WebConnectionData> responseDataTask;
 		WebRequestStream writeStream;
-		ExceptionDispatchInfo disposed;
+		ExceptionDispatchInfo disposedInfo;
+		ExceptionDispatchInfo closedInfo;
 
 		public bool Aborted {
 			get {
-				if (disposed != null || Request.Aborted)
+				if (disposedInfo != null || Request.Aborted)
 					return true;
 				if (cts != null && cts.IsCancellationRequested)
 					return true;
@@ -67,9 +68,15 @@ namespace System.Net
 			}
 		}
 
+		public bool Closed {
+			get {
+				return Aborted || closedInfo != null;
+			}
+		}
+
 		public void Abort ()
 		{
-			var (exception, disposed) = SetDisposed ();
+			var (exception, disposed) = SetDisposed (ref disposedInfo);
 			if (!disposed)
 				return;
 			cts?.Cancel ();
@@ -78,8 +85,12 @@ namespace System.Net
 			Close (); 
 		}
 
-		void Close ()
+		public void Close ()
 		{
+			var (exception, closed) = SetDisposed (ref closedInfo);
+			if (!closed)
+				return;
+
 			if (writeStream != null) {
 				try {
 					writeStream.Close ();
@@ -93,11 +104,11 @@ namespace System.Net
 			responseDataTask.TrySetException (error);
 		}
 
-		(ExceptionDispatchInfo, bool) SetDisposed ()
+		(ExceptionDispatchInfo, bool) SetDisposed (ref ExceptionDispatchInfo field)
 		{
 			var wexc = new WebException (SR.GetString (SR.net_webstatus_RequestCanceled), WebExceptionStatus.RequestCanceled);
 			var exception = ExceptionDispatchInfo.Capture (wexc);
-			var old = Interlocked.CompareExchange (ref disposed, exception, null);
+			var old = Interlocked.CompareExchange (ref field, exception, null);
 			return (old ?? exception, old == null);
 		}
 
@@ -108,18 +119,33 @@ namespace System.Net
 
 		internal void ThrowIfDisposed (CancellationToken cancellationToken)
 		{
-			if (Aborted || cancellationToken.IsCancellationRequested) {
-				var (exception, disposed) = SetDisposed ();
-				if (disposed)
-					cts?.Cancel ();
-				exception.Throw ();
-			}
+			if (Aborted || cancellationToken.IsCancellationRequested)
+				ThrowDisposed (ref disposedInfo);
+		}
+
+		internal void ThrowIfClosedOrDisposed ()
+		{
+			ThrowIfClosedOrDisposed (CancellationToken.None);
+		}
+
+		internal void ThrowIfClosedOrDisposed (CancellationToken cancellationToken)
+		{
+			if (Closed || cancellationToken.IsCancellationRequested)
+				ThrowDisposed (ref closedInfo);
+		}
+
+		void ThrowDisposed (ref ExceptionDispatchInfo field)
+		{
+			var (exception, disposed) = SetDisposed (ref field);
+			if (disposed)
+				cts?.Cancel ();
+			exception.Throw ();
 		}
 
 		public void SendRequest (WebConnection connection)
 		{
 			cts.Token.Register (() => {
-				SetDisposed ();
+				SetDisposed (ref disposedInfo);
 				connection.Abort (this);
 			});
 			connection.SendRequest (this);

@@ -128,6 +128,9 @@ namespace System.Net
 		public void Close ()
 		{
 			lock (this) {
+				if (Operation != null)
+					Operation.Close ();
+
 				if (networkStream != null) {
 					try {
 						networkStream.Close ();
