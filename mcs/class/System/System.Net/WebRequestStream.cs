@@ -215,9 +215,15 @@ namespace System.Net
 				return;
 
 			requestWritten = true;
-			if (sendChunked || !allowBuffering || writeBuffer == null)
-				return;
+			//if (sendChunked || !allowBuffering || writeBuffer == null)
+			//	return;
 
+			BufferOffsetSize buffer = GetWriteBuffer ();
+			if (buffer != null) {
+
+			}
+
+#if FIXME
 			// Keep the call for a potential side-effect of GetBuffer
 			var bytes = writeBuffer.GetBuffer ();
 			var length = (int)writeBuffer.Length;
@@ -227,19 +233,22 @@ namespace System.Net
 				throw new WebException ("Specified Content-Length is less than the number of bytes to write", null,
 					WebExceptionStatus.ServerProtocolViolation, null);
 			}
+#endif
 
 			await SetHeadersAsync (true, cancellationToken).ConfigureAwait (false);
 
 			if (Data.StatusCode != 0 && Data.StatusCode != 100)
 				return;
 
-			if (length == 0) {
-				Operation.CompleteRequestWritten (this);
-				return;
-			}
+			if (buffer != null) {
+				if (buffer.Size == 0) {
+					Operation.CompleteRequestWritten (this);
+					return;
+				}
 
-			await Data.NetworkStream.WriteAsync (bytes, 0, length, cancellationToken).ConfigureAwait (false);
-			Operation.CompleteRequestWritten (this);
+				await Data.NetworkStream.WriteAsync (buffer.Buffer, 0, buffer.Size, cancellationToken).ConfigureAwait (false);
+				Operation.CompleteRequestWritten (this);
+			}
 		}
 
 		async Task WriteChunkTrailer ()
