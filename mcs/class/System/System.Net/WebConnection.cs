@@ -114,7 +114,6 @@ namespace System.Net
 
 		async Task<bool> CheckReusable (WebConnectionData data, CancellationToken cancellationToken)
 		{
-			return false;
 			if (data == null || cancellationToken.IsCancellationRequested)
 				return false;
 
@@ -209,8 +208,8 @@ namespace System.Net
 			return (WebExceptionStatus.ConnectFailure, null, null);
 		}
 
-		async Task<(bool,byte[])> CreateTunnel (WebConnectionData data, HttpWebRequest request, Uri connectUri,
-		                                        Stream stream, CancellationToken cancellationToken)
+		async Task<(bool, byte[])> CreateTunnel (WebConnectionData data, HttpWebRequest request, Uri connectUri,
+							Stream stream, CancellationToken cancellationToken)
 		{
 			StringBuilder sb = new StringBuilder ();
 			sb.Append ("CONNECT ");
@@ -297,7 +296,7 @@ namespace System.Net
 			return (result != null, buffer);
 		}
 
-		async Task<(WebHeaderCollection,byte[],int)> ReadHeaders (WebConnectionData data, Stream stream, CancellationToken cancellationToken)
+		async Task<(WebHeaderCollection, byte[], int)> ReadHeaders (WebConnectionData data, Stream stream, CancellationToken cancellationToken)
 		{
 			byte[] retBuffer = null;
 			int status = 200;
@@ -393,7 +392,7 @@ namespace System.Net
 			try {
 				NetworkStream serverStream = new NetworkStream (data.Socket, false);
 
-				Debug ($"WC CREATE STREAM: {ID} {requestID}");
+				Debug ($"WC CREATE STREAM: {ID} {requestID} {reused}");
 
 				if (data.Request.Address.Scheme == Uri.UriSchemeHttps) {
 #if SECURITY_DEP
@@ -436,6 +435,8 @@ namespace System.Net
 		{
 			status = st;
 			lock (this) {
+				Debug ($"WC HANDLE ERROR: {ID} {st} {where} - {e}");
+
 				if (st == WebExceptionStatus.RequestCanceled)
 					currentData = new WebConnectionData ();
 			}
@@ -493,6 +494,7 @@ namespace System.Net
 
 		async void ReadDoneAsync (WebOperation operation, WebConnectionData data, Task<int> task, CancellationToken cancellationToken)
 		{
+			Debug ($"WC INIT READ ASYNC - READ DONE: {ID} {data.ID} - {task.Status} {operation.Aborted}");
 			if (task.IsCanceled || operation.Aborted)
 				return;
 			if (task.IsFaulted) {
@@ -715,7 +717,7 @@ namespace System.Net
 			return -1;
 		}
 
-		async Task<(WebConnectionData,WebRequestStream,Exception)> InitConnection (
+		async Task<(WebConnectionData, WebRequestStream, Exception)> InitConnection (
 			WebOperation operation, CancellationToken cancellationToken)
 		{
 			Debug ($"WC INIT CONNECTION: {ID} {operation.Request.ID} {operation.ID}");
@@ -734,12 +736,12 @@ namespace System.Net
 
 		retry:
 			bool reused = await CheckReusable (oldData, cancellationToken).ConfigureAwait (false);
-			Debug ($"WC INIT CONNECTION #1: {ID} {operation.ID} - {reused} - {operation.WriteBuffer != null} {operation.IsNtlmChallenge}");
+			Debug ($"WC INIT CONNECTION #1: {ID} {operation.ID} {data.ID} - {reused} - {operation.WriteBuffer != null} {operation.IsNtlmChallenge}");
 			if (reused) {
 				data.ReuseConnection (oldData);
 			} else {
 				var connectResult = await Connect (operation, data, cancellationToken).ConfigureAwait (false);
-				Debug ($"WC INIT CONNECTION #2: {ID} {operation.ID} - {connectResult.status}");
+				Debug ($"WC INIT CONNECTION #2: {ID} {operation.ID} {data.ID} - {connectResult.status}");
 				if (operation.Aborted)
 					return (null, null, null);
 
@@ -752,7 +754,7 @@ namespace System.Net
 			}
 
 			var streamResult = await CreateStream (data, reused, cancellationToken).ConfigureAwait (false);
-			Debug ($"WC INIT CONNECTION #3: {ID} {operation.ID} - {streamResult.status} {streamResult.success}");
+			Debug ($"WC INIT CONNECTION #3: {ID} {operation.ID} {data.ID} - {streamResult.status} {streamResult.success}");
 			if (!streamResult.success) {
 				if (operation.Aborted)
 					return (null, null, null);
@@ -794,7 +796,7 @@ namespace System.Net
 			if (error is WebException wex)
 				return wex;
 			return new WebException ($"Error: {status} ({error.Message})", status,
-			                         WebExceptionInternalStatus.RequestFatal, error);
+						 WebExceptionInternalStatus.RequestFatal, error);
 		}
 
 #if MONOTOUCH
@@ -914,7 +916,7 @@ namespace System.Net
 		}
 
 		internal async Task<int> ReadAsync (WebOperation operation, WebConnectionData data,
-		                                    byte[] buffer, int offset, int size, CancellationToken cancellationToken)
+						    byte[] buffer, int offset, int size, CancellationToken cancellationToken)
 		{
 			Debug ($"WC READ ASYNC: {ID}");
 
@@ -994,7 +996,7 @@ namespace System.Net
 			}
 
 			return true;
-  		}
+		}
 
 		internal void CloseError ()
 		{
@@ -1017,7 +1019,7 @@ namespace System.Net
 				currentData = new WebConnectionData ();
 				if (sendNext)
 					SendNext ();
-				
+
 				connect_request = null;
 				connect_ntlm_auth_state = NtlmAuthState.None;
 			}
@@ -1045,11 +1047,11 @@ namespace System.Net
 					if (queue.Count > 0 && queue.Peek () == operation) {
 						queue.Dequeue ();
 					} else if (queue.Count > 0) {
-						object [] old = queue.ToArray ();
+						object[] old = queue.ToArray ();
 						queue.Clear ();
 						for (int i = old.Length - 1; i >= 0; i--) {
-							if (old [i] != operation)
-								queue.Enqueue (old [i]);
+							if (old[i] != operation)
+								queue.Enqueue (old[i]);
 						}
 					}
 				}

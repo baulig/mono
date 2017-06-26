@@ -183,6 +183,8 @@ namespace System.Net
 		{
 			Operation.ThrowIfClosedOrDisposed (cancellationToken);
 
+			WebConnection.Debug ($"WRS INIT: {Operation.ID} {Operation.WriteBuffer != null}");
+
 			if (Operation.WriteBuffer != null) {
 				if (Operation.IsNtlmChallenge)
 					Request.InternalContentLength = 0;
@@ -227,6 +229,8 @@ namespace System.Net
 			headersSent = true;
 			headers = Request.GetRequestHeaders ();
 
+			WebConnection.Debug ($"WRS SET HEADERS: {Operation.ID} {Request.ContentLength}");
+
 			try {
 				await Data.NetworkStream.WriteAsync (headers, 0, headers.Length, cancellationToken).ConfigureAwait (false);
 				var cl = Request.ContentLength;
@@ -242,6 +246,8 @@ namespace System.Net
 		internal async Task WriteRequestAsync (CancellationToken cancellationToken)
 		{
 			Operation.ThrowIfClosedOrDisposed (cancellationToken);
+
+			WebConnection.Debug ($"WRS WRITE REQUEST: {Operation.ID} {requestWritten} {sendChunked} {allowBuffering} {HasWriteBuffer}");
 
 			if (requestWritten)
 				return;
@@ -260,18 +266,15 @@ namespace System.Net
 
 			await SetHeadersAsync (true, cancellationToken).ConfigureAwait (false);
 
+			WebConnection.Debug ($"WRS WRITE REQUEST #1: {Operation.ID} {Data.ID} {Data.StatusCode} {buffer != null}");
+
 			if (Data.StatusCode != 0 && Data.StatusCode != 100)
 				return;
 
-			if (buffer != null) {
-				if (buffer.Size == 0) {
-					Operation.CompleteRequestWritten (this);
-					return;
-				}
-
+			if (buffer != null && buffer.Size > 0)
 				await Data.NetworkStream.WriteAsync (buffer.Buffer, 0, buffer.Size, cancellationToken).ConfigureAwait (false);
-				Operation.CompleteRequestWritten (this);
-			}
+
+			Operation.CompleteRequestWritten (this);
 		}
 
 		async Task WriteChunkTrailer ()

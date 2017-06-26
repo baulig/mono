@@ -220,6 +220,8 @@ namespace System.Net
 
 		internal void CompleteRequestWritten (WebRequestStream stream, Exception error = null)
 		{
+			WebConnection.Debug ($"WO COMPLETE REQUEST WRITTEN: {ID} {error != null}");
+
 			if (error != null)
 				requestWrittenTask.TrySetException (error);
 			else

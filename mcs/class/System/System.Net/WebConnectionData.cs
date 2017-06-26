@@ -78,8 +78,6 @@ namespace System.Net
 				Headers = Interlocked.Exchange (ref old.Headers, null);
 				ChunkStream = Interlocked.Exchange (ref old.ChunkStream, null);
 				ChunkedRead = old.ChunkedRead;
-				StatusCode = old.StatusCode;
-				StatusDescription = old.StatusDescription;
 				Version = old.Version;
 				ProxyVersion = old.ProxyVersion;
 			}
