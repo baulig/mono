@@ -1031,6 +1031,8 @@ namespace System.Net
 				try {
 					cancellationToken.ThrowIfCancellationRequested ();
 
+					WebConnection.Debug ($"HWR GET RESPONSE LOOP: {ID} {auth_state.NtlmAuthState}");
+
 					var writeStreamTask = operation.GetRequestStream ();
 
 					var anyTask = await Task.WhenAny (timeoutTask, writeStreamTask).ConfigureAwait (false);
@@ -1067,6 +1069,8 @@ namespace System.Net
 						throwMe = (e as WebException) ?? new WebException (e.Message, e, WebExceptionStatus.ProtocolError, null);
 				}
 
+				WebConnection.Debug ($"HWR GET RESPONSE LOOP #1: {ID} - {redirect} {mustReadAll} {writeBuffer != null} {ntlm != null} - {throwMe != null}");
+
 				lock (locker) {
 					if (throwMe != null) {
 						haveResponse = true;
@@ -1085,7 +1089,7 @@ namespace System.Net
 					haveResponse = false;
 					webResponse = null;
 					currentOperation = ntlm;
-					WebConnection.Debug ($"HWR GET RESPONSE ASYNC - REDIRECT: {ID} {mustReadAll} {ntlm}");
+					WebConnection.Debug ($"HWR GET RESPONSE LOOP #2: {ID} {mustReadAll} {ntlm}");
 				}
 
 				try {
@@ -1100,6 +1104,7 @@ namespace System.Net
 				}
 
 				lock (locker) {
+					WebConnection.Debug ($"HWR GET RESPONSE LOOP #2: {ID} {writeBuffer != null} {ntlm != null} - {throwMe != null}");
 					if (throwMe != null) {
 						haveResponse = true;
 						data?.stream?.Close ();
@@ -1553,6 +1558,8 @@ namespace System.Net
 
 			var operation = new WebOperation (this, writeBuffer, cancellationToken);
 			data.Connection.PriorityRequest = operation;
+			if (auth_state.NtlmAuthState == NtlmAuthState.Challenge || proxy_auth_state.NtlmAuthState == NtlmAuthState.Challenge)
+				operation.IsNtlmChallenge = true;
 			var creds = (!isProxy || proxy == null) ? credentials : proxy.Credentials;
 			if (creds != null) {
 				data.Connection.NtlmCredential = creds.GetCredential (requestUri, "NTLM");

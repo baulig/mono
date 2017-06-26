@@ -44,6 +44,10 @@ namespace System.Net
 			get;
 		}
 
+		public bool IsNtlmChallenge {
+			get; set;
+		}
+
 		static int nextID;
 		public readonly int ID = ++nextID;
 

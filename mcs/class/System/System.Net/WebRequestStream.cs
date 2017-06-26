@@ -24,7 +24,7 @@ namespace System.Net
 		{
 			allowBuffering = operation.Request.InternalAllowBuffering;
 			sendChunked = operation.Request.SendChunked;
-			if (!sendChunked && allowBuffering)
+			if (!sendChunked && allowBuffering && operation.WriteBuffer == null)
 				writeBuffer = new MemoryStream ();
 		}
 
@@ -43,10 +43,12 @@ namespace System.Net
 
 		internal BufferOffsetSize GetWriteBuffer ()
 		{
+			if (Operation.WriteBuffer != null)
+				return Operation.WriteBuffer;
 			if (writeBuffer == null || writeBuffer.Length == 0)
 				return null;
 			var buffer = writeBuffer.GetBuffer ();
-			return new BufferOffsetSize (buffer, 0, buffer.Length, false);
+			return new BufferOffsetSize (buffer, 0, (int)writeBuffer.Length, false);
 		}
 
 		internal bool RequestWritten {
@@ -180,6 +182,9 @@ namespace System.Net
 				      method == "COPY" || method == "MOVE" || method == "LOCK" ||
 				      method == "UNLOCK");
 
+			if (Operation.IsNtlmChallenge)
+				no_writestream = true;
+
 			if (setInternalLength && !no_writestream && writeBuffer != null)
 				Request.InternalContentLength = writeBuffer.Length;
 
@@ -289,7 +294,7 @@ namespace System.Net
 
 			long length = Request.ContentLength;
 
-			if (!sendChunked && length != -1 && totalWritten != length) {
+			if (!sendChunked && !Operation.IsNtlmChallenge && length != -1 && totalWritten != length) {
 				IOException io = new IOException ("Cannot close the stream until all bytes are written");
 				closed = true;
 				Connection.CloseError();

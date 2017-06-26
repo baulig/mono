@@ -734,7 +734,7 @@ namespace System.Net
 
 		retry:
 			bool reused = await CheckReusable (oldData, cancellationToken).ConfigureAwait (false);
-			Debug ($"WC INIT CONNECTION #1: {ID} {operation.ID} - {reused}");
+			Debug ($"WC INIT CONNECTION #1: {ID} {operation.ID} - {reused} - {operation.WriteBuffer != null} {operation.IsNtlmChallenge}");
 			if (reused) {
 				data.ReuseConnection (oldData);
 			} else {
@@ -864,7 +864,7 @@ namespace System.Net
 
 				state.SetIdle ();
 				var operation = Interlocked.Exchange (ref priority_request, null);
-				if (operation != null)
+				if (operation != null && !operation.Aborted)
 					SendRequest (operation);
 				else
 					SendNext ();
