@@ -219,21 +219,12 @@ namespace System.Net
 			//	return;
 
 			BufferOffsetSize buffer = GetWriteBuffer ();
-			if (buffer != null) {
-
-			}
-
-#if FIXME
-			// Keep the call for a potential side-effect of GetBuffer
-			var bytes = writeBuffer.GetBuffer ();
-			var length = (int)writeBuffer.Length;
-			if (Request.ContentLength != -1 && Request.ContentLength < length) {
+			if (buffer != null && !Operation.IsNtlmChallenge && Request.ContentLength != -1 && Request.ContentLength < buffer.Size) {
 				closed = true;
 				Connection.CloseError ();
 				throw new WebException ("Specified Content-Length is less than the number of bytes to write", null,
 					WebExceptionStatus.ServerProtocolViolation, null);
 			}
-#endif
 
 			await SetHeadersAsync (true, cancellationToken).ConfigureAwait (false);
 
