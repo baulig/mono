@@ -69,6 +69,9 @@ namespace System.Net
 
 			Operation.ThrowIfClosedOrDisposed (cancellationToken);
 
+			if (Operation.WriteBuffer != null)
+				throw new InvalidOperationException ();
+
 			if (buffer == null)
 				throw new ArgumentNullException ("buffer");
 

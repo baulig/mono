@@ -75,7 +75,6 @@ namespace System.Net
 		CookieContainer cookieContainer;
 		ICredentials credentials;
 		bool haveResponse;
-		bool haveRequest;
 		bool requestSent;
 		WebHeaderCollection webHeaders;
 		bool keepAlive = true;
@@ -946,26 +945,6 @@ namespace System.Net
 			throw new NotImplementedException ();
 		}
 
-		bool CheckIfForceWrite ()
-		{
-			if (writeStream == null || writeStream.RequestWritten || !InternalAllowBuffering)
-				return false;
-			if (contentLength < 0 && writeStream.CanWrite == true && writeStream.WriteBufferLength < 0)
-				return false;
-
-			if (contentLength < 0 && writeStream.WriteBufferLength >= 0)
-				InternalContentLength = writeStream.WriteBufferLength;
-
-			// This will write the POST/PUT if the write stream already has the expected
-			// amount of bytes in it (ContentLength) (bug #77753) or if the write stream
-			// contains data and it has been closed already (xamarin bug #1512).
-
-			if (writeStream.WriteBufferLength == contentLength || (contentLength == -1 && writeStream.CanWrite == false))
-				return true;
-
-			return false;
-		}
-
 		async Task<T> RunWithTimeout<T> (Func<Task, CancellationToken, Task<T>> func, string message)
 		{
 			using (var cts = new CancellationTokenSource ()) {
@@ -1042,8 +1021,7 @@ namespace System.Net
 					}
 
 					writeStream = writeStreamTask.Result;
-					if (CheckIfForceWrite ())
-						await writeStream.WriteRequestAsync (cancellationToken).ConfigureAwait (false);
+					await writeStream.WriteRequestAsync (cancellationToken).ConfigureAwait (false);
 
 					anyTask = await Task.WhenAny (timeoutTask, operation.ResponseDataTask.Task).ConfigureAwait (false);
 					if (anyTask == timeoutTask) {
@@ -1487,47 +1465,6 @@ namespace System.Net
 			req.Append (GetHeaders ());
 			string reqstr = req.ToString ();
 			return Encoding.UTF8.GetBytes (reqstr);
-		}
-
-		internal async Task SetWriteStreamAsync (WebRequestStream stream, BufferOffsetSize bodyBuffer, CancellationToken cancellationToken)
-		{
-			if (Aborted)
-				return;
-
-			WebConnection.Debug ($"HWR SET WRITE STREAM ASYNC #1: {ID} {bodyBuffer != null} {MethodWithBuffer}");
-
-			if (false && bodyBuffer != null) {
-				if (webHeaders["Transfer-Encoding"] != null)
-					throw new NotImplementedException ("SHOULD NEVER HAPPEN!");
-				if (stream.SendChunked)
-					throw new NotImplementedException ("SHOULD NEVER HAPPEN!");
-				webHeaders.RemoveInternal ("Transfer-Encoding");
-				WebConnection.Debug ($"HWR SET WRITE STREAM ASYNC #2: {ID} {contentLength} {bodyBuffer.Size}");
-				contentLength = bodyBuffer.Size;
-				// stream.SendChunked = false;
-			}
-
-			// await stream.SetHeadersAsync (false, cancellationToken).ConfigureAwait (false);
-
-			if (Aborted || cancellationToken.IsCancellationRequested)
-				return;
-
-			haveRequest = true;
-
-			if (bodyBuffer != null) {
-#if FIXME
-				// The body has been written and buffered. The request "user"
-				// won't write it again, so we must do it.
-				if (auth_state.NtlmAuthState != NtlmAuthState.Challenge && proxy_auth_state.NtlmAuthState != NtlmAuthState.Challenge) {
-					await stream.WriteAsync (bodyBuffer.Buffer, 0, bodyBuffer.Size, cancellationToken).ConfigureAwait (false);
-					bodyBuffer = null;
-					stream.Close ();
-				}
-#endif
-			} else if (MethodWithBuffer) {
-				if (getResponseCalled && !stream.RequestWritten)
-					await stream.WriteRequestAsync (cancellationToken).ConfigureAwait (false);
-			}
 		}
 
 		internal void SetResponseError (WebExceptionStatus status, Exception e, string where)
