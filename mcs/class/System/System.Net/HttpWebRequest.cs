@@ -1496,17 +1496,18 @@ namespace System.Net
 
 			WebConnection.Debug ($"HWR SET WRITE STREAM ASYNC #1: {ID} {bodyBuffer != null} {MethodWithBuffer}");
 
-			if (bodyBuffer != null) {
+			if (false && bodyBuffer != null) {
 				if (webHeaders["Transfer-Encoding"] != null)
 					throw new NotImplementedException ("SHOULD NEVER HAPPEN!");
 				if (stream.SendChunked)
 					throw new NotImplementedException ("SHOULD NEVER HAPPEN!");
 				webHeaders.RemoveInternal ("Transfer-Encoding");
+				WebConnection.Debug ($"HWR SET WRITE STREAM ASYNC #2: {ID} {contentLength} {bodyBuffer.Size}");
 				contentLength = bodyBuffer.Size;
-				stream.SendChunked = false;
+				// stream.SendChunked = false;
 			}
 
-			await stream.SetHeadersAsync (false, cancellationToken).ConfigureAwait (false);
+			// await stream.SetHeadersAsync (false, cancellationToken).ConfigureAwait (false);
 
 			if (Aborted || cancellationToken.IsCancellationRequested)
 				return;
@@ -1514,6 +1515,7 @@ namespace System.Net
 			haveRequest = true;
 
 			if (bodyBuffer != null) {
+#if FIXME
 				// The body has been written and buffered. The request "user"
 				// won't write it again, so we must do it.
 				if (auth_state.NtlmAuthState != NtlmAuthState.Challenge && proxy_auth_state.NtlmAuthState != NtlmAuthState.Challenge) {
@@ -1521,6 +1523,7 @@ namespace System.Net
 					bodyBuffer = null;
 					stream.Close ();
 				}
+#endif
 			} else if (MethodWithBuffer) {
 				if (getResponseCalled && !stream.RequestWritten)
 					await stream.WriteRequestAsync (cancellationToken).ConfigureAwait (false);

@@ -23,7 +23,7 @@ namespace System.Net
 			: base (connection, operation, data, operation.Request)
 		{
 			allowBuffering = operation.Request.InternalAllowBuffering;
-			sendChunked = operation.Request.SendChunked;
+			sendChunked = operation.Request.SendChunked && operation.WriteBuffer == null;
 			if (!sendChunked && allowBuffering && operation.WriteBuffer == null)
 				writeBuffer = new MemoryStream ();
 		}
@@ -33,12 +33,20 @@ namespace System.Net
 			set { sendChunked = value; }
 		}
 
-		internal byte[] WriteBuffer {
-			get { return writeBuffer.GetBuffer (); }
+		internal bool HasWriteBuffer {
+			get {
+				return Operation.WriteBuffer != null || writeBuffer != null;
+			}
 		}
 
 		internal int WriteBufferLength {
-			get { return writeBuffer != null ? (int)writeBuffer.Length : (-1); }
+			get {
+				if (Operation.WriteBuffer != null)
+					return Operation.WriteBuffer.Size;
+				if (writeBuffer != null)
+					return (int)writeBuffer.Length;
+				return -1;
+			}
 		}
 
 		internal BufferOffsetSize GetWriteBuffer ()
@@ -168,7 +176,28 @@ namespace System.Net
 			}
 		}
 
-		internal async Task SetHeadersAsync (bool setInternalLength, CancellationToken cancellationToken)
+		internal async Task Initialize (CancellationToken cancellationToken)
+		{
+			Operation.ThrowIfClosedOrDisposed (cancellationToken);
+
+			if (Operation.WriteBuffer != null) {
+				if (Operation.IsNtlmChallenge)
+					Request.InternalContentLength = 0;
+				else
+					Request.InternalContentLength = Operation.WriteBuffer.Size;
+			}
+
+			await SetHeadersAsync (false, cancellationToken).ConfigureAwait (false);
+
+			Operation.ThrowIfClosedOrDisposed (cancellationToken);
+
+			if (Operation.WriteBuffer != null && !Operation.IsNtlmChallenge) {
+				await WriteRequestAsync (cancellationToken);
+				Close ();
+			}
+		}
+
+		async Task SetHeadersAsync (bool setInternalLength, CancellationToken cancellationToken)
 		{
 			Operation.ThrowIfClosedOrDisposed (cancellationToken);
 
@@ -185,10 +214,10 @@ namespace System.Net
 			if (Operation.IsNtlmChallenge)
 				no_writestream = true;
 
-			if (setInternalLength && !no_writestream && writeBuffer != null)
-				Request.InternalContentLength = writeBuffer.Length;
+			if (setInternalLength && !no_writestream && HasWriteBuffer)
+				Request.InternalContentLength = WriteBufferLength;
 
-			bool has_content = !no_writestream && (writeBuffer == null || Request.ContentLength > -1);
+			bool has_content = !no_writestream && (!HasWriteBuffer || Request.ContentLength > -1);
 			if (!(sendChunked || has_content || no_writestream || webdav))
 				return;
 
@@ -215,8 +244,8 @@ namespace System.Net
 				return;
 
 			requestWritten = true;
-			//if (sendChunked || !allowBuffering || writeBuffer == null)
-			//	return;
+			if (sendChunked || !allowBuffering || !HasWriteBuffer)
+				return;
 
 			BufferOffsetSize buffer = GetWriteBuffer ();
 			if (buffer != null && !Operation.IsNtlmChallenge && Request.ContentLength != -1 && Request.ContentLength < buffer.Size) {
