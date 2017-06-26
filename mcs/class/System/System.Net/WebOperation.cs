@@ -45,16 +45,17 @@ namespace System.Net
 		}
 
 		public bool IsNtlmChallenge {
-			get; set;
+			get;
 		}
 
 		static int nextID;
 		public readonly int ID = ++nextID;
 
-		public WebOperation (HttpWebRequest request, BufferOffsetSize writeBuffer, CancellationToken cancellationToken)
+		public WebOperation (HttpWebRequest request, BufferOffsetSize writeBuffer, bool isNtlmChallenge, CancellationToken cancellationToken)
 		{
 			Request = request;
 			WriteBuffer = writeBuffer;
+			IsNtlmChallenge = isNtlmChallenge;
 			cts = CancellationTokenSource.CreateLinkedTokenSource (cancellationToken);
 			requestTask = new TaskCompletionSource<(WebConnectionData data, WebRequestStream stream)> ();
 			responseDataTask = new TaskCompletionSource<WebConnectionData> ();
@@ -68,6 +69,7 @@ namespace System.Net
 		WebRequestStream writeStream;
 		ExceptionDispatchInfo disposedInfo;
 		ExceptionDispatchInfo closedInfo;
+		int requestSent;
 
 		public bool Aborted {
 			get {
@@ -156,6 +158,8 @@ namespace System.Net
 
 		public void SendRequest (WebConnection connection)
 		{
+			if (Interlocked.CompareExchange (ref requestSent, 1, 0) != 0)
+				throw new InvalidOperationException ("Invalid nested call.");
 			cts.Token.Register (() => {
 				SetDisposed (ref disposedInfo);
 				connection.Abort (this);

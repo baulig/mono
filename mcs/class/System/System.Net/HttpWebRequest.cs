@@ -847,7 +847,7 @@ namespace System.Net
 					}
 				}
 
-				operation = new WebOperation (this, writeBuffer, cancellationToken);
+				operation = new WebOperation (this, writeBuffer, false, cancellationToken);
 				if (Interlocked.CompareExchange (ref currentOperation, operation, null) != null)
 					throw new InvalidOperationException ("Invalid nested call.");
 
@@ -1556,10 +1556,10 @@ namespace System.Net
 			if ((isProxy ? proxy_auth_state : auth_state).NtlmAuthState == NtlmAuthState.None)
 				return null;
 
-			var operation = new WebOperation (this, writeBuffer, cancellationToken);
+			var isChallenge = auth_state.NtlmAuthState == NtlmAuthState.Challenge || proxy_auth_state.NtlmAuthState == NtlmAuthState.Challenge;
+
+			var operation = new WebOperation (this, writeBuffer, isChallenge, cancellationToken);
 			data.Connection.PriorityRequest = operation;
-			if (auth_state.NtlmAuthState == NtlmAuthState.Challenge || proxy_auth_state.NtlmAuthState == NtlmAuthState.Challenge)
-				operation.IsNtlmChallenge = true;
 			var creds = (!isProxy || proxy == null) ? credentials : proxy.Credentials;
 			if (creds != null) {
 				data.Connection.NtlmCredential = creds.GetCredential (requestUri, "NTLM");
