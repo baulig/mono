@@ -57,9 +57,7 @@ namespace System.Net
 		IWebConnectionState state;
 		WebExceptionStatus status;
 		bool keepAlive;
-		// byte[] buffer;
 		Queue queue;
-		// int position;
 		WebOperation priority_request;
 		NetworkCredential ntlm_credentials;
 		bool ntlm_authenticated;
@@ -474,17 +472,17 @@ namespace System.Net
 
 			var buffer = new BufferOffsetSize (new byte[4096], false);
 			var state = ReadState.None;
-			int pos = 0;
+			int position = 0;
 
 			while (true) {
 				operation.ThrowIfClosedOrDisposed (cancellationToken);
 
-				Debug ($"WC INIT READ ASYNC LOOP: {ID} {operation.ID} {data.ReadState} - {buffer.Offset}/{buffer.Size}");
+				Debug ($"WC INIT READ ASYNC LOOP: {ID} {operation.ID} {state} - {buffer.Offset}/{buffer.Size}");
 
 				var nread = await data.NetworkStream.ReadAsync (
 					buffer.Buffer, buffer.Offset, buffer.Size, cancellationToken).ConfigureAwait (false);
 
-				Debug ($"WC INIT READ ASYNC LOOP #1: {ID} {operation.ID} {data.ReadState} - {buffer.Offset}/{buffer.Size} - {nread}");
+				Debug ($"WC INIT READ ASYNC LOOP #1: {ID} {operation.ID} {state} - {buffer.Offset}/{buffer.Size} - {nread}");
 
 				if (nread == 0)
 					throw GetReadException (WebExceptionStatus.ReceiveFailure, null, "ReadDoneAsync2");
@@ -497,9 +495,9 @@ namespace System.Net
 
 				if (state == ReadState.None) {
 					try {
-						var oldPos = pos;
-						if (!GetResponse (data, sPoint, buffer, ref pos, ref state))
-							pos = oldPos;
+						var oldPos = position;
+						if (!GetResponse (data, sPoint, buffer, ref position, ref state))
+							position = oldPos;
 					} catch (Exception e) {
 						throw GetReadException (WebExceptionStatus.ServerProtocolViolation, e, "ReadDoneAsync4");
 					}
@@ -510,7 +508,7 @@ namespace System.Net
 
 				if (state == ReadState.Content) {
 					buffer.Size = buffer.Offset;
-					buffer.Offset = pos;
+					buffer.Offset = position;
 					break;
 				}
 
@@ -572,139 +570,6 @@ namespace System.Net
 
 			throw new NotImplementedException ();
 		}
-
-#if REMOVEME
-		void InitReadAsync (WebOperation operation, WebConnectionData data, CancellationToken cancellationToken)
-		{
-			try {
-				int size = buffer.Length - position;
-				int requestId = ++nextRequestID;
-				Debug ($"WC INIT READ ASYNC: {ID} {data.ID} {requestId}");
-				operation.ThrowIfDisposed (cancellationToken);
-				var task = data.NetworkStream.ReadAsync (buffer, position, size, cancellationToken);
-				task.ContinueWith (t => ReadDoneAsync (operation, data, t, cancellationToken));
-				Debug ($"WC INIT READ ASYNC DONE: {ID} {data.ID} {requestId} - {task}");
-			} catch (ObjectDisposedException) {
-				return;
-			} catch (OperationCanceledException) {
-				return;
-			} catch (Exception e) {
-				e = HttpWebRequest.FlattenException (e);
-				if (e.InnerException is ObjectDisposedException)
-					return;
-
-				HandleError (WebExceptionStatus.ReceiveFailure, e, "ReadDoneAsync1");
-				return;
-			}
-
-		}
-
-		async void ReadDoneAsync (WebOperation operation, WebConnectionData data, Task<int> task, CancellationToken cancellationToken)
-		{
-			Debug ($"WC INIT READ ASYNC - READ DONE: {ID} {data.ID} - {task.Status} {operation.Aborted}");
-			if (task.IsCanceled || operation.Aborted)
-				return;
-			if (task.IsFaulted) {
-				var e = HttpWebRequest.FlattenException (task.Exception);
-				if (e is ObjectDisposedException || e.InnerException is ObjectDisposedException)
-					return;
-				HandleError (WebExceptionStatus.ReceiveFailure, e, "ReadDoneAsync1");
-				return;
-			}
-
-			int nread = task.Result;
-			if (nread == 0) {
-				HandleError (WebExceptionStatus.ReceiveFailure, null, "ReadDoneAsync2");
-				return;
-			}
-
-			if (nread < 0) {
-				HandleError (WebExceptionStatus.ServerProtocolViolation, null, "`Async3");
-				return;
-			}
-
-			int pos = -1;
-			nread += position;
-			if (data.ReadState == ReadState.None) {
-				Exception exc = null;
-				try {
-					pos = GetResponse (data, sPoint, buffer, nread);
-				} catch (Exception e) {
-					exc = e;
-				}
-
-				if (exc != null || pos == -1) {
-					HandleError (WebExceptionStatus.ServerProtocolViolation, exc, "ReadDoneAsync4");
-					return;
-				}
-			}
-
-			if (data.ReadState == ReadState.Aborted) {
-				HandleError (WebExceptionStatus.RequestCanceled, null, "ReadDoneAsync5");
-				return;
-			}
-
-			if (data.ReadState != ReadState.Content) {
-				int est = nread * 2;
-				int max = (est < buffer.Length) ? buffer.Length : est;
-				byte[] newBuffer = new byte[max];
-				Buffer.BlockCopy (buffer, 0, newBuffer, 0, nread);
-				buffer = newBuffer;
-				position = nread;
-				data.ReadState = ReadState.None;
-				InitReadAsync (operation, data, cancellationToken);
-				return;
-			}
-
-			position = 0;
-
-			var stream = new WebResponseStream (this, operation, data);
-			bool expect_content = ExpectContent (data.StatusCode, data.Request.Method);
-			string tencoding = null;
-			if (expect_content)
-				tencoding = data.Headers["Transfer-Encoding"];
-
-			data.ChunkedRead = (tencoding != null && tencoding.IndexOf ("chunked", StringComparison.OrdinalIgnoreCase) != -1);
-			if (!data.ChunkedRead) {
-				stream.ReadBuffer = buffer;
-				stream.ReadBufferOffset = pos;
-				stream.ReadBufferSize = nread;
-				try {
-					await stream.CheckResponseInBuffer (cancellationToken).ConfigureAwait (false);
-				} catch (Exception e) {
-					HandleError (WebExceptionStatus.ReceiveFailure, e, "ReadDoneAsync6");
-				}
-			} else if (data.ChunkStream == null) {
-				try {
-					data.ChunkStream = new MonoChunkStream (buffer, pos, nread, data.Headers);
-				} catch (Exception e) {
-					HandleError (WebExceptionStatus.ServerProtocolViolation, e, "ReadDoneAsync7");
-					return;
-				}
-			} else {
-				data.ChunkStream.ResetBuffer ();
-				try {
-					data.ChunkStream.Write (buffer, pos, nread);
-				} catch (Exception e) {
-					HandleError (WebExceptionStatus.ServerProtocolViolation, e, "ReadDoneAsync8");
-					return;
-				}
-			}
-
-			data.stream = stream;
-
-			if (!expect_content) {
-				if (stream.ForceCompletion ())
-					NextRead ();
-			}
-
-			try {
-				data.Request.SetResponseData (data);
-			} catch (Exception e) {
-				Console.Error.WriteLine ("READ DONE EX: {0}", e);
-			}
-		}
-#endif
 
 		static bool GetResponse (WebConnectionData data, ServicePoint sPoint, BufferOffsetSize buffer, ref int pos, ref ReadState state)
 		{

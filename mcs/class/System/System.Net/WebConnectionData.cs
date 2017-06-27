@@ -47,7 +47,6 @@ namespace System.Net
 		public string[] Challenge;
 		public bool ChunkedRead;
 		public MonoChunkStream ChunkStream;
-		ReadState _readState;
 		Stream networkStream;
 		Socket socket;
 		MonoTlsStream tlsStream;
@@ -57,7 +56,6 @@ namespace System.Net
 
 		public WebConnectionData ()
 		{
-			_readState = ReadState.None;
 		}
 
 		public WebConnectionData (WebConnection connection, WebOperation operation)
@@ -95,26 +93,9 @@ namespace System.Net
 			get;
 		}
 
-		public ReadState ReadState {
-			get {
-				return _readState;
-			}
-			set {
-				lock (this) {
-					if ((_readState == ReadState.Aborted) && (value != ReadState.Aborted))
-						throw new WebException ("Aborted", WebExceptionStatus.RequestCanceled);
-					_readState = value;
-				}
-			}
-		}
-
 		public Stream NetworkStream {
 			get {
-				lock (this) {
-					if (false && ReadState == ReadState.Aborted)
-						throw new WebException ("Aborted", WebExceptionStatus.RequestCanceled);
-					return networkStream;
-				}
+				return networkStream;
 			}
 		}
 
@@ -142,8 +123,6 @@ namespace System.Net
 					} catch { }
 					socket = null;
 				}
-
-				_readState = ReadState.Aborted;
 			}
 		}
 
