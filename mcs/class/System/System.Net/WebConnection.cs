@@ -459,7 +459,7 @@ namespace System.Net
 			return (statusCode >= 200 && statusCode != 204 && statusCode != 304);
 		}
 
-		async Task<(WebResponseStream, Exception)> NewInitReadAsync (
+		async Task<(WebResponseStream, Exception)> InitReadAsync (
 			WebOperation operation, WebConnectionData data, CancellationToken cancellationToken)
 		{
 			Debug ($"WC INIT READ ASYNC: {ID} {operation.ID}");
@@ -744,14 +744,13 @@ namespace System.Net
 
 			var stream = new WebRequestStream (this, operation, data);
 
-			operation.Run (token => NewInitReadAsync (operation, data, token));
-			// InitReadAsync (operation, data, cancellationToken);
-
 			try {
 				await stream.Initialize (cancellationToken);
 			} catch (Exception ex) {
 				throw GetException (WebExceptionStatus.SendFailure, ex);
 			}
+
+			operation.Run (token => InitReadAsync (operation, data, token));
 
 			return (data, stream);
 		}
