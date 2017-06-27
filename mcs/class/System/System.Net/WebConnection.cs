@@ -412,13 +412,6 @@ namespace System.Net
 			return (WebExceptionStatus.Success, true, null);
 		}
 
-		static bool ExpectContent (int statusCode, string method)
-		{
-			if (method == "HEAD")
-				return false;
-			return (statusCode >= 200 && statusCode != 204 && statusCode != 304);
-		}
-
 		internal async Task<WebResponseStream> InitReadAsync (
 			WebOperation operation, WebConnectionData data, CancellationToken cancellationToken)
 		{
@@ -478,39 +471,11 @@ namespace System.Net
 			Debug ($"WC INIT READ ASYNC LOOP DONE: {ID} {operation.ID} - {buffer.Offset} {buffer.Size}");
 
 			var stream = new WebResponseStream (this, operation, data);
-			bool expect_content = ExpectContent (data.StatusCode, data.Request.Method);
-			string tencoding = null;
-			if (expect_content)
-				tencoding = data.Headers["Transfer-Encoding"];
-
-			data.ChunkedRead = (tencoding != null && tencoding.IndexOf ("chunked", StringComparison.OrdinalIgnoreCase) != -1);
-			if (!data.ChunkedRead) {
-				stream.ReadBuffer = buffer.Buffer;
-				stream.ReadBufferOffset = buffer.Offset;
-				stream.ReadBufferSize = buffer.Size;
-				try {
-					await stream.CheckResponseInBuffer (cancellationToken).ConfigureAwait (false);
-				} catch (Exception e) {
-					throw GetReadException (WebExceptionStatus.ReceiveFailure, e, "ReadDoneAsync6");
-				}
-			} else if (data.ChunkStream == null) {
-				try {
-					data.ChunkStream = new MonoChunkStream (buffer.Buffer, buffer.Offset, buffer.Size, data.Headers);
-				} catch (Exception e) {
-					throw GetReadException (WebExceptionStatus.ServerProtocolViolation, e, "ReadDoneAsync7");
-				}
-			} else {
-				data.ChunkStream.ResetBuffer ();
-				try {
-					data.ChunkStream.Write (buffer.Buffer, buffer.Offset, buffer.Size);
-				} catch (Exception e) {
-					throw GetReadException (WebExceptionStatus.ServerProtocolViolation, e, "ReadDoneAsync8");
-				}
-			}
-
-			if (!expect_content) {
-				if (stream.ForceCompletion ())
-					NextRead ();
+			try {
+				operation.ThrowIfDisposed (cancellationToken);
+				await stream.Initialize (buffer, cancellationToken).ConfigureAwait (false);
+			} catch (Exception e) {
+				throw GetReadException (WebExceptionStatus.ReceiveFailure, e, "ReadDoneAsync6");
 			}
 
 			return stream;
@@ -695,7 +660,7 @@ namespace System.Net
 			return (data, stream);
 		}
 
-		static WebException GetException (WebExceptionStatus status, Exception error)
+		internal static WebException GetException (WebExceptionStatus status, Exception error)
 		{
 			if (error == null)
 				return new WebException ($"Error: {status}", status);
@@ -705,7 +670,7 @@ namespace System.Net
 						 WebExceptionInternalStatus.RequestFatal, error);
 		}
 
-		static WebException GetReadException (WebExceptionStatus status, Exception error, string where)
+		internal static WebException GetReadException (WebExceptionStatus status, Exception error, string where)
 		{
 			string msg = $"Error getting response stream ({where}): {status}";
 			if (error == null)

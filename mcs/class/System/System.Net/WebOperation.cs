@@ -59,6 +59,7 @@ namespace System.Net
 			cts = CancellationTokenSource.CreateLinkedTokenSource (cancellationToken);
 			requestTask = new TaskCompletionSource<(WebConnectionData data, WebRequestStream stream)> ();
 			requestWrittenTask = new TaskCompletionSource<WebRequestStream> ();
+			completeResponseReadTask = new TaskCompletionSource<bool> ();
 			responseTask = new TaskCompletionSource<WebResponseStream> ();
 		}
 
@@ -66,6 +67,7 @@ namespace System.Net
 		TaskCompletionSource<(WebConnectionData data, WebRequestStream stream)> requestTask;
 		TaskCompletionSource<WebRequestStream> requestWrittenTask;
 		TaskCompletionSource<WebResponseStream> responseTask;
+		TaskCompletionSource<bool> completeResponseReadTask;
 		WebConnectionData connectionData;
 		WebRequestStream writeStream;
 		WebResponseStream responseStream;
@@ -249,6 +251,16 @@ namespace System.Net
 				requestWrittenTask.TrySetException (error);
 			else
 				requestWrittenTask.TrySetResult (stream);
+		}
+
+		internal void CompleteResponseRead (WebResponseStream stream, bool ok, Exception error = null)
+		{
+			WebConnection.Debug ($"WO COMPLETE RESPONSE READ: {ID} {error != null}");
+
+			if (error != null)
+				completeResponseReadTask.TrySetException (error);
+			else
+				completeResponseReadTask.TrySetResult (ok);
 		}
 	}
 }

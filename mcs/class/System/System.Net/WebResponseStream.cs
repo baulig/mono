@@ -235,7 +235,7 @@ namespace System.Net
 			return CheckAuthHeader ("WWW-Authenticate");
 		}
 
-		internal async Task CheckResponseInBuffer (CancellationToken cancellationToken)
+		async Task CheckResponseInBuffer (CancellationToken cancellationToken)
 		{
 			if (contentLength > 0 && (readBufferSize - readBufferOffset) >= contentLength) {
 				if (!IsNtlmAuth ())
@@ -243,27 +243,58 @@ namespace System.Net
 			}
 		}
 
-		internal byte[] ReadBuffer {
-			set { readBuffer = value; }
-		}
-
-		internal int ReadBufferOffset {
-			set { readBufferOffset = value; }
-		}
-
-		internal int ReadBufferSize {
-			set { readBufferSize = value; }
-		}
-
-		internal bool ForceCompletion ()
+		static bool ExpectContent (int statusCode, string method)
 		{
-			if (!closed && !nextReadCalled) {
-				if (contentLength == Int64.MaxValue)
-					contentLength = 0;
-				nextReadCalled = true;
-				return true;
+			if (method == "HEAD")
+				return false;
+			return (statusCode >= 200 && statusCode != 204 && statusCode != 304);
+		}
+
+		internal async Task Initialize (BufferOffsetSize buffer, CancellationToken cancellationToken)
+		{
+			string me = "WebResponseStream.Initialize()";
+			bool expect_content = ExpectContent (Data.StatusCode, Data.Request.Method);
+			string tencoding = null;
+			if (expect_content)
+				tencoding = Data.Headers["Transfer-Encoding"];
+
+			Data.ChunkedRead = (tencoding != null && tencoding.IndexOf ("chunked", StringComparison.OrdinalIgnoreCase) != -1);
+			if (!Data.ChunkedRead) {
+				readBuffer = buffer.Buffer;
+				readBufferOffset = buffer.Offset;
+				readBufferSize = buffer.Size;
+				try {
+					if (contentLength > 0 && (readBufferSize - readBufferOffset) >= contentLength) {
+						if (!IsNtlmAuth ())
+							await ReadAllAsync (cancellationToken).ConfigureAwait (false);
+					}
+				} catch (Exception e) {
+					throw WebConnection.GetReadException (WebExceptionStatus.ReceiveFailure, e, me);
+				}
+			} else if (Data.ChunkStream == null) {
+				try {
+					Data.ChunkStream = new MonoChunkStream (buffer.Buffer, buffer.Offset, buffer.Size, Data.Headers);
+				} catch (Exception e) {
+					throw WebConnection.GetReadException (WebExceptionStatus.ServerProtocolViolation, e, me);
+				}
+			} else {
+				Data.ChunkStream.ResetBuffer ();
+				try {
+					Data.ChunkStream.Write (buffer.Buffer, buffer.Offset, buffer.Size);
+				} catch (Exception e) {
+					throw WebConnection.GetReadException (WebExceptionStatus.ServerProtocolViolation, e, me);
+				}
 			}
-			return false;
+
+			if (!expect_content) {
+				Operation.CompleteResponseRead (this, true);
+				if (!closed && !nextReadCalled) {
+					if (contentLength == Int64.MaxValue)
+						contentLength = 0;
+					nextReadCalled = true;
+					Connection.NextRead ();
+				}
+			}
 		}
 
 		internal async Task ReadAllAsync (CancellationToken cancellationToken)
@@ -272,6 +303,7 @@ namespace System.Net
 			if (read_eof || totalRead >= contentLength || nextReadCalled) {
 				if (!nextReadCalled) {
 					nextReadCalled = true;
+					Operation.CompleteResponseRead (this, true);
 					Connection.NextRead ();
 				}
 				return;
@@ -359,6 +391,7 @@ namespace System.Net
 				readTcs = null;
 			}
 
+			Operation.CompleteResponseRead (this, true);
 			Connection.NextRead ();
 		}
 
@@ -367,10 +400,12 @@ namespace System.Net
 			if (!closed && !nextReadCalled) {
 				nextReadCalled = true;
 				if (readBufferSize - readBufferOffset == contentLength) {
+					Operation.CompleteResponseRead (this, true);
 					Connection.NextRead ();
 				} else {
 					// If we have not read all the contents
 					closed = true;
+					Operation.CompleteResponseRead (this, false);
 					Connection.CloseError ();
 				}
 			}
