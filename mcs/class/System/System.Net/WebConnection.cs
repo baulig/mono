@@ -725,6 +725,12 @@ namespace System.Net
 			}
 		}
 
+		internal void SetIdleAndSendNext ()
+		{
+			state.SetIdle ();
+			SendNext ();
+		}
+
 		internal void NextRead ()
 		{
 			return;
