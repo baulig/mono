@@ -305,10 +305,8 @@ namespace System.Net
 			while (true) {
 				cancellationToken.ThrowIfCancellationRequested ();
 				int n = await stream.ReadAsync (buffer, 0, 1024, cancellationToken).ConfigureAwait (false);
-				if (n == 0) {
-					HandleError (WebExceptionStatus.ServerProtocolViolation, null, "ReadHeaders");
-					return (null, null, 200);
-				}
+				if (n == 0)
+					throw GetException (WebExceptionStatus.ServerProtocolViolation, null);
 
 				ms.Write (buffer, 0, n);
 				int start = 0;
@@ -343,19 +341,15 @@ namespace System.Net
 					}
 
 					string[] parts = str.Split (' ');
-					if (parts.Length < 2) {
-						HandleError (WebExceptionStatus.ServerProtocolViolation, null, "ReadHeaders2");
-						return (null, null, 200);
-					}
+					if (parts.Length < 2)
+						throw GetException (WebExceptionStatus.ServerProtocolViolation, null);
 
 					if (String.Compare (parts[0], "HTTP/1.1", true) == 0)
 						data.ProxyVersion = HttpVersion.Version11;
 					else if (String.Compare (parts[0], "HTTP/1.0", true) == 0)
 						data.ProxyVersion = HttpVersion.Version10;
-					else {
-						HandleError (WebExceptionStatus.ServerProtocolViolation, null, "ReadHeaders2");
-						return (null, null, 200);
-					}
+					else
+						throw GetException (WebExceptionStatus.ServerProtocolViolation, null);
 
 					status = (int)UInt32.Parse (parts[1]);
 					if (parts.Length >= 3)
@@ -688,7 +682,7 @@ namespace System.Net
 			throw GetReadException (WebExceptionStatus.ServerProtocolViolation, null, "GetResponse");
 		}
 
-		async Task<(WebConnectionData, WebRequestStream, Exception)> InitConnection (
+		async Task<(WebConnectionData, WebRequestStream)> InitConnection (
 			WebOperation operation, CancellationToken cancellationToken)
 		{
 			Debug ($"WC INIT CONNECTION: {ID} {operation.Request.ID} {operation.ID}");
@@ -699,7 +693,7 @@ namespace System.Net
 				request.StoredConnection = this;
 
 			if (operation.Aborted)
-				return (null, null, null);
+				return (null, null);
 
 			keepAlive = request.KeepAlive;
 			var data = new WebConnectionData (this, operation);
@@ -714,11 +708,11 @@ namespace System.Net
 				var connectResult = await Connect (operation, data, cancellationToken).ConfigureAwait (false);
 				Debug ($"WC INIT CONNECTION #2: {ID} {operation.ID} {data.ID} - {connectResult.status}");
 				if (operation.Aborted)
-					return (null, null, null);
+					return (null, null);
 
 				if (connectResult.status != WebExceptionStatus.Success) {
 					Close (true);
-					return (data, null, GetException (connectResult.status, connectResult.error));
+					throw GetException (connectResult.status, connectResult.error);
 				}
 
 				data.Socket = connectResult.socket;
@@ -728,7 +722,7 @@ namespace System.Net
 			Debug ($"WC INIT CONNECTION #3: {ID} {operation.ID} {data.ID} - {streamResult.status} {streamResult.success}");
 			if (!streamResult.success) {
 				if (operation.Aborted)
-					return (null, null, null);
+					return (null, null);
 
 				if (streamResult.status == WebExceptionStatus.Success && data.Challenge != null)
 					goto retry;
@@ -745,7 +739,7 @@ namespace System.Net
 				}
 
 				Close (true);
-				return (data, null, GetException (streamResult.status, streamResult.error));
+				throw GetException (streamResult.status, streamResult.error);
 			}
 
 			var stream = new WebRequestStream (this, operation, data);
@@ -756,10 +750,10 @@ namespace System.Net
 			try {
 				await stream.Initialize (cancellationToken);
 			} catch (Exception ex) {
-				return (data, stream, GetException (WebExceptionStatus.SendFailure, ex));
+				throw GetException (WebExceptionStatus.SendFailure, ex);
 			}
 
-			return (data, stream, null);
+			return (data, stream);
 		}
 
 		static WebException GetException (WebExceptionStatus status, Exception error)

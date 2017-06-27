@@ -203,20 +203,16 @@ namespace System.Net
 
 		public TaskCompletionSource<WebConnectionData> ResponseDataTask => responseDataTask;
 
-		internal async void Run (Func<CancellationToken, Task<(WebConnectionData, WebRequestStream, Exception)>> func)
+		internal async void Run (Func<CancellationToken, Task<(WebConnectionData, WebRequestStream)>> func)
 		{
 			try {
 				if (Aborted) {
 					SetCanceled ();
 					return;
 				}
-				var (data, stream, error) = await func (cts.Token).ConfigureAwait (false);
+				var (data, stream) = await func (cts.Token).ConfigureAwait (false);
 				if (data == null || Aborted) {
 					SetCanceled ();
-					return;
-				}
-				if (error != null) {
-					SetError (error);
 					return;
 				}
 
