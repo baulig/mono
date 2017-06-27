@@ -473,6 +473,8 @@ namespace System.Net
 			Debug ($"WC INIT READ ASYNC: {ID} {operation.ID}");
 
 			var buffer = new BufferOffsetSize (new byte[4096], false);
+			var state = ReadState.None;
+			int pos = 0;
 
 			while (true) {
 				operation.ThrowIfClosedOrDisposed (cancellationToken);
@@ -490,37 +492,35 @@ namespace System.Net
 				if (nread < 0)
 					throw GetReadException (WebExceptionStatus.ServerProtocolViolation, null, "ReadDoneAsync3");
 
-				int pos = -1;
-				nread += buffer.Offset;
-				if (data.ReadState == ReadState.None) {
-					Exception exc = null;
+				buffer.Offset += nread;
+				buffer.Size -= nread;
+
+				if (state == ReadState.None) {
 					try {
-						pos = GetResponse (data, sPoint, buffer.Buffer, nread);
+						var oldPos = pos;
+						if (!GetResponse (data, sPoint, buffer, ref pos, ref state))
+							pos = oldPos;
 					} catch (Exception e) {
-						exc = e;
+						throw GetReadException (WebExceptionStatus.ServerProtocolViolation, e, "ReadDoneAsync4");
 					}
-
-					Debug ($"WC INIT READ ASYNC LOOP #2: {ID} {operation.ID} {data.ReadState} - {pos} {exc != null}");
-
-					if (exc != null || pos == -1)
-						throw GetReadException (WebExceptionStatus.ServerProtocolViolation, exc, "ReadDoneAsync4");
 				}
 
-				if (data.ReadState == ReadState.Aborted)
+				if (state == ReadState.Aborted)
 					throw GetReadException (WebExceptionStatus.RequestCanceled, null, "ReadDoneAsync5");
 
-				if (data.ReadState == ReadState.Content) {
-					buffer.Size = buffer.Offset + nread;
+				if (state == ReadState.Content) {
+					buffer.Size = buffer.Offset;
 					buffer.Offset = pos;
 					break;
 				}
 
 				int est = nread * 2;
-				int max = (est < buffer.Size) ? buffer.Size : est;
-				byte[] newBuffer = new byte[max];
-				Buffer.BlockCopy (buffer.Buffer, buffer.Offset, newBuffer, 0, nread);
-				buffer = new BufferOffsetSize (newBuffer, nread, newBuffer.Length - nread, false);
-				data.ReadState = ReadState.None;
+				if (est > buffer.Size) {
+					var newBuffer = new byte[est];
+					Buffer.BlockCopy (buffer.Buffer, 0, newBuffer, 0, buffer.Offset);
+					buffer = new BufferOffsetSize (newBuffer, buffer.Offset, newBuffer.Length - buffer.Offset, false);
+				}
+				state = ReadState.None;
 			}
 
 			Debug ($"WC INIT READ ASYNC LOOP DONE: {ID} {operation.ID} - {buffer.Offset} {buffer.Size}");
@@ -706,33 +706,31 @@ namespace System.Net
 		}
 #endif
 
-		static int GetResponse (WebConnectionData data, ServicePoint sPoint,
-					byte[] buffer, int max)
+		static bool GetResponse (WebConnectionData data, ServicePoint sPoint, BufferOffsetSize buffer, ref int pos, ref ReadState state)
 		{
-			int pos = 0;
 			string line = null;
 			bool lineok = false;
 			bool isContinue = false;
 			bool emptyFirstLine = false;
 			do {
-				if (data.ReadState == ReadState.Aborted)
-					return -1;
+				if (state == ReadState.Aborted)
+					throw GetReadException (WebExceptionStatus.RequestCanceled, null, "GetResponse");
 
-				if (data.ReadState == ReadState.None) {
-					lineok = ReadLine (buffer, ref pos, max, ref line);
+				if (state == ReadState.None) {
+					lineok = ReadLine (buffer.Buffer, ref pos, buffer.Offset, ref line);
 					if (!lineok)
-						return 0;
+						return false;
 
 					if (line == null) {
 						emptyFirstLine = true;
 						continue;
 					}
 					emptyFirstLine = false;
-					data.ReadState = ReadState.Status;
+					state = ReadState.Status;
 
 					string[] parts = line.Split (' ');
 					if (parts.Length < 2)
-						return -1;
+						throw GetReadException (WebExceptionStatus.ServerProtocolViolation, null, "GetResponse");
 
 					if (String.Compare (parts[0], "HTTP/1.1", true) == 0) {
 						data.Version = HttpVersion.Version11;
@@ -748,18 +746,18 @@ namespace System.Net
 					else
 						data.StatusDescription = "";
 
-					if (pos >= max)
-						return pos;
+					if (pos >= buffer.Size)
+						return true;
 				}
 
 				emptyFirstLine = false;
-				if (data.ReadState == ReadState.Status) {
-					data.ReadState = ReadState.Headers;
+				if (state == ReadState.Status) {
+					state = ReadState.Headers;
 					data.Headers = new WebHeaderCollection ();
 					ArrayList headers = new ArrayList ();
 					bool finished = false;
 					while (!finished) {
-						if (ReadLine (buffer, ref pos, max, ref line) == false)
+						if (ReadLine (buffer.Buffer, ref pos, buffer.Offset, ref line) == false)
 							break;
 
 						if (line == null) {
@@ -781,7 +779,7 @@ namespace System.Net
 					}
 
 					if (!finished)
-						return 0;
+						return false;
 
 					// .NET uses ParseHeaders or ParseHeadersStrict which is much better
 					foreach (string s in headers) {
@@ -803,8 +801,8 @@ namespace System.Net
 
 					if (data.StatusCode == (int)HttpStatusCode.Continue) {
 						sPoint.SendContinue = true;
-						if (pos >= max)
-							return pos;
+						if (pos >= buffer.Offset)
+							return true;
 
 						if (data.Request.ExpectContinue) {
 							data.Request.DoContinueDelegate (data.StatusCode, data.Headers);
@@ -813,16 +811,16 @@ namespace System.Net
 							data.Request.ExpectContinue = false;
 						}
 
-						data.ReadState = ReadState.None;
+						state = ReadState.None;
 						isContinue = true;
 					} else {
-						data.ReadState = ReadState.Content;
-						return pos;
+						state = ReadState.Content;
+						return true;
 					}
 				}
 			} while (emptyFirstLine || isContinue);
 
-			return -1;
+			throw GetReadException (WebExceptionStatus.ServerProtocolViolation, null, "GetResponse");
 		}
 
 		async Task<(WebConnectionData, WebRequestStream, Exception)> InitConnection (
