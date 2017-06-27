@@ -467,6 +467,101 @@ namespace System.Net
 			return (statusCode >= 200 && statusCode != 204 && statusCode != 304);
 		}
 
+		async Task<(WebResponseStream, Exception)> NewInitReadAsync (
+			WebOperation operation, WebConnectionData data, BufferOffsetSize buffer, CancellationToken cancellationToken)
+		{
+			int requestId = ++nextRequestID;
+			Debug ($"WC INIT READ ASYNC: {ID} {data.ID} {requestId}");
+			operation.ThrowIfClosedOrDisposed (cancellationToken);
+
+			var nread = await data.NetworkStream.ReadAsync (
+				buffer.Buffer, buffer.Offset, buffer.Size, cancellationToken).ConfigureAwait (false);
+
+			if (nread == 0)
+				throw GetReadException (WebExceptionStatus.ReceiveFailure, null, "ReadDoneAsync2");
+
+			if (nread < 0)
+				throw GetReadException (WebExceptionStatus.ServerProtocolViolation, null, "ReadDoneAsync3");
+
+			int pos = -1;
+			nread += position;
+			if (data.ReadState == ReadState.None) {
+				Exception exc = null;
+				try {
+					pos = GetResponse (data, sPoint, buffer, nread);
+				} catch (Exception e) {
+					exc = e;
+				}
+
+				if (exc != null || pos == -1)
+					throw GetReadException (WebExceptionStatus.ServerProtocolViolation, exc, "ReadDoneAsync4");
+			}
+
+			if (data.ReadState == ReadState.Aborted)
+				throw GetReadException (WebExceptionStatus.RequestCanceled, null, "ReadDoneAsync5");
+
+			if (data.ReadState != ReadState.Content) {
+				int est = nread * 2;
+				int max = (est < buffer.Length) ? buffer.Length : est;
+				byte[] newBuffer = new byte[max];
+				Buffer.BlockCopy (buffer, 0, newBuffer, 0, nread);
+				buffer = newBuffer;
+				position = nread;
+				data.ReadState = ReadState.None;
+				InitReadAsync (operation, data, cancellationToken);
+				return;
+			}
+
+			position = 0;
+
+			var stream = new WebResponseStream (this, operation, data);
+			bool expect_content = ExpectContent (data.StatusCode, data.Request.Method);
+			string tencoding = null;
+			if (expect_content)
+				tencoding = data.Headers["Transfer-Encoding"];
+
+			data.ChunkedRead = (tencoding != null && tencoding.IndexOf ("chunked", StringComparison.OrdinalIgnoreCase) != -1);
+			if (!data.ChunkedRead) {
+				stream.ReadBuffer = buffer;
+				stream.ReadBufferOffset = pos;
+				stream.ReadBufferSize = nread;
+				try {
+					await stream.CheckResponseInBuffer (cancellationToken).ConfigureAwait (false);
+				} catch (Exception e) {
+					throw GetReadException (WebExceptionStatus.ReceiveFailure, e, "ReadDoneAsync6");
+				}
+			} else if (data.ChunkStream == null) {
+				try {
+					data.ChunkStream = new MonoChunkStream (buffer, pos, nread, data.Headers);
+				} catch (Exception e) {
+					throw GetReadException (WebExceptionStatus.ServerProtocolViolation, e, "ReadDoneAsync7");
+				}
+			} else {
+				data.ChunkStream.ResetBuffer ();
+				try {
+					data.ChunkStream.Write (buffer, pos, nread);
+				} catch (Exception e) {
+					throw GetReadException (WebExceptionStatus.ServerProtocolViolation, e, "ReadDoneAsync8");
+				}
+			}
+
+			data.stream = stream;
+
+			if (!expect_content) {
+				if (stream.ForceCompletion ())
+					NextRead ();
+			}
+
+			try {
+				data.Request.SetResponseData (data);
+			} catch (Exception e) {
+				Console.Error.WriteLine ("READ DONE EX: {0}", e);
+			}
+
+
+			throw new NotImplementedException ();
+		}
+
 		void InitReadAsync (WebOperation operation, WebConnectionData data, CancellationToken cancellationToken)
 		{
 			try {
@@ -778,7 +873,10 @@ namespace System.Net
 			}
 
 			var stream = new WebRequestStream (this, operation, data);
-			InitReadAsync (operation, data, cancellationToken);
+
+			var bos = new BufferOffsetSize (new byte[4096], false);
+			operation.Run (token => NewInitReadAsync (operation, data, bos, token));
+			// InitReadAsync (operation, data, cancellationToken);
 
 			try {
 				await stream.Initialize (cancellationToken);
@@ -796,6 +894,17 @@ namespace System.Net
 			if (error is WebException wex)
 				return wex;
 			return new WebException ($"Error: {status} ({error.Message})", status,
+						 WebExceptionInternalStatus.RequestFatal, error);
+		}
+
+		static WebException GetReadException (WebExceptionStatus status, Exception error, string where)
+		{
+			string msg = $"Error getting response stream ({where}): {status}";
+			if (error == null)
+				return new WebException ($"Error getting response stream ({where}): {status}", status);
+			if (error is WebException wex)
+				return wex;
+			return new WebException ($"Error getting response stream ({where}): {status} {error.Message}", status,
 						 WebExceptionInternalStatus.RequestFatal, error);
 		}
 

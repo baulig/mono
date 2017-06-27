@@ -59,13 +59,15 @@ namespace System.Net
 			cts = CancellationTokenSource.CreateLinkedTokenSource (cancellationToken);
 			requestTask = new TaskCompletionSource<(WebConnectionData data, WebRequestStream stream)> ();
 			responseDataTask = new TaskCompletionSource<WebConnectionData> ();
-			requestWrittenTask = new TaskCompletionSource<WebRequestStream> (); 
+			requestWrittenTask = new TaskCompletionSource<WebRequestStream> ();
+			initReadTask = new TaskCompletionSource<WebResponseStream> ();
 		}
 
 		CancellationTokenSource cts;
 		TaskCompletionSource<(WebConnectionData data, WebRequestStream stream)> requestTask;
 		TaskCompletionSource<WebConnectionData> responseDataTask;
 		TaskCompletionSource<WebRequestStream> requestWrittenTask;
+		TaskCompletionSource<WebResponseStream> initReadTask;
 		WebRequestStream writeStream;
 		ExceptionDispatchInfo disposedInfo;
 		ExceptionDispatchInfo closedInfo;
@@ -93,9 +95,7 @@ namespace System.Net
 			if (!disposed)
 				return;
 			cts?.Cancel ();
-			requestTask.TrySetCanceled ();
-			responseDataTask.TrySetCanceled ();
-			requestWrittenTask.TrySetCanceled ();
+			SetCanceled ();
 			Close (); 
 		}
 
@@ -113,9 +113,25 @@ namespace System.Net
 			}
 		}
 
-		public void SetError (Exception error)
+		internal void SetResponseError (Exception error)
 		{
 			responseDataTask.TrySetException (error);
+		}
+
+		void SetCanceled ()
+		{
+			requestTask.TrySetCanceled ();
+			responseDataTask.TrySetCanceled ();
+			requestWrittenTask.TrySetCanceled ();
+			initReadTask.TrySetCanceled ();
+		}
+
+		void SetError (Exception error)
+		{
+			requestTask.TrySetException (error);
+			responseDataTask.TrySetException (error);
+			requestWrittenTask.TrySetException (error);
+			initReadTask.TrySetException (error);
 		}
 
 		(ExceptionDispatchInfo, bool) SetDisposed (ref ExceptionDispatchInfo field)
@@ -191,33 +207,56 @@ namespace System.Net
 		{
 			try {
 				if (Aborted) {
-					requestTask.TrySetCanceled ();
+					SetCanceled ();
 					return;
 				}
 				var (data, stream, error) = await func (cts.Token).ConfigureAwait (false);
 				if (data == null || Aborted) {
-					requestTask.TrySetCanceled ();
-					responseDataTask.TrySetCanceled ();
+					SetCanceled ();
 					return;
 				}
 				if (error != null) {
-					requestTask.TrySetException (error);
-					responseDataTask.TrySetException (error);
+					SetError (error);
 					return;
 				}
 
 				writeStream = stream;
 				requestTask.TrySetResult ((data, stream));
 			} catch (OperationCanceledException) {
-				requestTask.TrySetCanceled ();
+				SetCanceled ();
 			} catch (Exception e) {
-				requestTask.TrySetException (e);
+				SetError (e);
 			} finally {
 				cts.Dispose ();
 				cts = null;
 			}
 		}
 
+		internal async void Run (Func<CancellationToken, Task<(WebResponseStream, Exception)>> func)
+		{
+			try {
+				if (Aborted) {
+					SetCanceled ();
+					return;
+				}
+				var (stream, error) = await func (cts.Token).ConfigureAwait (false);
+				if (stream == null || Aborted) {
+					SetCanceled ();
+					return;
+				}
+				if (error != null) {
+					SetError (error);
+					return;
+				}
+
+				initReadTask.TrySetResult (stream);
+			} catch (OperationCanceledException) {
+				SetCanceled ();
+			} catch (Exception e) {
+				SetError (e);
+			}
+		}
+		                         
 		internal void CompleteRequestWritten (WebRequestStream stream, Exception error = null)
 		{
 			WebConnection.Debug ($"WO COMPLETE REQUEST WRITTEN: {ID} {error != null}");

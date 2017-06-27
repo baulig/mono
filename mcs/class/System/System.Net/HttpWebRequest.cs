@@ -1484,7 +1484,7 @@ namespace System.Net
 				}
 				if (operation != null) {
 					haveResponse = true;
-					operation.SetError (wexc);
+					operation.SetResponseError (wexc);
 				}
 			}
 		}
