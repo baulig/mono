@@ -134,8 +134,7 @@ namespace System.Net
 			return false;
 		}
 
-		async Task<(WebExceptionStatus status, Socket socket, Exception error)> Connect (
-			WebOperation operation, WebConnectionData data, CancellationToken cancellationToken)
+		async Task<Socket> Connect (WebOperation operation, WebConnectionData data, CancellationToken cancellationToken)
 		{
 			IPHostEntry hostEntry = sPoint.HostEntry;
 
@@ -145,23 +144,22 @@ namespace System.Net
 					hostEntry = sPoint.HostEntry;
 					if (hostEntry == null) {
 #endif
-				return (sPoint.UsesProxy ? WebExceptionStatus.ProxyNameResolutionFailure :
-					WebExceptionStatus.NameResolutionFailure, null, null);
+				throw GetException (sPoint.UsesProxy ? WebExceptionStatus.ProxyNameResolutionFailure :
+				                    WebExceptionStatus.NameResolutionFailure, null);
 #if MONOTOUCH && !MONOTOUCH_TV && !MONOTOUCH_WATCH
 					}
 #endif
 			}
 
 			foreach (IPAddress address in hostEntry.AddressList) {
-				if (operation.Aborted)
-					return (WebExceptionStatus.RequestCanceled, null, null);
+				operation.ThrowIfDisposed (cancellationToken);
 
 				Socket socket;
 				try {
 					socket = new Socket (address.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
 				} catch (Exception se) {
 					// The Socket ctor can throw if we run out of FD's
-					return (WebExceptionStatus.ConnectFailure, null, se);
+					throw GetException (WebExceptionStatus.ConnectFailure, se);
 				}
 				IPEndPoint remote = new IPEndPoint (address, sPoint.Address.Port);
 				socket.NoDelay = !sPoint.UseNagleAlgorithm;
@@ -177,33 +175,24 @@ namespace System.Net
 					continue;
 				} else {
 					try {
-						if (operation.Aborted)
-							return (WebExceptionStatus.RequestCanceled, null, null);
+						operation.ThrowIfDisposed (cancellationToken);
 						await socket.ConnectAsync (remote).ConfigureAwait (false);
-					} catch (ThreadAbortException) {
-						// program exiting...
-						Socket s = socket;
-						socket = null;
-						if (s != null)
-							s.Close ();
-						return (WebExceptionStatus.RequestCanceled, null, null);
 					} catch (ObjectDisposedException) {
-						// socket closed from another thread
-						return (WebExceptionStatus.RequestCanceled, null, null);
+						throw;
 					} catch (Exception exc) {
 						Socket s = socket;
 						socket = null;
 						if (s != null)
 							s.Close ();
-						return (WebExceptionStatus.ConnectFailure, null, exc);
+						throw GetException (WebExceptionStatus.ConnectFailure, exc);
 					}
 				}
 
 				if (socket != null)
-					return (WebExceptionStatus.Success, socket, null);
+					return socket;
 			}
 
-			return (WebExceptionStatus.ConnectFailure, null, null);
+			throw GetException (WebExceptionStatus.ConnectFailure, null);
 		}
 
 		async Task<(bool, byte[])> CreateTunnel (WebConnectionData data, HttpWebRequest request, Uri connectUri,
@@ -669,17 +658,15 @@ namespace System.Net
 			if (reused) {
 				data.ReuseConnection (oldData);
 			} else {
-				var connectResult = await Connect (operation, data, cancellationToken).ConfigureAwait (false);
-				Debug ($"WC INIT CONNECTION #2: {ID} {operation.ID} {data.ID} - {connectResult.status}");
-				if (operation.Aborted)
-					return (null, null);
-
-				if (connectResult.status != WebExceptionStatus.Success) {
-					Close (true);
-					throw GetException (connectResult.status, connectResult.error);
+				try {
+					data.Socket = await Connect (operation, data, cancellationToken).ConfigureAwait (false);
+					Debug ($"WC INIT CONNECTION #2: {ID} {operation.ID} {data.ID}");
+				} catch (Exception ex) {
+					Debug ($"WC INIT CONNECTION #2 FAILED: {ID} {operation.ID} {data.ID} - {ex.Message}");
+					if (!operation.Aborted)
+						Close (true);
+					throw;
 				}
-
-				data.Socket = connectResult.socket;
 			}
 
 			var streamResult = await CreateStream (data, reused, cancellationToken).ConfigureAwait (false);
