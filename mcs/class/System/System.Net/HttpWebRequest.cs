@@ -855,7 +855,7 @@ namespace System.Net
 					redirects = 0;
 				servicePoint = GetServicePoint ();
 				var connection = servicePoint.GetConnection (this, connectionGroup);
-				operation.SendRequest (connection);
+				operation.SendRequest (servicePoint, connection);
 				return operation;
 			}
 		}
@@ -1467,7 +1467,7 @@ namespace System.Net
 			var isChallenge = auth_state.NtlmAuthState == NtlmAuthState.Challenge || proxy_auth_state.NtlmAuthState == NtlmAuthState.Challenge;
 
 			var operation = new WebOperation (this, writeBuffer, isChallenge, cancellationToken);
-			data.Connection.PriorityRequest = operation;
+			data.Operation.SetPriorityRequest (operation);
 			var creds = (!isProxy || proxy == null) ? credentials : proxy.Credentials;
 			if (creds != null) {
 				data.Connection.NtlmCredential = creds.GetCredential (requestUri, "NTLM");

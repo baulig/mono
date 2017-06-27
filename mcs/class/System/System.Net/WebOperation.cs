@@ -40,6 +40,11 @@ namespace System.Net
 			get;
 		}
 
+		public ServicePoint ServicePoint {
+			get;
+			private set;
+		}
+
 		public BufferOffsetSize WriteBuffer {
 			get;
 		}
@@ -73,6 +78,8 @@ namespace System.Net
 		WebResponseStream responseStream;
 		ExceptionDispatchInfo disposedInfo;
 		ExceptionDispatchInfo closedInfo;
+		WebOperation priorityRequest;
+		volatile bool finishedReading;
 		int requestSent;
 
 		public bool Aborted {
@@ -98,7 +105,7 @@ namespace System.Net
 				return;
 			cts?.Cancel ();
 			SetCanceled ();
-			Close (); 
+			Close ();
 		}
 
 		public void Close ()
@@ -120,6 +127,14 @@ namespace System.Net
 					data.Close ();
 				} catch { }
 			}
+		}
+
+		internal void SetPriorityRequest (WebOperation operation)
+		{
+			if (Interlocked.CompareExchange (ref priorityRequest, operation, null) != null)
+				throw new InvalidOperationException ("Invalid nested request.");
+			if (finishedReading)
+				throw new InvalidOperationException ("Request already finished!");
 		}
 
 		void SetCanceled ()
@@ -174,10 +189,12 @@ namespace System.Net
 			exception.Throw ();
 		}
 
-		public void SendRequest (WebConnection connection)
+		public void SendRequest (ServicePoint servicePoint, WebConnection connection)
 		{
 			if (Interlocked.CompareExchange (ref requestSent, 1, 0) != 0)
 				throw new InvalidOperationException ("Invalid nested call.");
+			ServicePoint = servicePoint;
+
 			cts.Token.Register (() => {
 				SetDisposed (ref disposedInfo);
 				connection.Abort (this);
@@ -211,7 +228,10 @@ namespace System.Net
 		internal async void Run (WebConnection connection)
 		{
 			try {
+				FinishReading (connection);
+
 				ThrowIfClosedOrDisposed ();
+
 				var (data, requestStream) = await connection.InitConnection (this, cts.Token).ConfigureAwait (false);
 				if (data == null || Aborted) {
 					SetCanceled ();
@@ -241,6 +261,70 @@ namespace System.Net
 				// cts.Dispose ();
 				// cts = null;
 			}
+		}
+
+		async void FinishReading (WebConnection connection)
+		{
+			bool ok = false;
+			Exception error = null;
+
+			try {
+				ok = await completeResponseReadTask.Task.ConfigureAwait (false);
+			} catch (Exception e) {
+				error = e;
+			}
+
+			finishedReading = true;
+			var data = Interlocked.Exchange (ref connectionData, null);
+			var next = Interlocked.Exchange (ref priorityRequest, null);
+
+			WebConnection.Debug ($"WO FINISH READING: {ID} {ok} {error != null} {data != null} {next != null}");
+
+			Request.FinishedReading = true;
+			string header = ServicePoint.UsesProxy ? "Proxy-Connection" : "Connection";
+			string cncHeader = null;
+			bool keepAlive = false;
+
+			if (ok && data != null) {
+				cncHeader = data.Headers != null ? data.Headers[header] : null;
+				keepAlive = (data.Version == HttpVersion.Version11 && Request.KeepAlive);
+				if (data.ProxyVersion != null && data.ProxyVersion != HttpVersion.Version11)
+					keepAlive = false;
+				if (cncHeader != null) {
+					cncHeader = cncHeader.ToLower ();
+					keepAlive = (Request.KeepAlive && cncHeader.IndexOf ("keep-alive", StringComparison.Ordinal) != -1);
+					if (cncHeader.IndexOf ("close", StringComparison.Ordinal) != -1)
+						keepAlive = false;
+				}
+				if (data.Socket == null || !data.Socket.Connected)
+					keepAlive = false;
+			}
+
+			WebConnection.Debug ($"WO FINISH READING #1: {ID} {data != null} {keepAlive}");
+
+			if (!keepAlive) {
+				if (data != null) {
+					try {
+						data.Close ();
+					} catch { }
+					data = null;
+				}
+				connection.Close ();
+			}
+
+			if (next != null && !next.Aborted) {
+				next.Run (connection);
+				return;
+			}
+
+#if FIXME
+			state.SetIdle ();
+			var operation = Interlocked.Exchange (ref priority_request, null);
+			if (operation != null && !operation.Aborted)
+				SendRequest (operation);
+			else
+				SendNext ();
+#endif
 		}
 
 		internal void CompleteRequestWritten (WebRequestStream stream, Exception error = null)

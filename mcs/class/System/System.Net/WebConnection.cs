@@ -727,6 +727,7 @@ namespace System.Net
 
 		internal void NextRead ()
 		{
+			return;
 			lock (this) {
 				Debug ($"WC NEXT READ: {ID}");
 				if (Data.Request != null)
@@ -819,6 +820,18 @@ namespace System.Net
 		internal void CloseError ()
 		{
 			Close (true);
+		}
+
+		internal void Close ()
+		{
+			lock (this) {
+				if (ntlm_authenticated)
+					ResetNtlm ();
+				currentData = new WebConnectionData ();
+
+				connect_request = null;
+				connect_ntlm_auth_state = NtlmAuthState.None;
+			}
 		}
 
 		internal void Close (bool sendNext)
