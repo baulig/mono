@@ -419,7 +419,7 @@ namespace System.Net
 			return (statusCode >= 200 && statusCode != 204 && statusCode != 304);
 		}
 
-		async Task<WebResponseStream> InitReadAsync (
+		internal async Task<WebResponseStream> InitReadAsync (
 			WebOperation operation, WebConnectionData data, CancellationToken cancellationToken)
 		{
 			Debug ($"WC INIT READ ASYNC: {ID} {operation.ID}");
@@ -633,7 +633,7 @@ namespace System.Net
 			throw GetReadException (WebExceptionStatus.ServerProtocolViolation, null, "GetResponse");
 		}
 
-		async Task<(WebConnectionData, WebRequestStream)> InitConnection (
+		internal async Task<(WebConnectionData, WebRequestStream)> InitConnection (
 			WebOperation operation, CancellationToken cancellationToken)
 		{
 			Debug ($"WC INIT CONNECTION: {ID} {operation.Request.ID} {operation.ID}");
@@ -692,15 +692,6 @@ namespace System.Net
 			}
 
 			var stream = new WebRequestStream (this, operation, data);
-
-			try {
-				await stream.Initialize (cancellationToken);
-			} catch (Exception ex) {
-				throw GetException (WebExceptionStatus.SendFailure, ex);
-			}
-
-			operation.Run (token => InitReadAsync (operation, data, token));
-
 			return (data, stream);
 		}
 
@@ -739,7 +730,7 @@ namespace System.Net
 					status = WebExceptionStatus.Success;
 					try {
 						Debug ($"WC SEND REQUEST #1: {ID} {operation.ID}");
-						operation.Run (token => InitConnection (operation, token));
+						operation.Run (this);
 					} catch (Exception ex) {
 						Debug ($"WC SEND REQUEST EX: {ID} {operation.ID} - {ex}");
 						throw;

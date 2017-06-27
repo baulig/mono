@@ -66,7 +66,9 @@ namespace System.Net
 		TaskCompletionSource<(WebConnectionData data, WebRequestStream stream)> requestTask;
 		TaskCompletionSource<WebRequestStream> requestWrittenTask;
 		TaskCompletionSource<WebResponseStream> responseTask;
+		WebConnectionData connectionData;
 		WebRequestStream writeStream;
+		WebResponseStream responseStream;
 		ExceptionDispatchInfo disposedInfo;
 		ExceptionDispatchInfo closedInfo;
 		int requestSent;
@@ -103,11 +105,18 @@ namespace System.Net
 			if (!closed)
 				return;
 
-			if (writeStream != null) {
+			var stream = Interlocked.Exchange (ref writeStream, null);
+			if (stream != null) {
 				try {
-					writeStream.Close ();
+					stream.Close ();
 				} catch { }
-				writeStream = null;
+			}
+
+			var data = Interlocked.Exchange (ref connectionData, null);
+			if (data != null) {
+				try {
+					data.Close ();
+				} catch { }
 			}
 		}
 
@@ -197,52 +206,41 @@ namespace System.Net
 			return responseTask.Task;
 		}
 
-		internal async void Run (Func<CancellationToken, Task<(WebConnectionData, WebRequestStream)>> func)
+		internal async void Run (WebConnection connection)
 		{
 			try {
-				if (Aborted) {
-					SetCanceled ();
-					return;
-				}
-				var (data, stream) = await func (cts.Token).ConfigureAwait (false);
+				ThrowIfClosedOrDisposed ();
+				var (data, requestStream) = await connection.InitConnection (this, cts.Token).ConfigureAwait (false);
 				if (data == null || Aborted) {
 					SetCanceled ();
 					return;
 				}
 
-				writeStream = stream;
-				requestTask.TrySetResult ((data, stream));
-			} catch (OperationCanceledException) {
-				SetCanceled ();
-			} catch (Exception e) {
-				SetError (e);
-			} finally {
-				cts.Dispose ();
-				cts = null;
-			}
-		}
+				writeStream = requestStream;
+				connectionData = data;
 
-		internal async void Run (Func<CancellationToken, Task<WebResponseStream>> func)
-		{
-			try {
-				if (Aborted) {
-					SetCanceled ();
-					return;
-				}
-				var stream = await func (cts.Token).ConfigureAwait (false);
-				if (stream == null || Aborted) {
-					SetCanceled ();
-					return;
-				}
+				ThrowIfClosedOrDisposed ();
+
+				await requestStream.Initialize (cts.Token).ConfigureAwait (false);
+
+				ThrowIfClosedOrDisposed ();
+
+				requestTask.TrySetResult ((data, requestStream));
+
+				var stream = await connection.InitReadAsync (this, data, cts.Token).ConfigureAwait (false);
+				responseStream = stream;
 
 				responseTask.TrySetResult (stream);
 			} catch (OperationCanceledException) {
 				SetCanceled ();
 			} catch (Exception e) {
 				SetError (e);
+			} finally {
+				// cts.Dispose ();
+				// cts = null;
 			}
 		}
-		                         
+
 		internal void CompleteRequestWritten (WebRequestStream stream, Exception error = null)
 		{
 			WebConnection.Debug ($"WO COMPLETE REQUEST WRITTEN: {ID} {error != null}");
