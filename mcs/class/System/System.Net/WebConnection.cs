@@ -468,48 +468,54 @@ namespace System.Net
 		}
 
 		async Task<(WebResponseStream, Exception)> NewInitReadAsync (
-			WebOperation operation, WebConnectionData data, BufferOffsetSize buffer, CancellationToken cancellationToken)
+			WebOperation operation, WebConnectionData data, CancellationToken cancellationToken)
 		{
 			int requestId = ++nextRequestID;
 			Debug ($"WC INIT READ ASYNC: {ID} {data.ID} {requestId}");
-			operation.ThrowIfClosedOrDisposed (cancellationToken);
 
-			var nread = await data.NetworkStream.ReadAsync (
-				buffer.Buffer, buffer.Offset, buffer.Size, cancellationToken).ConfigureAwait (false);
+			var buffer = new BufferOffsetSize (new byte[4096], false);
 
-			if (nread == 0)
-				throw GetReadException (WebExceptionStatus.ReceiveFailure, null, "ReadDoneAsync2");
+			while (true) {
+				operation.ThrowIfClosedOrDisposed (cancellationToken);
 
-			if (nread < 0)
-				throw GetReadException (WebExceptionStatus.ServerProtocolViolation, null, "ReadDoneAsync3");
+				var nread = await data.NetworkStream.ReadAsync (
+					buffer.Buffer, buffer.Offset, buffer.Size, cancellationToken).ConfigureAwait (false);
 
-			int pos = -1;
-			nread += position;
-			if (data.ReadState == ReadState.None) {
-				Exception exc = null;
-				try {
-					pos = GetResponse (data, sPoint, buffer, nread);
-				} catch (Exception e) {
-					exc = e;
+				if (nread == 0)
+					throw GetReadException (WebExceptionStatus.ReceiveFailure, null, "ReadDoneAsync2");
+
+				if (nread < 0)
+					throw GetReadException (WebExceptionStatus.ServerProtocolViolation, null, "ReadDoneAsync3");
+
+				int pos = -1;
+				nread += buffer.Offset;
+				if (data.ReadState == ReadState.None) {
+					Exception exc = null;
+					try {
+						pos = GetResponse (data, sPoint, buffer.Buffer, nread);
+					} catch (Exception e) {
+						exc = e;
+					}
+
+					if (exc != null || pos == -1)
+						throw GetReadException (WebExceptionStatus.ServerProtocolViolation, exc, "ReadDoneAsync4");
 				}
 
-				if (exc != null || pos == -1)
-					throw GetReadException (WebExceptionStatus.ServerProtocolViolation, exc, "ReadDoneAsync4");
-			}
+				if (data.ReadState == ReadState.Aborted)
+					throw GetReadException (WebExceptionStatus.RequestCanceled, null, "ReadDoneAsync5");
 
-			if (data.ReadState == ReadState.Aborted)
-				throw GetReadException (WebExceptionStatus.RequestCanceled, null, "ReadDoneAsync5");
+				if (data.ReadState == ReadState.Content) {
+					buffer.Size = buffer.Offset + nread;
+					buffer.Offset = pos;
+					break;
+				}
 
-			if (data.ReadState != ReadState.Content) {
 				int est = nread * 2;
-				int max = (est < buffer.Length) ? buffer.Length : est;
+				int max = (est < buffer.Size) ? buffer.Size : est;
 				byte[] newBuffer = new byte[max];
-				Buffer.BlockCopy (buffer, 0, newBuffer, 0, nread);
-				buffer = newBuffer;
-				position = nread;
+				Buffer.BlockCopy (buffer.Buffer, buffer.Offset, newBuffer, 0, nread);
+				buffer = new BufferOffsetSize (newBuffer, nread, newBuffer.Length - nread, false);
 				data.ReadState = ReadState.None;
-				InitReadAsync (operation, data, cancellationToken);
-				return;
 			}
 
 			position = 0;
@@ -522,9 +528,9 @@ namespace System.Net
 
 			data.ChunkedRead = (tencoding != null && tencoding.IndexOf ("chunked", StringComparison.OrdinalIgnoreCase) != -1);
 			if (!data.ChunkedRead) {
-				stream.ReadBuffer = buffer;
-				stream.ReadBufferOffset = pos;
-				stream.ReadBufferSize = nread;
+				stream.ReadBuffer = buffer.Buffer;
+				stream.ReadBufferOffset = buffer.Offset;
+				stream.ReadBufferSize = buffer.Size;
 				try {
 					await stream.CheckResponseInBuffer (cancellationToken).ConfigureAwait (false);
 				} catch (Exception e) {
@@ -532,14 +538,14 @@ namespace System.Net
 				}
 			} else if (data.ChunkStream == null) {
 				try {
-					data.ChunkStream = new MonoChunkStream (buffer, pos, nread, data.Headers);
+					data.ChunkStream = new MonoChunkStream (buffer.Buffer, buffer.Offset, buffer.Size, data.Headers);
 				} catch (Exception e) {
 					throw GetReadException (WebExceptionStatus.ServerProtocolViolation, e, "ReadDoneAsync7");
 				}
 			} else {
 				data.ChunkStream.ResetBuffer ();
 				try {
-					data.ChunkStream.Write (buffer, pos, nread);
+					data.ChunkStream.Write (buffer.Buffer, buffer.Offset, buffer.Size);
 				} catch (Exception e) {
 					throw GetReadException (WebExceptionStatus.ServerProtocolViolation, e, "ReadDoneAsync8");
 				}
@@ -874,8 +880,7 @@ namespace System.Net
 
 			var stream = new WebRequestStream (this, operation, data);
 
-			var bos = new BufferOffsetSize (new byte[4096], false);
-			operation.Run (token => NewInitReadAsync (operation, data, bos, token));
+			operation.Run (token => NewInitReadAsync (operation, data, token));
 			// InitReadAsync (operation, data, cancellationToken);
 
 			try {
