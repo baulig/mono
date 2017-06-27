@@ -43,7 +43,6 @@ namespace System.Net
 		public WebHeaderCollection Headers;
 		public Version Version;
 		public Version ProxyVersion;
-		public Stream stream;
 		public string[] Challenge;
 		public bool ChunkedRead;
 		public MonoChunkStream ChunkStream;
@@ -68,7 +67,6 @@ namespace System.Net
 		public void ReuseConnection (WebConnectionData old)
 		{
 			lock (this) {
-				stream = Interlocked.Exchange (ref old.stream, null);
 				socket = Interlocked.Exchange (ref old.socket, null);
 				networkStream = Interlocked.Exchange (ref old.networkStream, null);
 				tlsStream = Interlocked.Exchange (ref old.tlsStream, null);

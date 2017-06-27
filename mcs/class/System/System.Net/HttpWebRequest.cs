@@ -1002,6 +1002,7 @@ namespace System.Net
 				WebConnectionData data = null;
 				WebException throwMe = null;
 				HttpWebResponse response = null;
+				WebResponseStream stream = null;
 				bool redirect = false;
 				bool mustReadAll = false;
 				WebOperation ntlm = null;
@@ -1031,11 +1032,11 @@ namespace System.Net
 						throw new WebException ("The request timed out", WebExceptionStatus.Timeout);
 					}
 
-					var responseStream = responseStreamTask.Result;
-					data = responseStream.Data;
+					stream = responseStreamTask.Result;
+					data = stream.Data;
 
 					(response, redirect, mustReadAll, writeBuffer, ntlm) = await GetResponseFromData (
-						responseStream, cancellationToken).ConfigureAwait (false);
+						stream, cancellationToken).ConfigureAwait (false);
 				} catch (Exception e) {
 					FlattenException (ref e);
 					if (Aborted || e is OperationCanceledException)
@@ -1069,7 +1070,7 @@ namespace System.Net
 
 				try {
 					if (mustReadAll)
-						await response.ReadAllAsync (cancellationToken).ConfigureAwait (false);
+						await stream.ReadAllAsync (cancellationToken).ConfigureAwait (false);
 					response.Close ();
 				} catch (OperationCanceledException) {
 					throwMe = new WebException ("Request canceled.", WebExceptionStatus.RequestCanceled);
@@ -1082,7 +1083,7 @@ namespace System.Net
 					WebConnection.Debug ($"HWR GET RESPONSE LOOP #2: {ID} {writeBuffer != null} {ntlm != null} - {throwMe != null}");
 					if (throwMe != null) {
 						haveResponse = true;
-						data?.stream?.Close ();
+						stream?.Close ();
 						myTcs.TrySetException (throwMe);
 						throw throwMe;
 					}
@@ -1104,7 +1105,7 @@ namespace System.Net
 		 	*/
 
 			var data = stream.Data;
-			var response = new HttpWebResponse (actualUri, method, data, cookieContainer);
+			var response = new HttpWebResponse (actualUri, method, data, stream, cookieContainer);
 
 			WebException throwMe = null;
 			bool redirect = false;

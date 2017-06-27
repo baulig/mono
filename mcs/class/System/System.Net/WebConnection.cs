@@ -508,8 +508,6 @@ namespace System.Net
 				}
 			}
 
-			data.stream = stream;
-
 			if (!expect_content) {
 				if (stream.ForceCompletion ())
 					NextRead ();
@@ -683,7 +681,7 @@ namespace System.Net
 					if (data.Headers == null)
 						data.Headers = new WebHeaderCollection ();
 
-					var webResponse = new HttpWebResponse (sPoint.Address, "CONNECT", data, null);
+					var webResponse = new HttpWebResponse (sPoint.Address, "CONNECT", data, null, null);
 					streamResult.error = new WebException (
 						data.StatusCode == 407 ? "(407) Proxy Authentication Required" : "(401) Unauthorized",
 						null, streamResult.status, webResponse);

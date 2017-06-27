@@ -63,15 +63,15 @@ namespace System.Net
 		
 		// Constructors
 		
-		internal HttpWebResponse (Uri uri, string method, WebConnectionData data, CookieContainer container)
+		internal HttpWebResponse (Uri uri, string method, WebConnectionData data, WebResponseStream stream, CookieContainer container)
 		{
 			this.uri = uri;
 			this.method = method;
+			this.stream = stream;
 			webHeaders = data.Headers;
 			version = data.Version;
 			statusCode = (HttpStatusCode) data.StatusCode;
 			statusDescription = data.StatusDescription;
-			stream = data.stream;
 			contentLength = -1;
 
 			try {
@@ -89,11 +89,11 @@ namespace System.Net
 
 			string content_encoding = webHeaders ["Content-Encoding"];
 			if (content_encoding == "gzip" && (data.Request.AutomaticDecompression & DecompressionMethods.GZip) != 0) {
-				stream = new GZipStream (stream, CompressionMode.Decompress);
+				this.stream = new GZipStream (stream, CompressionMode.Decompress);
 				webHeaders.Remove (HttpRequestHeader.ContentEncoding);
 			}
 			else if (content_encoding == "deflate" && (data.Request.AutomaticDecompression & DecompressionMethods.Deflate) != 0) {
-				stream = new DeflateStream (stream, CompressionMode.Decompress);
+				this.stream = new DeflateStream (stream, CompressionMode.Decompress);
 				webHeaders.Remove (HttpRequestHeader.ContentEncoding);
 			}
 		}
@@ -263,17 +263,6 @@ namespace System.Net
 			CheckDisposed ();
 			string value = webHeaders [headerName];
 			return (value != null) ? value : "";
-		}
-
-		internal async Task ReadAllAsync (CancellationToken cancellationToken)
-		{
-			var wrs = stream as WebResponseStream;
-			if (wrs == null)
-				return;
-				
-			try {
-				await wrs.ReadAllAsync (cancellationToken).ConfigureAwait (false);
-			} catch {}
 		}
 
 		public override Stream GetResponseStream ()
