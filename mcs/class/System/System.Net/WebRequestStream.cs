@@ -190,7 +190,7 @@ namespace System.Net
 		{
 			Operation.ThrowIfClosedOrDisposed (cancellationToken);
 
-			WebConnection.Debug ($"WRS INIT: {Operation.ID} {Operation.WriteBuffer != null}");
+			WebConnection.Debug ($"WRQ INIT: {Operation.ID} {Operation.WriteBuffer != null}");
 
 			if (Operation.WriteBuffer != null) {
 				if (Operation.IsNtlmChallenge)
@@ -236,7 +236,7 @@ namespace System.Net
 			headersSent = true;
 			headers = Request.GetRequestHeaders ();
 
-			WebConnection.Debug ($"WRS SET HEADERS: {Operation.ID} {Request.ContentLength}");
+			WebConnection.Debug ($"WRQ SET HEADERS: {Operation.ID} {Request.ContentLength}");
 
 			try {
 				await Data.NetworkStream.WriteAsync (headers, 0, headers.Length, cancellationToken).ConfigureAwait (false);
@@ -254,7 +254,7 @@ namespace System.Net
 		{
 			Operation.ThrowIfClosedOrDisposed (cancellationToken);
 
-			WebConnection.Debug ($"WRS WRITE REQUEST: {Operation.ID} {requestWritten} {sendChunked} {allowBuffering} {HasWriteBuffer}");
+			WebConnection.Debug ($"WRQ WRITE REQUEST: {Operation.ID} {requestWritten} {sendChunked} {allowBuffering} {HasWriteBuffer}");
 
 			if (requestWritten)
 				return;
@@ -273,7 +273,7 @@ namespace System.Net
 
 			await SetHeadersAsync (true, cancellationToken).ConfigureAwait (false);
 
-			WebConnection.Debug ($"WRS WRITE REQUEST #1: {Operation.ID} {Data.ID} {Data.StatusCode} {buffer != null}");
+			WebConnection.Debug ($"WRQ WRITE REQUEST #1: {Operation.ID} {Data.ID} {Data.StatusCode} {buffer != null}");
 
 			if (Data.StatusCode != 0 && Data.StatusCode != 100)
 				return;
