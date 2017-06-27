@@ -551,7 +551,7 @@ namespace System.Net
 
 			position = 0;
 
-			WebConnectionStream stream = new WebResponseStream (this, operation, data);
+			var stream = new WebResponseStream (this, operation, data);
 			bool expect_content = ExpectContent (data.StatusCode, data.Request.Method);
 			string tencoding = null;
 			if (expect_content)

@@ -267,12 +267,12 @@ namespace System.Net
 
 		internal async Task ReadAllAsync (CancellationToken cancellationToken)
 		{
-			WebConnectionStream wcs = stream as WebConnectionStream;
-			if (wcs == null)
+			var wrs = stream as WebResponseStream;
+			if (wrs == null)
 				return;
 				
 			try {
-				await wcs.ReadAllAsync (cancellationToken).ConfigureAwait (false);
+				await wrs.ReadAllAsync (cancellationToken).ConfigureAwait (false);
 			} catch {}
 		}
 

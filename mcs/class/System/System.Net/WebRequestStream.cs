@@ -16,6 +16,7 @@ namespace System.Net
 		bool allowBuffering;
 		bool sendChunked;
 		TaskCompletionSource<int> pendingWrite;
+		long totalWritten;
 		byte[] headers;
 		bool headersSent;
 
@@ -26,6 +27,12 @@ namespace System.Net
 			sendChunked = operation.Request.SendChunked && operation.WriteBuffer == null;
 			if (!sendChunked && allowBuffering && operation.WriteBuffer == null)
 				writeBuffer = new MemoryStream ();
+		}
+
+		public override long Length {
+			get {
+				throw new NotSupportedException ();
+			}
 		}
 
 		internal bool SendChunked {

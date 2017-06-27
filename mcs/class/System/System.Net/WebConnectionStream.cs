@@ -90,20 +90,9 @@ namespace System.Net
 		WebOperation operation;
 		WebConnectionData data;
 		HttpWebRequest request;
-		byte[] readBuffer;
-		int readBufferOffset;
-		int readBufferSize;
-		int stream_length; // -1 when CL not present
-		long contentLength;
-		long totalRead;
-		internal long totalWritten;
-		bool nextReadCalled;
 		protected bool closed;
 		bool disposed;
 		object locker = new object ();
-		TaskCompletionSource<int> readTcs;
-		int nestedRead;
-		bool read_eof;
 		int read_timeout;
 		int write_timeout;
 		internal bool IgnoreIOErrors;
@@ -123,19 +112,6 @@ namespace System.Net
 			read_timeout = request.ReadWriteTimeout;
 			write_timeout = read_timeout;
 			this.cnc = cnc;
-			string contentType = data.Headers["Transfer-Encoding"];
-			bool chunkedRead = (contentType != null && contentType.IndexOf ("chunked", StringComparison.OrdinalIgnoreCase) != -1);
-			string clength = data.Headers["Content-Length"];
-			if (!chunkedRead && !string.IsNullOrEmpty (clength)) {
-				if (!long.TryParse (clength, out contentLength))
-					contentLength = Int64.MaxValue;
-			} else {
-				contentLength = Int64.MaxValue;
-			}
-
-			// Negative numbers?
-			if (!Int32.TryParse (clength, out stream_length))
-				stream_length = -1;
 		}
 
 		public WebConnectionStream (WebConnection cnc, WebOperation operation, WebConnectionData data, HttpWebRequest request)
@@ -147,28 +123,6 @@ namespace System.Net
 			this.operation = operation;
 			this.data = data;
 			this.request = request;
-		}
-
-		bool CheckAuthHeader (string headerName)
-		{
-			var authHeader = data.Headers[headerName];
-			return (authHeader != null && authHeader.IndexOf ("NTLM", StringComparison.Ordinal) != -1);
-		}
-
-		bool IsNtlmAuth ()
-		{
-			bool isProxy = (request.Proxy != null && !request.Proxy.IsBypassed (request.Address));
-			if (isProxy && CheckAuthHeader ("Proxy-Authenticate"))
-				return true;
-			return CheckAuthHeader ("WWW-Authenticate");
-		}
-
-		internal async Task CheckResponseInBuffer (CancellationToken cancellationToken)
-		{
-			if (contentLength > 0 && (readBufferSize - readBufferOffset) >= contentLength) {
-				if (!IsNtlmAuth ())
-					await ReadAllAsync (cancellationToken).ConfigureAwait (false);
-			}
 		}
 
 		internal HttpWebRequest Request {
@@ -212,125 +166,6 @@ namespace System.Net
 			}
 		}
 
-		internal byte[] ReadBuffer {
-			set { readBuffer = value; }
-		}
-
-		internal int ReadBufferOffset {
-			set { readBufferOffset = value; }
-		}
-
-		internal int ReadBufferSize {
-			set { readBufferSize = value; }
-		}
-
-		internal bool ForceCompletion ()
-		{
-			if (!closed && !nextReadCalled) {
-				if (contentLength == Int64.MaxValue)
-					contentLength = 0;
-				nextReadCalled = true;
-				return true;
-			}
-			return false;
-		}
-
-		internal async Task ReadAllAsync (CancellationToken cancellationToken)
-		{
-			WebConnection.Debug ($"WCS READ ALL ASYNC: {cnc.ID}");
-			if (!isRead || read_eof || totalRead >= contentLength || nextReadCalled) {
-				if (isRead && !nextReadCalled) {
-					nextReadCalled = true;
-					cnc.NextRead ();
-				}
-				return;
-			}
-
-			var timeoutTask = Task.Delay (ReadTimeout);
-			var myReadTcs = new TaskCompletionSource<int> ();
-			while (true) {
-				/*
-				 * 'readTcs' is set by ReadAsync().
-				 */
-				cancellationToken.ThrowIfCancellationRequested ();
-				var oldReadTcs = Interlocked.CompareExchange (ref readTcs, myReadTcs, null);
-				if (oldReadTcs == null)
-					break;
-
-				// ReadAsync() is in progress.
-				var anyTask = await Task.WhenAny (oldReadTcs.Task, timeoutTask).ConfigureAwait (false);
-				if (anyTask == timeoutTask)
-					throw new WebException ("The operation has timed out.", WebExceptionStatus.Timeout);
-			}
-
-			WebConnection.Debug ($"WCS READ ALL ASYNC #1: {cnc.ID}");
-
-			cancellationToken.ThrowIfCancellationRequested ();
-
-			try {
-				if (totalRead >= contentLength)
-					return;
-
-				byte[] b = null;
-				int diff = readBufferSize - readBufferOffset;
-				int new_size;
-
-				if (contentLength == Int64.MaxValue) {
-					MemoryStream ms = new MemoryStream ();
-					byte[] buffer = null;
-					if (readBuffer != null && diff > 0) {
-						ms.Write (readBuffer, readBufferOffset, diff);
-						if (readBufferSize >= 8192)
-							buffer = readBuffer;
-					}
-
-					if (buffer == null)
-						buffer = new byte[8192];
-
-					int read;
-					while ((read = await cnc.ReadAsync (operation, data, buffer, 0, buffer.Length, cancellationToken)) != 0)
-						ms.Write (buffer, 0, read);
-
-					b = ms.GetBuffer ();
-					new_size = (int)ms.Length;
-					contentLength = new_size;
-				} else {
-					new_size = (int)(contentLength - totalRead);
-					b = new byte[new_size];
-					if (readBuffer != null && diff > 0) {
-						if (diff > new_size)
-							diff = new_size;
-
-						Buffer.BlockCopy (readBuffer, readBufferOffset, b, 0, diff);
-					}
-
-					int remaining = new_size - diff;
-					int r = -1;
-					while (remaining > 0 && r != 0) {
-						r = await cnc.ReadAsync (operation, data, b, diff, remaining, cancellationToken);
-						remaining -= r;
-						diff += r;
-					}
-				}
-
-				readBuffer = b;
-				readBufferOffset = 0;
-				readBufferSize = new_size;
-				totalRead = 0;
-				nextReadCalled = true;
-				myReadTcs.TrySetResult (new_size);
-			} catch (Exception ex) {
-				WebConnection.Debug ($"WCS READ ALL ASYNC EX: {cnc.ID} {ex.Message}");
-				myReadTcs.TrySetException (ex);
-				throw;
-			} finally {
-				WebConnection.Debug ($"WCS READ ALL #2: {cnc.ID}");
-				readTcs = null;
-			}
-
-			cnc.NextRead ();
-		}
-
 		public override int Read (byte[] buffer, int offset, int size)
 		{
 			WebConnection.Debug ($"WCS READ: {cnc.ID}");
@@ -339,119 +174,6 @@ namespace System.Net
 			} catch (Exception e) {
 				throw HttpWebRequest.FlattenException (e);
 			}
-		}
-
-		public override async Task<int> ReadAsync (byte[] buffer, int offset, int size, CancellationToken cancellationToken)
-		{
-			WebConnection.Debug ($"WCS READ ASYNC: {cnc.ID}");
-
-			cancellationToken.ThrowIfCancellationRequested ();
-
-			if (!isRead)
-				throw new NotSupportedException ("this stream does not allow reading");
-			if (buffer == null)
-				throw new ArgumentNullException ("buffer");
-
-			int length = buffer.Length;
-			if (offset < 0 || length < offset)
-				throw new ArgumentOutOfRangeException ("offset");
-			if (size < 0 || (length - offset) < size)
-				throw new ArgumentOutOfRangeException ("size");
-
-			if (Interlocked.CompareExchange (ref nestedRead, 1, 0) != 0)
-				throw new InvalidOperationException ("Invalid nested call.");
-
-			var myReadTcs = new TaskCompletionSource<int> ();
-			while (!cancellationToken.IsCancellationRequested) {
-				/*
-				 * 'readTcs' is set by ReadAllAsync().
-				 */
-				var oldReadTcs = Interlocked.CompareExchange (ref readTcs, myReadTcs, null);
-				WebConnection.Debug ($"WCS READ ASYNC #1: {cnc.ID} {oldReadTcs != null}");
-				if (oldReadTcs == null)
-					break;
-				await oldReadTcs.Task.ConfigureAwait (false);
-			}
-
-			WebConnection.Debug ($"WCS READ ASYNC #2: {cnc.ID} {totalRead} {contentLength}");
-
-			int oldBytes = 0, nbytes = 0;
-			Exception throwMe = null;
-
-			try {
-				(oldBytes, nbytes) = await ProcessRead (buffer, offset, size, cancellationToken).ConfigureAwait (false);
-			} catch (Exception e) {
-				throwMe = HttpWebRequest.FlattenException (e);
-			}
-
-			if (throwMe != null) {
-				lock (locker) {
-					myReadTcs.TrySetException (throwMe);
-					readTcs = null;
-					nestedRead = 0;
-				}
-
-				closed = true;
-				cnc.CloseError ();
-				throw throwMe;
-			}
-
-			if (nbytes < 0) {
-				nbytes = 0;
-				read_eof = true;
-			}
-
-			totalRead += nbytes;
-			if (nbytes == 0)
-				contentLength = totalRead;
-
-			lock (locker) {
-				readTcs.TrySetResult (oldBytes + nbytes);
-				readTcs = null;
-				nestedRead = 0;
-			}
-
-			if (totalRead >= contentLength && !nextReadCalled) {
-				WebConnection.Debug ($"WCS READ ASYNC - READ ALL: {cnc.ID} {oldBytes} {nbytes}");
-				await ReadAllAsync (cancellationToken).ConfigureAwait (false);
-				WebConnection.Debug ($"WCS READ ASYNC - READ ALL DONE: {cnc.ID} {oldBytes} {nbytes}");
-			}
-
-			return oldBytes + nbytes;
-		}
-
-		async Task<(int,int)> ProcessRead (byte[] buffer, int offset, int size, CancellationToken cancellationToken)
-		{
-			WebConnection.Debug ($"WCS PROCESS READ: {cnc.ID} {totalRead} {contentLength}");
-
-			cancellationToken.ThrowIfCancellationRequested ();
-			if (totalRead >= contentLength || cancellationToken.IsCancellationRequested)
-				return (0, -1);
-
-			int oldBytes = 0;
-			int remaining = readBufferSize - readBufferOffset;
-			if (remaining > 0) {
-				int copy = (remaining > size) ? size : remaining;
-				Buffer.BlockCopy (readBuffer, readBufferOffset, buffer, offset, copy);
-				readBufferOffset += copy;
-				offset += copy;
-				size -= copy;
-				totalRead += copy;
-				if (size == 0 || totalRead >= contentLength)
-					return (0, copy);
-				oldBytes = copy;
-			}
-
-			if (contentLength != Int64.MaxValue && contentLength - totalRead < size)
-				size = (int)(contentLength - totalRead);
-
-			WebConnection.Debug ($"WCS READ ASYNC #1: {cnc.ID} {oldBytes} {size} {read_eof}");
-
-			if (read_eof)
-				return (oldBytes, 0);
-
-			var ret = await cnc.ReadAsync (operation, data, buffer, offset, size, cancellationToken).ConfigureAwait (false);
-			return (oldBytes, ret);
 		}
 
 		public override IAsyncResult BeginRead (byte[] buffer, int offset, int size,
@@ -520,20 +242,6 @@ namespace System.Net
 		{
 			Close_internal (ref disposed);
 
-			if (isRead) {
-				if (!closed && !nextReadCalled) {
-					nextReadCalled = true;
-					if (readBufferSize - readBufferOffset == contentLength) {
-						cnc.NextRead ();
-					} else {
-						// If we have not read all the contents
-						closed = true;
-						cnc.CloseError ();
-					}
-				}
-				return;
-			}
-
 			disposed = true;
 		}
 
@@ -557,14 +265,6 @@ namespace System.Net
 
 		public override bool CanWrite {
 			get { return !disposed && !isRead; }
-		}
-
-		public override long Length {
-			get {
-				if (!isRead)
-					throw new NotSupportedException ();
-				return stream_length;
-			}
 		}
 
 		public override long Position {
