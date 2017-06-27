@@ -423,35 +423,6 @@ namespace System.Net
 			return (WebExceptionStatus.Success, true, null);
 		}
 
-		void HandleError (WebExceptionStatus st, Exception e, string where)
-		{
-			status = st;
-			lock (this) {
-				Debug ($"WC HANDLE ERROR: {ID} {st} {where} - {e}");
-
-				if (st == WebExceptionStatus.RequestCanceled)
-					currentData = new WebConnectionData ();
-			}
-
-			if (e == null) { // At least we now where it comes from
-				try {
-					throw new Exception (new System.Diagnostics.StackTrace ().ToString ());
-				} catch (Exception e2) {
-					e = e2;
-				}
-			}
-
-			HttpWebRequest req = null;
-			if (Data != null && Data.Request != null)
-				req = Data.Request;
-
-			Close (true);
-			if (req != null) {
-				req.FinishedReading = true;
-				req.SetResponseError (st, e, where);
-			}
-		}
-
 		static bool ExpectContent (int statusCode, string method)
 		{
 			if (method == "HEAD")
@@ -556,15 +527,6 @@ namespace System.Net
 			}
 
 			return stream;
-
-			try {
-				data.Request.SetResponseData (data);
-			} catch (Exception e) {
-				Console.Error.WriteLine ("READ DONE EX: {0}", e);
-			}
-
-
-			throw new NotImplementedException ();
 		}
 
 		static bool GetResponse (WebConnectionData data, ServicePoint sPoint, BufferOffsetSize buffer, ref int pos, ref ReadState state)
@@ -958,7 +920,6 @@ namespace System.Net
 					}
 
 					req.FinishedReading = true;
-					req.SetResponseError (WebExceptionStatus.RequestCanceled, null, "User aborted");
 					if (queue.Count > 0 && queue.Peek () == operation) {
 						queue.Dequeue ();
 					} else if (queue.Count > 0) {

@@ -58,16 +58,14 @@ namespace System.Net
 			IsNtlmChallenge = isNtlmChallenge;
 			cts = CancellationTokenSource.CreateLinkedTokenSource (cancellationToken);
 			requestTask = new TaskCompletionSource<(WebConnectionData data, WebRequestStream stream)> ();
-			responseDataTask = new TaskCompletionSource<WebConnectionData> ();
 			requestWrittenTask = new TaskCompletionSource<WebRequestStream> ();
-			initReadTask = new TaskCompletionSource<WebResponseStream> ();
+			responseTask = new TaskCompletionSource<WebResponseStream> ();
 		}
 
 		CancellationTokenSource cts;
 		TaskCompletionSource<(WebConnectionData data, WebRequestStream stream)> requestTask;
-		TaskCompletionSource<WebConnectionData> responseDataTask;
 		TaskCompletionSource<WebRequestStream> requestWrittenTask;
-		TaskCompletionSource<WebResponseStream> initReadTask;
+		TaskCompletionSource<WebResponseStream> responseTask;
 		WebRequestStream writeStream;
 		ExceptionDispatchInfo disposedInfo;
 		ExceptionDispatchInfo closedInfo;
@@ -113,25 +111,18 @@ namespace System.Net
 			}
 		}
 
-		internal void SetResponseError (Exception error)
-		{
-			responseDataTask.TrySetException (error);
-		}
-
 		void SetCanceled ()
 		{
 			requestTask.TrySetCanceled ();
-			responseDataTask.TrySetCanceled ();
 			requestWrittenTask.TrySetCanceled ();
-			initReadTask.TrySetCanceled ();
+			responseTask.TrySetCanceled ();
 		}
 
 		void SetError (Exception error)
 		{
 			requestTask.TrySetException (error);
-			responseDataTask.TrySetException (error);
 			requestWrittenTask.TrySetException (error);
-			initReadTask.TrySetException (error);
+			responseTask.TrySetException (error);
 		}
 
 		(ExceptionDispatchInfo, bool) SetDisposed (ref ExceptionDispatchInfo field)
@@ -201,12 +192,9 @@ namespace System.Net
 			}
 		}
 
-		[Obsolete ("KILL")]
-		public TaskCompletionSource<WebConnectionData> ResponseDataTask => responseDataTask;
-
 		public Task<WebResponseStream> GetResponseStream ()
 		{
-			return initReadTask.Task;
+			return responseTask.Task;
 		}
 
 		internal async void Run (Func<CancellationToken, Task<(WebConnectionData, WebRequestStream)>> func)
@@ -247,7 +235,7 @@ namespace System.Net
 					return;
 				}
 
-				initReadTask.TrySetResult (stream);
+				responseTask.TrySetResult (stream);
 			} catch (OperationCanceledException) {
 				SetCanceled ();
 			} catch (Exception e) {

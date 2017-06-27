@@ -1456,28 +1456,6 @@ namespace System.Net
 			return Encoding.UTF8.GetBytes (reqstr);
 		}
 
-		internal void SetResponseError (WebExceptionStatus status, Exception e, string where)
-		{
-			if (Aborted)
-				return;
-			lock (locker) {
-				string msg = String.Format ("Error getting response stream ({0}): {1}", where, status);
-				var operation = currentOperation;
-				WebConnection.Debug ($"HWR SET RESPONSE ERROR: {ID} {operation != null}");
-
-				WebException wexc;
-				if (e is WebException) {
-					wexc = (WebException)e;
-				} else {
-					wexc = new WebException (msg, e, status, null);
-				}
-				if (operation != null) {
-					haveResponse = true;
-					operation.SetResponseError (wexc);
-				}
-			}
-		}
-
 		WebOperation HandleNtlmAuth (WebConnectionData data, HttpWebResponse response,
 		                             BufferOffsetSize writeBuffer, CancellationToken cancellationToken)
 		{
@@ -1495,30 +1473,6 @@ namespace System.Net
 				data.Connection.UnsafeAuthenticatedConnectionSharing = unsafe_auth_blah;
 			}
 			return operation;
-		}
-
-		internal void SetResponseData (WebConnectionData data)
-		{
-			lock (locker) {
-				var operation = currentOperation;
-
-				if (operation == null) {
-					WebConnection.Debug ($"HWR SET RESPONSE DATA - NO TASK: {ID}");
-					throw new NotImplementedException ();
-				}
-
-				WebConnection.Debug ($"HWR SET RESPONSE DATA: {ID} {Aborted} {operation.ResponseDataTask.Task.Status} {webResponse != null}");
-
-				if (Aborted) {
-					if (data.stream != null)
-						data.stream.Close ();
-					operation.Abort ();
-					return;
-				}
-
-				operation.ResponseDataTask.TrySetResult (data);
-				return;
-			}
 		}
 
 		struct AuthorizationState
