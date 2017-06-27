@@ -459,7 +459,7 @@ namespace System.Net
 			return (statusCode >= 200 && statusCode != 204 && statusCode != 304);
 		}
 
-		async Task<(WebResponseStream, Exception)> InitReadAsync (
+		async Task<WebResponseStream> InitReadAsync (
 			WebOperation operation, WebConnectionData data, CancellationToken cancellationToken)
 		{
 			Debug ($"WC INIT READ ASYNC: {ID} {operation.ID}");
@@ -554,6 +554,8 @@ namespace System.Net
 				if (stream.ForceCompletion ())
 					NextRead ();
 			}
+
+			return stream;
 
 			try {
 				data.Request.SetResponseData (data);

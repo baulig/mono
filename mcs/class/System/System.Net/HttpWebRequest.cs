@@ -1023,22 +1023,19 @@ namespace System.Net
 					writeStream = writeStreamTask.Result;
 					await writeStream.WriteRequestAsync (cancellationToken).ConfigureAwait (false);
 
-					anyTask = await Task.WhenAny (timeoutTask, operation.ResponseDataTask.Task).ConfigureAwait (false);
+					var responseStreamTask = operation.GetResponseStream ();
+
+					anyTask = await Task.WhenAny (timeoutTask, responseStreamTask).ConfigureAwait (false);
 					if (anyTask == timeoutTask) {
 						Abort ();
 						throw new WebException ("The request timed out", WebExceptionStatus.Timeout);
 					}
-					data = operation.ResponseDataTask.Task.Result;
 
-					/*
-					 * WebConnection has either called SetResponseData() or SetResponseError().
-					*/
-
-					if (data == null)
-						throw new WebException ("Got WebConnectionData == null and no exception.", WebExceptionStatus.ProtocolError);
+					var responseStream = responseStreamTask.Result;
+					data = responseStream.Data;
 
 					(response, redirect, mustReadAll, writeBuffer, ntlm) = await GetResponseFromData (
-						data, cancellationToken).ConfigureAwait (false);
+						responseStream, cancellationToken).ConfigureAwait (false);
 				} catch (Exception e) {
 					FlattenException (ref e);
 					if (Aborted || e is OperationCanceledException)
@@ -1100,22 +1097,14 @@ namespace System.Net
 		}
 
 		async Task<(HttpWebResponse response, bool redirect, bool mustReadAll, BufferOffsetSize writeBuffer, WebOperation ntlm)>
-			GetResponseFromData (WebConnectionData data, CancellationToken cancellationToken)
+			GetResponseFromData (WebResponseStream stream, CancellationToken cancellationToken)
 		{
 			/*
 			 * WebConnection has either called SetResponseData() or SetResponseError().
 		 	*/
 
-			HttpWebResponse response;
-			try {
-				if (data == null)
-					throw new WebException ("Got WebConnectionData == null and no exception.", WebExceptionStatus.ProtocolError);
-
-				response = new HttpWebResponse (actualUri, method, data, cookieContainer);
-			} catch {
-				data.stream?.Close ();
-				throw;
-			}
+			var data = stream.Data;
+			var response = new HttpWebResponse (actualUri, method, data, cookieContainer);
 
 			WebException throwMe = null;
 			bool redirect = false;
@@ -1129,7 +1118,7 @@ namespace System.Net
 
 			if (throwMe != null) {
 				if (mustReadAll)
-					await response.ReadAllAsync (cancellationToken).ConfigureAwait (false);
+					await stream.ReadAllAsync (cancellationToken).ConfigureAwait (false);
 				throw throwMe;
 			}
 

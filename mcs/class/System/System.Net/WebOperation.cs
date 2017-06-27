@@ -201,7 +201,13 @@ namespace System.Net
 			}
 		}
 
+		[Obsolete ("KILL")]
 		public TaskCompletionSource<WebConnectionData> ResponseDataTask => responseDataTask;
+
+		public Task<WebResponseStream> GetResponseStream ()
+		{
+			return initReadTask.Task;
+		}
 
 		internal async void Run (Func<CancellationToken, Task<(WebConnectionData, WebRequestStream)>> func)
 		{
@@ -228,20 +234,16 @@ namespace System.Net
 			}
 		}
 
-		internal async void Run (Func<CancellationToken, Task<(WebResponseStream, Exception)>> func)
+		internal async void Run (Func<CancellationToken, Task<WebResponseStream>> func)
 		{
 			try {
 				if (Aborted) {
 					SetCanceled ();
 					return;
 				}
-				var (stream, error) = await func (cts.Token).ConfigureAwait (false);
+				var stream = await func (cts.Token).ConfigureAwait (false);
 				if (stream == null || Aborted) {
 					SetCanceled ();
-					return;
-				}
-				if (error != null) {
-					SetError (error);
 					return;
 				}
 
