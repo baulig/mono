@@ -57,9 +57,9 @@ namespace System.Net
 		IWebConnectionState state;
 		WebExceptionStatus status;
 		bool keepAlive;
-		byte[] buffer;
+		// byte[] buffer;
 		Queue queue;
-		int position;
+		// int position;
 		WebOperation priority_request;
 		NetworkCredential ntlm_credentials;
 		bool ntlm_authenticated;
@@ -88,7 +88,7 @@ namespace System.Net
 		{
 			this.state = wcs;
 			this.sPoint = sPoint;
-			buffer = new byte[4096];
+			// buffer = new byte[4096];
 			currentData = new WebConnectionData ();
 			queue = wcs.Group.Queue;
 		}
@@ -470,16 +470,19 @@ namespace System.Net
 		async Task<(WebResponseStream, Exception)> NewInitReadAsync (
 			WebOperation operation, WebConnectionData data, CancellationToken cancellationToken)
 		{
-			int requestId = ++nextRequestID;
-			Debug ($"WC INIT READ ASYNC: {ID} {data.ID} {requestId}");
+			Debug ($"WC INIT READ ASYNC: {ID} {operation.ID}");
 
 			var buffer = new BufferOffsetSize (new byte[4096], false);
 
 			while (true) {
 				operation.ThrowIfClosedOrDisposed (cancellationToken);
 
+				Debug ($"WC INIT READ ASYNC LOOP: {ID} {operation.ID} {data.ReadState} - {buffer.Offset}/{buffer.Size}");
+
 				var nread = await data.NetworkStream.ReadAsync (
 					buffer.Buffer, buffer.Offset, buffer.Size, cancellationToken).ConfigureAwait (false);
+
+				Debug ($"WC INIT READ ASYNC LOOP #1: {ID} {operation.ID} {data.ReadState} - {buffer.Offset}/{buffer.Size} - {nread}");
 
 				if (nread == 0)
 					throw GetReadException (WebExceptionStatus.ReceiveFailure, null, "ReadDoneAsync2");
@@ -496,6 +499,8 @@ namespace System.Net
 					} catch (Exception e) {
 						exc = e;
 					}
+
+					Debug ($"WC INIT READ ASYNC LOOP #2: {ID} {operation.ID} {data.ReadState} - {pos} {exc != null}");
 
 					if (exc != null || pos == -1)
 						throw GetReadException (WebExceptionStatus.ServerProtocolViolation, exc, "ReadDoneAsync4");
@@ -518,7 +523,7 @@ namespace System.Net
 				data.ReadState = ReadState.None;
 			}
 
-			position = 0;
+			Debug ($"WC INIT READ ASYNC LOOP DONE: {ID} {operation.ID} - {buffer.Offset} {buffer.Size}");
 
 			var stream = new WebResponseStream (this, operation, data);
 			bool expect_content = ExpectContent (data.StatusCode, data.Request.Method);
@@ -568,6 +573,7 @@ namespace System.Net
 			throw new NotImplementedException ();
 		}
 
+#if REMOVEME
 		void InitReadAsync (WebOperation operation, WebConnectionData data, CancellationToken cancellationToken)
 		{
 			try {
@@ -698,6 +704,7 @@ namespace System.Net
 				Console.Error.WriteLine ("READ DONE EX: {0}", e);
 			}
 		}
+#endif
 
 		static int GetResponse (WebConnectionData data, ServicePoint sPoint,
 					byte[] buffer, int max)
@@ -1034,6 +1041,7 @@ namespace System.Net
 			if (!data.ChunkedRead || data.ChunkStream == null)
 				return true;
 
+			var buffer = new byte[4096];
 			while (data.ChunkStream.WantMore) {
 				if (cancellationToken.IsCancellationRequested)
 					return false;
