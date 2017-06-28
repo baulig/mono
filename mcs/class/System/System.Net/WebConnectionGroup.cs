@@ -89,7 +89,7 @@ namespace System.Net
 
 			if (connectionsToClose != null) {
 				foreach (var cnc in connectionsToClose) {
-					cnc.Close (false);
+					cnc.Close ();
 					OnConnectionClosed ();
 				}
 			}
@@ -126,8 +126,7 @@ namespace System.Net
 				needs_reset = (req_sharing == false || req_sharing != cnc_sharing);
 			}
 			if (needs_reset) {
-				cnc.Close (false); // closes the authenticated connection
-				cnc.ResetNtlm ();
+				cnc.Close (); // closes the authenticated connection
 			}
 		}
 
@@ -228,7 +227,7 @@ namespace System.Net
 
 			// Ok, let's get rid of these!
 			foreach (var cnc in connectionsToClose)
-				cnc.Close (false);
+				cnc.Close ();
 
 			// Re-take the lock, then remove them from the connection list.
 			goto again;

@@ -797,11 +797,10 @@ namespace System.Net
 			Close (true);
 		}
 
-		internal void Close ()
+		internal void Reset ()
 		{
 			lock (this) {
-				if (ntlm_authenticated)
-					ResetNtlm ();
+				ResetNtlm ();
 				currentData = new WebConnectionData ();
 
 				connect_request = null;
@@ -809,6 +808,12 @@ namespace System.Net
 			}
 		}
 
+		internal void Close ()
+		{
+			Close (false);
+		}
+
+		[Obsolete ("KILL")]
 		internal void Close (bool sendNext)
 		{
 			lock (this) {
@@ -839,7 +844,7 @@ namespace System.Net
 					if (Data.Request == req || Data.Request == null) {
 						if (!req.FinishedReading) {
 							status = WebExceptionStatus.RequestCanceled;
-							Close (false);
+							Close ();
 							if (queue.Count > 0) {
 								operation = (WebOperation)queue.Dequeue ();
 								SendRequest (operation);

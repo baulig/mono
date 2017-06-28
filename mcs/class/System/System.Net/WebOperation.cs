@@ -330,7 +330,7 @@ namespace System.Net
 					} catch { }
 					data = null;
 				}
-				connection.Close ();
+				connection.Reset ();
 			}
 
 			if (next != null && !next.Aborted) {
