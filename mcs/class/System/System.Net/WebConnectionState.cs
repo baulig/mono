@@ -48,6 +48,7 @@ namespace System.Net
 
 		bool busy;
 		DateTime idleSince;
+		WebOperation currentOperation;
 
 		public bool Busy {
 			get { return busy; }
@@ -83,6 +84,16 @@ namespace System.Net
 			Group = group;
 			idleSince = DateTime.UtcNow;
 			Connection = new WebConnection (this, group.ServicePoint);
+		}
+
+		public void SendRequest (WebOperation operation)
+		{
+			WebOperation oldOperation;
+			lock (ServicePoint) {
+				oldOperation = Interlocked.CompareExchange (ref currentOperation, operation, null);
+				if (oldOperation == null)
+					idleSince = DateTime.UtcNow + TimeSpan.FromDays (3650);
+			}
 		}
 	}
 }
