@@ -834,7 +834,7 @@ namespace System.Net
 		WebOperation SendRequest (bool redirecting, BufferOffsetSize writeBuffer, CancellationToken cancellationToken)
 		{
 			lock (locker) {
-				WebConnection.Debug ($"HWR SEND REQUEST: {ID} {requestSent} {redirecting}");
+				WebConnection.Debug ($"HWR SEND REQUEST: Req={ID} {requestSent} {redirecting}");
 
 				WebOperation operation;
 				if (!redirecting) {
@@ -981,7 +981,7 @@ namespace System.Net
 			lock (locker) {
 				getResponseCalled = true;
 				var oldTcs = Interlocked.CompareExchange (ref responseTask, myTcs, null);
-				WebConnection.Debug ($"HWR GET RESPONSE: {ID} {oldTcs != null}");
+				WebConnection.Debug ($"HWR GET RESPONSE: Req={ID} {oldTcs != null}");
 				if (oldTcs != null) {
 					if (haveResponse && oldTcs.Task.IsCompleted)
 						return oldTcs.Task.Result;
@@ -1011,7 +1011,7 @@ namespace System.Net
 				try {
 					cancellationToken.ThrowIfCancellationRequested ();
 
-					WebConnection.Debug ($"HWR GET RESPONSE LOOP: {ID} {auth_state.NtlmAuthState}");
+					WebConnection.Debug ($"HWR GET RESPONSE LOOP: Req={ID} {auth_state.NtlmAuthState}");
 
 					var writeStreamTask = operation.GetRequestStream ();
 
@@ -1035,16 +1035,19 @@ namespace System.Net
 					stream = responseStreamTask.Result;
 					data = stream.Data;
 
+					WebConnection.Debug ($"HWR RESPONSE LOOP #0: Req={ID} - data={data.ID} {data.Headers != null}");
+
 					(response, redirect, mustReadAll, writeBuffer, ntlm) = await GetResponseFromData (
 						stream, cancellationToken).ConfigureAwait (false);
 				} catch (Exception e) {
 					throwMe = GetWebException (e);
 				}
 
-				WebConnection.Debug ($"HWR GET RESPONSE LOOP #1: {ID} - {redirect} {mustReadAll} {writeBuffer != null} {ntlm != null} - {throwMe != null}");
+				WebConnection.Debug ($"HWR GET RESPONSE LOOP #1: Req={ID} - {redirect} {mustReadAll} {writeBuffer != null} {ntlm != null} - {throwMe != null}");
 
 				lock (locker) {
 					if (throwMe != null) {
+						WebConnection.Debug ($"HWR GET RESPONSE LOOP #1 EX: Req={ID} {throwMe.Status} {throwMe.InnerException?.GetType ()}");
 						haveResponse = true;
 						myTcs.TrySetException (throwMe);
 						throw throwMe;
@@ -1061,7 +1064,7 @@ namespace System.Net
 					haveResponse = false;
 					webResponse = null;
 					currentOperation = ntlm;
-					WebConnection.Debug ($"HWR GET RESPONSE LOOP #2: {ID} {mustReadAll} {ntlm}");
+					WebConnection.Debug ($"HWR GET RESPONSE LOOP #2: Req={ID} {mustReadAll} {ntlm}");
 				}
 
 				try {
@@ -1073,8 +1076,9 @@ namespace System.Net
 				}
 
 				lock (locker) {
-					WebConnection.Debug ($"HWR GET RESPONSE LOOP #2: {ID} {writeBuffer != null} {ntlm != null} - {throwMe != null}");
+					WebConnection.Debug ($"HWR GET RESPONSE LOOP #3: Req={ID} {writeBuffer != null} {ntlm != null}");
 					if (throwMe != null) {
+						WebConnection.Debug ($"HWR GET RESPONSE LOOP #3 EX: Req={ID} {throwMe.Status} {throwMe.InnerException?.GetType ()}");
 						haveResponse = true;
 						stream?.Close ();
 						myTcs.TrySetException (throwMe);
@@ -1218,7 +1222,7 @@ namespace System.Net
 			if (Interlocked.CompareExchange (ref aborted, 1, 0) == 1)
 				return;
 
-			WebConnection.Debug ($"HWR ABORT: {ID}");
+			WebConnection.Debug ($"HWR ABORT: Req={ID}");
 
 			if (haveResponse && finished_reading)
 				return;

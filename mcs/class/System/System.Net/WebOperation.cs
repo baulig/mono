@@ -300,7 +300,7 @@ namespace System.Net
 				Request.FinishedReading = true;
 			}
 
-			WebConnection.Debug ($"WO FINISH READING: {ID} {ok} {error != null} {data != null} {next != null}");
+			WebConnection.Debug ($"WO FINISH READING: Op={ID} {ok} {error != null} {data != null} {next != null}");
 
 			string header = ServicePoint.UsesProxy ? "Proxy-Connection" : "Connection";
 			string cncHeader = null;
@@ -321,7 +321,7 @@ namespace System.Net
 					keepAlive = false;
 			}
 
-			WebConnection.Debug ($"WO FINISH READING #1: {ID} {data != null} {keepAlive}");
+			WebConnection.Debug ($"WO FINISH READING #1: Op={ID} {data != null} {keepAlive}");
 
 			if (!keepAlive) {
 				if (data != null) {
@@ -343,7 +343,7 @@ namespace System.Net
 
 		internal void CompleteRequestWritten (WebRequestStream stream, Exception error = null)
 		{
-			WebConnection.Debug ($"WO COMPLETE REQUEST WRITTEN: {ID} {error != null}");
+			WebConnection.Debug ($"WO COMPLETE REQUEST WRITTEN: Op={ID} {error != null}");
 
 			if (error != null)
 				requestWrittenTask.TrySetException (error);
@@ -353,7 +353,7 @@ namespace System.Net
 
 		internal void CompleteResponseRead (WebResponseStream stream, bool ok, Exception error = null)
 		{
-			WebConnection.Debug ($"WO COMPLETE RESPONSE READ: {ID} {error != null}");
+			WebConnection.Debug ($"WO COMPLETE RESPONSE READ: Op={ID} {error != null}");
 
 			if (error != null)
 				completeResponseReadTask.TrySetException (error);

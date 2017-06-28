@@ -72,7 +72,7 @@ namespace System.Net
 
 		public override async Task WriteAsync (byte[] buffer, int offset, int size, CancellationToken cancellationToken)
 		{
-			// WebConnection.Debug ($"WCS WRITE ASYNC: {Connection.ID}");
+			WebConnection.Debug ($"WRS WRITE ASYNC: Cnc={Connection.ID}");
 
 			Operation.ThrowIfClosedOrDisposed (cancellationToken);
 
@@ -190,7 +190,7 @@ namespace System.Net
 		{
 			Operation.ThrowIfClosedOrDisposed (cancellationToken);
 
-			WebConnection.Debug ($"WRQ INIT: {Operation.ID} {Operation.WriteBuffer != null}");
+			WebConnection.Debug ($"WRQ INIT: Op={Operation.ID} {Operation.WriteBuffer != null}");
 
 			if (Operation.WriteBuffer != null) {
 				if (Operation.IsNtlmChallenge)
@@ -236,7 +236,7 @@ namespace System.Net
 			headersSent = true;
 			headers = Request.GetRequestHeaders ();
 
-			WebConnection.Debug ($"WRQ SET HEADERS: {Operation.ID} {Request.ContentLength}");
+			WebConnection.Debug ($"WRQ SET HEADERS: Op={Operation.ID} {Request.ContentLength}");
 
 			try {
 				await Data.NetworkStream.WriteAsync (headers, 0, headers.Length, cancellationToken).ConfigureAwait (false);
@@ -254,7 +254,7 @@ namespace System.Net
 		{
 			Operation.ThrowIfClosedOrDisposed (cancellationToken);
 
-			WebConnection.Debug ($"WRQ WRITE REQUEST: {Operation.ID} {requestWritten} {sendChunked} {allowBuffering} {HasWriteBuffer}");
+			WebConnection.Debug ($"WRQ WRITE REQUEST: Op={Operation.ID} {requestWritten} {sendChunked} {allowBuffering} {HasWriteBuffer}");
 
 			if (requestWritten)
 				return;
@@ -273,7 +273,7 @@ namespace System.Net
 
 			await SetHeadersAsync (true, cancellationToken).ConfigureAwait (false);
 
-			WebConnection.Debug ($"WRQ WRITE REQUEST #1: {Operation.ID} {Data.ID} {Data.StatusCode} {buffer != null}");
+			WebConnection.Debug ($"WRQ WRITE REQUEST #1: Op={Operation.ID} {Data.ID} {Data.StatusCode} {buffer != null}");
 
 			if (Data.StatusCode != 0 && Data.StatusCode != 100)
 				return;

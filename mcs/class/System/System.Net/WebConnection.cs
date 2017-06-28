@@ -373,7 +373,7 @@ namespace System.Net
 			try {
 				NetworkStream serverStream = new NetworkStream (data.Socket, false);
 
-				Debug ($"WC CREATE STREAM: {ID} {requestID} {reused}");
+				Debug ($"WC CREATE STREAM: Cnc={ID} {requestID} {reused}");
 
 				if (data.Request.Address.Scheme == Uri.UriSchemeHttps) {
 #if SECURITY_DEP
@@ -401,12 +401,12 @@ namespace System.Net
 				}
 			} catch (Exception ex) {
 				ex = HttpWebRequest.FlattenException (ex);
-				Debug ($"WC CREATE STREAM EX: {ID} {requestID} {data.Request.Aborted} - {status} - {ex.Message}");
+				Debug ($"WC CREATE STREAM EX: Cnc={ID} {requestID} {data.Request.Aborted} - {status} - {ex.Message}");
 				if (data.Request.Aborted || data.MonoTlsStream == null)
 					return (WebExceptionStatus.ConnectFailure, false, ex);
 				return (data.MonoTlsStream.ExceptionStatus, false, ex);
 			} finally {
-				Debug ($"WC CREATE STREAM DONE: {ID} {requestID}");
+				Debug ($"WC CREATE STREAM DONE: Cnc={ID} {requestID}");
 			}
 
 			return (WebExceptionStatus.Success, true, null);
@@ -415,7 +415,7 @@ namespace System.Net
 		internal async Task<WebResponseStream> InitReadAsync (
 			WebOperation operation, WebConnectionData data, CancellationToken cancellationToken)
 		{
-			Debug ($"WC INIT READ ASYNC: {ID} {operation.ID}");
+			Debug ($"WC INIT READ ASYNC: Cnc={ID} Op={operation.ID}");
 
 			var buffer = new BufferOffsetSize (new byte[4096], false);
 			var state = ReadState.None;
@@ -424,12 +424,12 @@ namespace System.Net
 			while (true) {
 				operation.ThrowIfClosedOrDisposed (cancellationToken);
 
-				Debug ($"WC INIT READ ASYNC LOOP: {ID} {operation.ID} {state} - {buffer.Offset}/{buffer.Size}");
+				Debug ($"WC INIT READ ASYNC LOOP: Cnc={ID} Op={operation.ID} {state} - {buffer.Offset}/{buffer.Size}");
 
 				var nread = await data.NetworkStream.ReadAsync (
 					buffer.Buffer, buffer.Offset, buffer.Size, cancellationToken).ConfigureAwait (false);
 
-				Debug ($"WC INIT READ ASYNC LOOP #1: {ID} {operation.ID} {state} - {buffer.Offset}/{buffer.Size} - {nread}");
+				Debug ($"WC INIT READ ASYNC LOOP #1: Cnc={ID} Op={operation.ID} {state} - {buffer.Offset}/{buffer.Size} - {nread}");
 
 				if (nread == 0)
 					throw GetReadException (WebExceptionStatus.ReceiveFailure, null, "ReadDoneAsync2");
@@ -468,7 +468,7 @@ namespace System.Net
 				state = ReadState.None;
 			}
 
-			Debug ($"WC INIT READ ASYNC LOOP DONE: {ID} {operation.ID} - {buffer.Offset} {buffer.Size}");
+			Debug ($"WC INIT READ ASYNC LOOP DONE: Cnc={ID} Op={operation.ID} - {buffer.Offset} {buffer.Size}");
 
 			var stream = new WebResponseStream (this, operation, data);
 			try {
@@ -601,7 +601,7 @@ namespace System.Net
 		internal async Task<(WebConnectionData, WebRequestStream)> InitConnection (
 			WebOperation operation, CancellationToken cancellationToken)
 		{
-			Debug ($"WC INIT CONNECTION: {ID} {operation.Request.ID} {operation.ID}");
+			Debug ($"WC INIT CONNECTION: Cnc={ID} Req={operation.Request.ID} Op={operation.ID}");
 
 			var request = operation.Request;
 			request.WebConnection = this;
@@ -617,15 +617,15 @@ namespace System.Net
 
 		retry:
 			bool reused = await CheckReusable (oldData, cancellationToken).ConfigureAwait (false);
-			Debug ($"WC INIT CONNECTION #1: {ID} {operation.ID} {data.ID} - {reused} - {operation.WriteBuffer != null} {operation.IsNtlmChallenge}");
+			Debug ($"WC INIT CONNECTION #1: Cnc={ID} Op={operation.ID} data={data.ID} - {reused} - {operation.WriteBuffer != null} {operation.IsNtlmChallenge}");
 			if (reused) {
 				data.ReuseConnection (oldData);
 			} else {
 				try {
 					data.Socket = await Connect (operation, data, cancellationToken).ConfigureAwait (false);
-					Debug ($"WC INIT CONNECTION #2: {ID} {operation.ID} {data.ID}");
+					Debug ($"WC INIT CONNECTION #2: Cnc={ID} Op={operation.ID} data={data.ID}");
 				} catch (Exception ex) {
-					Debug ($"WC INIT CONNECTION #2 FAILED: {ID} {operation.ID} {data.ID} - {ex.Message}");
+					Debug ($"WC INIT CONNECTION #2 FAILED: Cnc={ID} Op={operation.ID} data={data.ID} - {ex.Message}");
 					if (!operation.Aborted)
 						Close (true);
 					throw;
@@ -633,7 +633,7 @@ namespace System.Net
 			}
 
 			var streamResult = await CreateStream (data, reused, cancellationToken).ConfigureAwait (false);
-			Debug ($"WC INIT CONNECTION #3: {ID} {operation.ID} {data.ID} - {streamResult.status} {streamResult.success}");
+			Debug ($"WC INIT CONNECTION #3: Cnc={ID} Op={operation.ID} data={data.ID} - {streamResult.status} {streamResult.success}");
 			if (!streamResult.success) {
 				if (operation.Aborted)
 					return (null, null);
@@ -690,14 +690,14 @@ namespace System.Net
 			lock (this) {
 				if (operation.Aborted)
 					return;
-				Debug ($"WC SEND REQUEST: {ID} {operation.ID}");
+				Debug ($"WC SEND REQUEST: Cnc={ID} Op={operation.ID}");
 				if (state.TrySetBusy ()) {
 					status = WebExceptionStatus.Success;
 					try {
-						Debug ($"WC SEND REQUEST #1: {ID} {operation.ID}");
+						Debug ($"WC SEND REQUEST #1: Cnc={ID} Op={operation.ID}");
 						operation.Run (this);
 					} catch (Exception ex) {
-						Debug ($"WC SEND REQUEST EX: {ID} {operation.ID} - {ex}");
+						Debug ($"WC SEND REQUEST EX: Cnc={ID} Op={operation.ID} - {ex}");
 						throw;
 					}
 				} else {
@@ -709,7 +709,7 @@ namespace System.Net
 						}
 #endif
 						queue.Enqueue (operation);
-						Debug ($"WC SEND REQUEST - QUEUED: {ID} {operation.ID}");
+						Debug ($"WC SEND REQUEST - QUEUED: Cnc={ID} Op={operation.ID}");
 					}
 				}
 			}
@@ -718,7 +718,7 @@ namespace System.Net
 		void SendNext ()
 		{
 			lock (queue) {
-				Debug ($"WC SEND NEXT: {ID} {queue.Count}");
+				Debug ($"WC SEND NEXT: Cnc={ID} {queue.Count}");
 				if (queue.Count > 0) {
 					SendRequest ((WebOperation)queue.Dequeue ());
 				}
@@ -729,37 +729,6 @@ namespace System.Net
 		{
 			state.SetIdle ();
 			SendNext ();
-		}
-
-		internal void NextRead ()
-		{
-			return;
-			lock (this) {
-				Debug ($"WC NEXT READ: {ID}");
-				if (Data.Request != null)
-					Data.Request.FinishedReading = true;
-				string header = (sPoint.UsesProxy) ? "Proxy-Connection" : "Connection";
-				string cncHeader = (Data.Headers != null) ? Data.Headers[header] : null;
-				bool keepAlive = (Data.Version == HttpVersion.Version11 && this.keepAlive);
-				if (Data.ProxyVersion != null && Data.ProxyVersion != HttpVersion.Version11)
-					keepAlive = false;
-				if (cncHeader != null) {
-					cncHeader = cncHeader.ToLower ();
-					keepAlive = (this.keepAlive && cncHeader.IndexOf ("keep-alive", StringComparison.Ordinal) != -1);
-				}
-
-				if ((Data.Socket != null && !Data.Socket.Connected) ||
-				   (!keepAlive || (cncHeader != null && cncHeader.IndexOf ("close", StringComparison.Ordinal) != -1))) {
-					Close (false);
-				}
-
-				state.SetIdle ();
-				var operation = Interlocked.Exchange (ref priority_request, null);
-				if (operation != null && !operation.Aborted)
-					SendRequest (operation);
-				else
-					SendNext ();
-			}
 		}
 
 		static bool ReadLine (byte[] buffer, ref int start, int max, ref string output)
