@@ -111,11 +111,25 @@ namespace System.Net
 
 				if (started)
 					ScheduleWaitForCompletion (cnc, operation);
-				else
+				else {
 					queue.Enqueue (operation);
+					WarnAboutQueue ();
+				}
 
 				return (cnc, created);
 			}
+		}
+
+#if MONOTOUCH
+		static int warned_about_queue = 0;
+#endif
+
+		static void WarnAboutQueue ()
+		{
+#if MONOTOUCH
+			if (Interlocked.CompareExchange (ref warned_about_queue, 1, 0) == 0)
+				Console.WriteLine ("WARNING: An HttpWebRequest was added to the ConnectionGroup queue because the connection limit was reached.");
+#endif
 		}
 
 		async void ScheduleWaitForCompletion (WebConnectionState state, WebOperation operation)

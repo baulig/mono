@@ -54,10 +54,8 @@ namespace System.Net
 	{
 		ServicePoint sPoint;
 		object socketLock = new object ();
-		WebConnectionState state;
 		WebExceptionStatus status;
 		bool keepAlive;
-		Queue queue;
 		WebOperation priority_request;
 		NetworkCredential ntlm_credentials;
 		bool ntlm_authenticated;
@@ -84,11 +82,8 @@ namespace System.Net
 
 		public WebConnection (WebConnectionState wcs, ServicePoint sPoint)
 		{
-			this.state = wcs;
 			this.sPoint = sPoint;
-			// buffer = new byte[4096];
 			currentData = new WebConnectionData ();
-			queue = wcs.Group.Queue;
 		}
 
 		[Conditional ("MARTIN_DEBUG")]
@@ -145,7 +140,7 @@ namespace System.Net
 					if (hostEntry == null) {
 #endif
 				throw GetException (sPoint.UsesProxy ? WebExceptionStatus.ProxyNameResolutionFailure :
-				                    WebExceptionStatus.NameResolutionFailure, null);
+						    WebExceptionStatus.NameResolutionFailure, null);
 #if MONOTOUCH && !MONOTOUCH_TV && !MONOTOUCH_WATCH
 					}
 #endif
@@ -681,57 +676,6 @@ namespace System.Net
 						 WebExceptionInternalStatus.RequestFatal, error);
 		}
 
-#if MONOTOUCH
-		static bool warned_about_queue = false;
-#endif
-
-		[Obsolete ("KILL")]
-		internal void SendRequest (WebOperation operation)
-		{
-			lock (this) {
-				if (operation.Aborted)
-					return;
-				Debug ($"WC SEND REQUEST: Cnc={ID} Op={operation.ID}");
-				if (state.TrySetBusy ()) {
-					status = WebExceptionStatus.Success;
-					try {
-						Debug ($"WC SEND REQUEST #1: Cnc={ID} Op={operation.ID}");
-						operation.Run (this);
-					} catch (Exception ex) {
-						Debug ($"WC SEND REQUEST EX: Cnc={ID} Op={operation.ID} - {ex}");
-						throw;
-					}
-				} else {
-					lock (queue) {
-#if MONOTOUCH
-						if (!warned_about_queue) {
-							warned_about_queue = true;
-							Console.WriteLine ("WARNING: An HttpWebRequest was added to the ConnectionGroup queue because the connection limit was reached.");
-						}
-#endif
-						queue.Enqueue (operation);
-						Debug ($"WC SEND REQUEST - QUEUED: Cnc={ID} Op={operation.ID}");
-					}
-				}
-			}
-		}
-
-		void SendNext ()
-		{
-			lock (queue) {
-				Debug ($"WC SEND NEXT: Cnc={ID} {queue.Count}");
-				if (queue.Count > 0) {
-					SendRequest ((WebOperation)queue.Dequeue ());
-				}
-			}
-		}
-
-		internal void SetIdleAndSendNext ()
-		{
-			state.SetIdle ();
-			SendNext ();
-		}
-
 		static bool ReadLine (byte[] buffer, ref int start, int max, ref string output)
 		{
 			bool foundCR = false;
@@ -811,7 +755,7 @@ namespace System.Net
 
 		internal void ReallyCloseIt ()
 		{
-			Reset (); 
+			Reset ();
 		}
 
 		internal void Close ()
@@ -832,10 +776,7 @@ namespace System.Net
 
 				if (ntlm_authenticated)
 					ResetNtlm ();
-				state.SetIdle ();
 				currentData = new WebConnectionData ();
-				if (sendNext)
-					SendNext ();
 
 				connect_request = null;
 				connect_ntlm_auth_state = NtlmAuthState.None;
@@ -844,6 +785,7 @@ namespace System.Net
 
 		internal void Abort (WebOperation operation)
 		{
+#if FIXME
 			lock (this) {
 				lock (queue) {
 					HttpWebRequest req = operation.Request;
@@ -872,6 +814,7 @@ namespace System.Net
 					}
 				}
 			}
+#endif
 		}
 
 		internal void ResetNtlm ()

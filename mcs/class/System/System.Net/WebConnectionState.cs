@@ -144,57 +144,5 @@ namespace System.Net
 				PrepareSharingNtlm (next);
 			next.Run (ServicePoint, Connection);
 		}
-
-#if FIXME
-		public void SendRequest (WebOperation operation)
-		{
-			WebOperation oldOperation;
-			lock (ServicePoint) {
-				oldOperation = Interlocked.CompareExchange (ref currentOperation, operation, null);
-				if (oldOperation == null)
-					idleSince = DateTime.UtcNow + TimeSpan.FromDays (3650);
-			}
-
-			WebConnection.Debug ($"WCG SEND REQUEST: Cnc={Connection.ID} Op={operation.ID} old={oldOperation?.ID}");
-			RunOperation (oldOperation, operation);
-			WebConnection.Debug ($"WCG SEND REQUEST DONE: Cnc={Connection.ID} Op={operation.ID}");
-		}
-
-		async Task<bool> WaitForCompletion (WebOperation operation)
-		{
-			try {
-				return await operation.WaitForCompletion ().ConfigureAwait (false);
-			} catch {
-				return false;
-			}
-		}
-
-		async void RunOperation (WebOperation oldOperation, WebOperation operation)
-		{
-			WebConnection.Debug ($"WCG RUN: Cnc={Connection.ID} Op={operation.ID} old={oldOperation?.ID}");
-
-			if (oldOperation != null) {
-				var canReuse = await WaitForCompletion (oldOperation).ConfigureAwait (false);
-				WebConnection.Debug ($"WCG RUN #1: Op={operation.ID} old={oldOperation.ID} {canReuse}");
-			}
-
-			WebConnection.Debug ($"WCG RUN #2: Cnc={Connection.ID} Op={operation.ID}");
-
-			operation.Run (ServicePoint, Connection);
-
-			WebConnection.Debug ($"WCG RUN #3: Cnc={Connection.ID} Op={operation.ID}");
-
-			Exception throwMe = null;
-			bool keepAlive;
-			try {
-				keepAlive = await operation.WaitForCompletion ().ConfigureAwait (false);
-			} catch (Exception ex) {
-				throwMe = ex;
-				keepAlive = false;
-			}
-
-			WebConnection.Debug ($"WCG RUN DONE: Cnc={Connection.ID} Op={operation.ID} - {keepAlive} {throwMe?.GetType ()}");
-		}
-#endif
 	}
 }
