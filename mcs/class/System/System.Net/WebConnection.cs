@@ -645,6 +645,8 @@ namespace System.Net
 						null, streamResult.status, webResponse);
 				}
 
+				Debug ($"WC INIT CONNECTION #3 EX: Cnc={ID} data={data.ID} socket={data.Socket?.ID}");
+
 				throw GetException (streamResult.status, streamResult.error);
 			}
 
@@ -767,6 +769,8 @@ namespace System.Net
 
 		internal void Reset ()
 		{
+			Debug ($"WC RESET: Cnc={ID}");
+
 			lock (this) {
 				ResetNtlm ();
 				currentData = new WebConnectionData ();
@@ -778,9 +782,11 @@ namespace System.Net
 
 		internal void Close ()
 		{
+			Debug ($"WC CLOSE: Cnc={ID}");
+
 			lock (this) {
-				Reset ();
 				Data.Close ();
+				Reset ();
 			}
 		}
 
