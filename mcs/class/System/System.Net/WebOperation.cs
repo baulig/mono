@@ -203,12 +203,6 @@ namespace System.Net
 			});
 		}
 
-		public void SendRequest (ServicePoint servicePoint, WebConnection connection)
-		{
-			RegisterRequest (servicePoint, connection);
-			connection.SendRequest (this);
-		}
-
 		public void SetPriorityRequest (WebOperation operation)
 		{
 			lock (this) {
@@ -356,8 +350,6 @@ namespace System.Net
 				next.Run (connection);
 				return await next.WaitForCompletion ().ConfigureAwait (false);
 			}
-
-			connection.SetIdleAndSendNext ();
 
 			return keepAlive;
 		}

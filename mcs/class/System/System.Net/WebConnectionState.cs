@@ -26,6 +26,7 @@
 #define MARTIN_DEBUG
 using System;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Collections;
 using System.Collections.Generic;
 using System.Net.Configuration;
@@ -93,21 +94,30 @@ namespace System.Net
 				oldOperation = Interlocked.CompareExchange (ref currentOperation, operation, null);
 				if (oldOperation == null)
 					idleSince = DateTime.UtcNow + TimeSpan.FromDays (3650);
-
-				WebConnection.Debug ($"WCG SEND REQUEST: Cnc={Connection.ID} Op={operation.ID} old={oldOperation?.ID}");
-
-				if (oldOperation != null)
-					throw new NotImplementedException ();
-
-				operation.RegisterRequest (ServicePoint, Connection);
 			}
 
-			RunOperation (operation);
+			RunOperation (oldOperation, operation);
 		}
 
-		async void RunOperation (WebOperation operation)
+		async Task<bool> WaitForCompletion (WebOperation operation)
 		{
-			WebConnection.Debug ($"WCG RUN: Cnc={Connection.ID} Op={operation.ID}");
+			try {
+				return await operation.WaitForCompletion ().ConfigureAwait (false);
+			} catch {
+				return false;
+			}
+		}
+
+		async void RunOperation (WebOperation oldOperation, WebOperation operation)
+		{
+			WebConnection.Debug ($"WCG SEND REQUEST: Cnc={Connection.ID} Op={operation.ID} old={oldOperation?.ID}");
+
+			if (oldOperation != null) {
+				var canReuse = await WaitForCompletion (oldOperation).ConfigureAwait (false);
+				WebConnection.Debug ($"WCG SEND REQUEST #1: Op={operation.ID} old={oldOperation.ID} {canReuse}");
+			}
+
+			operation.RegisterRequest (ServicePoint, Connection);
 			operation.Run (Connection);
 
 			Exception throwMe = null;
