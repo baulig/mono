@@ -868,7 +868,7 @@ namespace System.Net
 		async Task<Stream> MyGetRequestStreamAsync (Task timeoutTask, CancellationToken cancellationToken)
 		{
 			if (Aborted)
-				throw new WebException ("The request was canceled.", WebExceptionStatus.RequestCanceled);
+				throw CreateRequestAbortedException ();
 
 			bool send = !(method == "GET" || method == "CONNECT" || method == "HEAD" ||
 					method == "TRACE");
@@ -913,7 +913,7 @@ namespace System.Net
 		public override IAsyncResult BeginGetRequestStream (AsyncCallback callback, object state)
 		{
 			if (Aborted)
-				throw new WebException ("The request was canceled.", WebExceptionStatus.RequestCanceled);
+				throw CreateRequestAbortedException ();
 
 			return TaskToApm.Begin (MyGetRequestStreamAsync (), callback, state);
 		}
@@ -967,7 +967,7 @@ namespace System.Net
 		async Task<HttpWebResponse> MyGetResponseAsync (Task timeoutTask, CancellationToken cancellationToken)
 		{
 			if (Aborted)
-				throw new WebException ("The request was canceled.", WebExceptionStatus.RequestCanceled);
+				throw CreateRequestAbortedException ();
 
 			if (method == null)
 				throw new ProtocolViolationException ("Method is null.");
@@ -1038,11 +1038,7 @@ namespace System.Net
 					(response, redirect, mustReadAll, writeBuffer, ntlm) = await GetResponseFromData (
 						stream, cancellationToken).ConfigureAwait (false);
 				} catch (Exception e) {
-					FlattenException (ref e);
-					if (Aborted || e is OperationCanceledException)
-						throwMe = new WebException ("Request canceled.", WebExceptionStatus.RequestCanceled);
-					else
-						throwMe = (e as WebException) ?? new WebException (e.Message, e, WebExceptionStatus.ProtocolError, null);
+					throwMe = GetWebException (e);
 				}
 
 				WebConnection.Debug ($"HWR GET RESPONSE LOOP #1: {ID} - {redirect} {mustReadAll} {writeBuffer != null} {ntlm != null} - {throwMe != null}");
@@ -1072,11 +1068,8 @@ namespace System.Net
 					if (mustReadAll)
 						await stream.ReadAllAsync (cancellationToken).ConfigureAwait (false);
 					response.Close ();
-				} catch (OperationCanceledException) {
-					throwMe = new WebException ("Request canceled.", WebExceptionStatus.RequestCanceled);
 				} catch (Exception e) {
-					FlattenException (ref e);
-					throwMe = (e as WebException) ?? new WebException (e.Message, e, WebExceptionStatus.ProtocolError, null);
+					throwMe = GetWebException (e);
 				}
 
 				lock (locker) {
@@ -1153,11 +1146,6 @@ namespace System.Net
 			return (response, true, mustReadAll, writeBuffer, ntlm);
 		}
 
-		internal static void FlattenException (ref Exception e)
-		{
-			e = FlattenException (e);
-		}
-
 		internal static Exception FlattenException (Exception e)
 		{
 			if (e is AggregateException ae) {
@@ -1169,10 +1157,25 @@ namespace System.Net
 			return e;
 		}
 
+		WebException GetWebException (Exception e)
+		{
+			e = FlattenException (e);
+			if (Aborted || e is OperationCanceledException || e is ObjectDisposedException)
+				return CreateRequestAbortedException ();
+			if (e is WebException wexc)
+				return wexc;
+			return new WebException (e.Message, e, WebExceptionStatus.ProtocolError, null);
+		}
+
+		static WebException CreateRequestAbortedException ()
+		{
+			return new WebException (SR.Format (SR.net_reqaborted, WebExceptionStatus.RequestCanceled), WebExceptionStatus.RequestCanceled);
+		}
+
 		public override IAsyncResult BeginGetResponse (AsyncCallback callback, object state)
 		{
 			if (Aborted)
-				throw new WebException ("The request was canceled.", WebExceptionStatus.RequestCanceled);
+				throw CreateRequestAbortedException ();
 
 			return TaskToApm.Begin (MyGetResponseAsync (), callback, state);
 		}
