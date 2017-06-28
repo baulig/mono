@@ -809,6 +809,11 @@ namespace System.Net
 			}
 		}
 
+		internal void ReallyCloseIt ()
+		{
+			Reset (); 
+		}
+
 		internal void Close ()
 		{
 			Close (false);

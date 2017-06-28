@@ -382,19 +382,16 @@ namespace System.Net
 			protocolVersion = version;
 		}
 
-		internal WebConnectionState GetConnection (HttpWebRequest request, string groupName)
+		internal void SendRequest (WebOperation operation, string groupName)
 		{
 			lock (this) {
-				bool created;
 				var cncGroup = GetConnectionGroup (groupName);
-				var cnc = cncGroup.GetConnection (request, out created);
+				var (cnc, created) = cncGroup.SendRequest (operation);
 				if (created) {
 					++currentConnections;
 					if (idleTimer == null)
 						idleTimer = new Timer (IdleTimerCallback, null, maxIdleTime, maxIdleTime);
 				}
-
-				return cnc;
 			}
 		}
 

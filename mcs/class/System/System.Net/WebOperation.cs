@@ -188,7 +188,7 @@ namespace System.Net
 			exception.Throw ();
 		}
 
-		internal void RegisterRequest (ServicePoint servicePoint, WebConnection connection)
+		void RegisterRequest (ServicePoint servicePoint, WebConnection connection)
 		{
 			lock (this) {
 				if (Interlocked.CompareExchange (ref requestSent, 1, 0) != 0)
@@ -201,6 +201,12 @@ namespace System.Net
 				SetDisposed (ref disposedInfo);
 				connection.Abort (this);
 			});
+		}
+
+		internal void Run (ServicePoint servicePoint, WebConnection connection)
+		{
+			RegisterRequest (servicePoint, connection);
+			Run (connection);
 		}
 
 		public void SetPriorityRequest (WebOperation operation)

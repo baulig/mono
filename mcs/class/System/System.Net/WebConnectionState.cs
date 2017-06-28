@@ -51,8 +51,9 @@ namespace System.Net
 		DateTime idleSince;
 		WebOperation currentOperation;
 
+		[Obsolete ("KILL")]
 		public bool Busy {
-			get { return busy; }
+			get { return currentOperation != null; }
 		}
 
 		public DateTime IdleSince {
@@ -87,6 +88,64 @@ namespace System.Net
 			Connection = new WebConnection (this, group.ServicePoint);
 		}
 
+		void PrepareSharingNtlm (WebOperation operation)
+		{
+			if (!Connection.NtlmAuthenticated)
+				return;
+
+			bool needs_reset = false;
+			NetworkCredential cnc_cred = Connection.NtlmCredential;
+			var request = operation.Request;
+
+			bool isProxy = (request.Proxy != null && !request.Proxy.IsBypassed (request.RequestUri));
+			ICredentials req_icreds = (!isProxy) ? request.Credentials : request.Proxy.Credentials;
+			NetworkCredential req_cred = (req_icreds != null) ? req_icreds.GetCredential (request.RequestUri, "NTLM") : null;
+
+			if (cnc_cred == null || req_cred == null ||
+				cnc_cred.Domain != req_cred.Domain || cnc_cred.UserName != req_cred.UserName ||
+				cnc_cred.Password != req_cred.Password) {
+				needs_reset = true;
+			}
+
+			if (!needs_reset) {
+				bool req_sharing = request.UnsafeAuthenticatedConnectionSharing;
+				bool cnc_sharing = Connection.UnsafeAuthenticatedConnectionSharing;
+				needs_reset = (req_sharing == false || req_sharing != cnc_sharing);
+			}
+			if (needs_reset) {
+				Connection.Close (); // closes the authenticated connection
+			}
+		}
+
+		public bool StartOperation (WebOperation operation, bool reused)
+		{
+			if (Interlocked.CompareExchange (ref currentOperation, operation, null) != null)
+				return false;
+
+			if (reused)
+				PrepareSharingNtlm (operation);
+			operation.Run (ServicePoint, Connection);
+			return true;
+		}
+
+		public void Continue (bool keepAlive, WebOperation next)
+		{
+			if (!keepAlive) {
+				try {
+					Connection.ReallyCloseIt ();
+				} catch { }
+			}
+
+			currentOperation = next;
+			if (next == null)
+				return;
+
+			if (keepAlive)
+				PrepareSharingNtlm (next);
+			next.Run (ServicePoint, Connection);
+		}
+
+#if FIXME
 		public void SendRequest (WebOperation operation)
 		{
 			WebOperation oldOperation;
@@ -96,7 +155,9 @@ namespace System.Net
 					idleSince = DateTime.UtcNow + TimeSpan.FromDays (3650);
 			}
 
+			WebConnection.Debug ($"WCG SEND REQUEST: Cnc={Connection.ID} Op={operation.ID} old={oldOperation?.ID}");
 			RunOperation (oldOperation, operation);
+			WebConnection.Debug ($"WCG SEND REQUEST DONE: Cnc={Connection.ID} Op={operation.ID}");
 		}
 
 		async Task<bool> WaitForCompletion (WebOperation operation)
@@ -110,15 +171,18 @@ namespace System.Net
 
 		async void RunOperation (WebOperation oldOperation, WebOperation operation)
 		{
-			WebConnection.Debug ($"WCG SEND REQUEST: Cnc={Connection.ID} Op={operation.ID} old={oldOperation?.ID}");
+			WebConnection.Debug ($"WCG RUN: Cnc={Connection.ID} Op={operation.ID} old={oldOperation?.ID}");
 
 			if (oldOperation != null) {
 				var canReuse = await WaitForCompletion (oldOperation).ConfigureAwait (false);
-				WebConnection.Debug ($"WCG SEND REQUEST #1: Op={operation.ID} old={oldOperation.ID} {canReuse}");
+				WebConnection.Debug ($"WCG RUN #1: Op={operation.ID} old={oldOperation.ID} {canReuse}");
 			}
 
-			operation.RegisterRequest (ServicePoint, Connection);
-			operation.Run (Connection);
+			WebConnection.Debug ($"WCG RUN #2: Cnc={Connection.ID} Op={operation.ID}");
+
+			operation.Run (ServicePoint, Connection);
+
+			WebConnection.Debug ($"WCG RUN #3: Cnc={Connection.ID} Op={operation.ID}");
 
 			Exception throwMe = null;
 			bool keepAlive;
@@ -131,5 +195,6 @@ namespace System.Net
 
 			WebConnection.Debug ($"WCG RUN DONE: Cnc={Connection.ID} Op={operation.ID} - {keepAlive} {throwMe?.GetType ()}");
 		}
+#endif
 	}
 }

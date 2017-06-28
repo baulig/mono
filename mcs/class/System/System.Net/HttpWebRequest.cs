@@ -854,8 +854,7 @@ namespace System.Net
 				if (!redirecting)
 					redirects = 0;
 				servicePoint = GetServicePoint ();
-				var connection = servicePoint.GetConnection (this, connectionGroup);
-				connection.SendRequest (operation);
+				servicePoint.SendRequest (operation, connectionGroup);
 				return operation;
 			}
 		}

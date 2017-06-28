@@ -32,6 +32,7 @@
 #define MARTIN_DEBUG
 using System;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Collections;
 using System.Collections.Generic;
 using System.Net.Configuration;
@@ -102,45 +103,77 @@ namespace System.Net
 			}
 		}
 
-		public WebConnectionState GetConnection (HttpWebRequest request, out bool created)
+		public (WebConnectionState, bool) SendRequest (WebOperation operation)
 		{
 			lock (ServicePoint) {
-				return CreateOrReuseConnection (request, out created);
+				var (cnc, created, started) = CreateOrReuseConnection (operation);
+				WebConnection.Debug ($"WCG SEND REQUEST: Op={operation.ID} {created} {started}");
+
+				if (started)
+					ScheduleWaitForCompletion (cnc, operation);
+				else
+					queue.Enqueue (operation);
+
+				return (cnc, created);
 			}
 		}
 
-		static void PrepareSharingNtlm (WebConnection cnc, HttpWebRequest request)
+		async void ScheduleWaitForCompletion (WebConnectionState state, WebOperation operation)
 		{
-			if (!cnc.NtlmAuthenticated)
-				return;
-
-			bool needs_reset = false;
-			NetworkCredential cnc_cred = cnc.NtlmCredential;
-
-			bool isProxy = (request.Proxy != null && !request.Proxy.IsBypassed (request.RequestUri));
-			ICredentials req_icreds = (!isProxy) ? request.Credentials : request.Proxy.Credentials;
-			NetworkCredential req_cred = (req_icreds != null) ? req_icreds.GetCredential (request.RequestUri, "NTLM") : null;
-
-			if (cnc_cred == null || req_cred == null ||
-				cnc_cred.Domain != req_cred.Domain || cnc_cred.UserName != req_cred.UserName ||
-				cnc_cred.Password != req_cred.Password) {
-				needs_reset = true;
-			}
-
-			if (!needs_reset) {
-				bool req_sharing = request.UnsafeAuthenticatedConnectionSharing;
-				bool cnc_sharing = cnc.UnsafeAuthenticatedConnectionSharing;
-				needs_reset = (req_sharing == false || req_sharing != cnc_sharing);
-			}
-			if (needs_reset) {
-				cnc.Close (); // closes the authenticated connection
+			while (operation != null) {
+				var (keepAlive, next) = await WaitForCompletion (state, operation).ConfigureAwait (false);
+				state.Continue (keepAlive, next);
+				operation = next;
 			}
 		}
 
-		WebConnectionState FindIdleConnection ()
+		async Task<(bool, WebOperation)> WaitForCompletion (WebConnectionState state, WebOperation operation)
+		{
+			WebConnection.Debug ($"WCG WAIT FOR COMPLETION: Op={operation.ID}");
+
+			Exception throwMe = null;
+			bool keepAlive;
+			try {
+				keepAlive = await operation.WaitForCompletion ().ConfigureAwait (false);
+			} catch (Exception ex) {
+				throwMe = ex;
+				keepAlive = false;
+			}
+
+			WebConnection.Debug ($"WCG WAIT FOR COMPLETION #1: Op={operation.ID} {keepAlive} {throwMe?.GetType ()}");
+
+			WebOperation next = null;
+			lock (ServicePoint) {
+				if (!keepAlive)
+					RemoveConnection (state);
+				if (queue.Count > 0)
+					next = (WebOperation)queue.Dequeue ();
+			}
+
+			WebConnection.Debug ($"WCG WAIT FOR COMPLETION DONE: Op={operation.ID} {keepAlive} {next?.ID}");
+
+			return (keepAlive, next);
+		}
+
+		void RemoveConnection (WebConnectionState state)
+		{
+			var iter = connections.First;
+			while (iter != null) {
+				var current = iter.Value;
+				var node = iter;
+				iter = iter.Next;
+
+				if (state == current) {
+					connections.Remove (current);
+					break;
+				}
+			}
+		}
+
+		WebConnectionState FindIdleConnection (WebOperation operation)
 		{
 			foreach (var cnc in connections) {
-				if (cnc.Busy)
+				if (!cnc.StartOperation (operation, true))
 					continue;
 
 				connections.Remove (cnc);
@@ -151,27 +184,23 @@ namespace System.Net
 			return null;
 		}
 
-		WebConnectionState CreateOrReuseConnection (HttpWebRequest request, out bool created)
+		(WebConnectionState state, bool created, bool started) CreateOrReuseConnection (WebOperation operation)
 		{
-			var cnc = FindIdleConnection ();
-			if (cnc != null) {
-				created = false;
-				PrepareSharingNtlm (cnc.Connection, request);
-				return cnc;
-			}
+			var cnc = FindIdleConnection (operation);
+			if (cnc != null)
+				return (cnc, false, true);
 
 			if (ServicePoint.ConnectionLimit > connections.Count || connections.Count == 0) {
-				created = true;
 				cnc = new WebConnectionState (this);
+				cnc.StartOperation (operation, false);
 				connections.AddFirst (cnc);
-				return cnc;
+				return (cnc, true, true);
 			}
 
-			created = false;
 			cnc = connections.Last.Value;
 			connections.Remove (cnc);
 			connections.AddFirst (cnc);
-			return cnc;
+			return (cnc, false, false);
 		}
 
 		internal Queue Queue {
