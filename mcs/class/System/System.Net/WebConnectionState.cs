@@ -47,38 +47,15 @@ namespace System.Net
 
 		public ServicePoint ServicePoint => Group.ServicePoint;
 
-		bool busy;
 		DateTime idleSince;
 		WebOperation currentOperation;
 
-		[Obsolete ("KILL")]
 		public bool Busy {
 			get { return currentOperation != null; }
 		}
 
 		public DateTime IdleSince {
 			get { return idleSince; }
-		}
-
-		public bool TrySetBusy ()
-		{
-			lock (ServicePoint) {
-				WebConnection.Debug ($"CS TRY SET BUSY: {busy}");
-				if (busy)
-					return false;
-				busy = true;
-				idleSince = DateTime.UtcNow + TimeSpan.FromDays (3650);
-				return true;
-			}
-		}
-
-		public void SetIdle ()
-		{
-			lock (ServicePoint) {
-				WebConnection.Debug ($"CS SET IDLE: {busy}");
-				busy = false;
-				idleSince = DateTime.UtcNow;
-			}
 		}
 
 		public WebConnectionState (WebConnectionGroup group)
@@ -122,6 +99,8 @@ namespace System.Net
 			if (Interlocked.CompareExchange (ref currentOperation, operation, null) != null)
 				return false;
 
+			idleSince = DateTime.UtcNow + TimeSpan.FromDays (3650);
+
 			if (reused)
 				PrepareSharingNtlm (operation);
 			operation.Run (ServicePoint, Connection);
@@ -137,8 +116,10 @@ namespace System.Net
 			}
 
 			currentOperation = next;
-			if (next == null)
+			if (next == null) {
+				idleSince = DateTime.UtcNow;
 				return;
+			}
 
 			if (keepAlive)
 				PrepareSharingNtlm (next);

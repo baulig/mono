@@ -160,8 +160,11 @@ namespace System.Net
 			lock (ServicePoint) {
 				if (!keepAlive)
 					RemoveConnection (state);
-				if (queue.Count > 0)
+				while (queue.Count > 0 && next == null) {
 					next = (WebOperation)queue.Dequeue ();
+					if (next.Aborted)
+						next = null;
+				}
 			}
 
 			WebConnection.Debug ($"WCG WAIT FOR COMPLETION DONE: Op={operation.ID} {keepAlive} {next?.ID}");

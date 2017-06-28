@@ -141,6 +141,7 @@ namespace System.Net
 			requestTask.TrySetCanceled ();
 			requestWrittenTask.TrySetCanceled ();
 			responseTask.TrySetCanceled ();
+			completeResponseReadTask.TrySetCanceled ();
 		}
 
 		void SetError (Exception error)
