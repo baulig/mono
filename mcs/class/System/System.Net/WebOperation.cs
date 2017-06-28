@@ -71,6 +71,7 @@ namespace System.Net
 			requestWrittenTask = new TaskCompletionSource<WebRequestStream> ();
 			completeResponseReadTask = new TaskCompletionSource<bool> ();
 			responseTask = new TaskCompletionSource<WebResponseStream> ();
+			finishedTask = new TaskCompletionSource<bool> (); 
 		}
 
 		CancellationTokenSource cts;
@@ -78,6 +79,7 @@ namespace System.Net
 		TaskCompletionSource<WebRequestStream> requestWrittenTask;
 		TaskCompletionSource<WebResponseStream> responseTask;
 		TaskCompletionSource<bool> completeResponseReadTask;
+		TaskCompletionSource<bool> finishedTask;
 		WebConnectionData connectionData;
 		WebRequestStream writeStream;
 		WebResponseStream responseStream;
@@ -186,7 +188,7 @@ namespace System.Net
 			exception.Throw ();
 		}
 
-		void RegisterRequest (ServicePoint servicePoint, WebConnection connection)
+		internal void RegisterRequest (ServicePoint servicePoint, WebConnection connection)
 		{
 			lock (this) {
 				if (Interlocked.CompareExchange (ref requestSent, 1, 0) != 0)
@@ -239,6 +241,11 @@ namespace System.Net
 		public Task<WebResponseStream> GetResponseStream ()
 		{
 			return responseTask.Task;
+		}
+
+		internal Task<bool> WaitForCompletion ()
+		{
+			return finishedTask.Task;
 		}
 
 		internal async void Run (WebConnection connection)
@@ -302,6 +309,18 @@ namespace System.Net
 
 			WebConnection.Debug ($"WO FINISH READING: Op={ID} {ok} {error != null} {data != null} {next != null}");
 
+			try {
+				var keepAlive = await FinishReadingInner (connection, ok, data, next).ConfigureAwait (false);
+				finishedTask.TrySetResult (keepAlive);
+			} catch (Exception ex) {
+				finishedTask.TrySetException (ex);
+			}
+
+			WebConnection.Debug ($"WO FINISH READING DONE: Op={ID}");
+		}
+
+		async Task<bool> FinishReadingInner (WebConnection connection, bool ok, WebConnectionData data, WebOperation next)
+		{
 			string header = ServicePoint.UsesProxy ? "Proxy-Connection" : "Connection";
 			string cncHeader = null;
 			bool keepAlive = false;
@@ -335,10 +354,12 @@ namespace System.Net
 
 			if (next != null && !next.Aborted) {
 				next.Run (connection);
-				return;
+				return await next.WaitForCompletion ().ConfigureAwait (false);
 			}
 
 			connection.SetIdleAndSendNext ();
+
+			return keepAlive;
 		}
 
 		internal void CompleteRequestWritten (WebRequestStream stream, Exception error = null)

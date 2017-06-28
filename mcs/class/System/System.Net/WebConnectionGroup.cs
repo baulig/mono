@@ -102,7 +102,7 @@ namespace System.Net
 			}
 		}
 
-		public WebConnection GetConnection (HttpWebRequest request, out bool created)
+		public WebConnectionState GetConnection (HttpWebRequest request, out bool created)
 		{
 			lock (ServicePoint) {
 				return CreateOrReuseConnection (request, out created);
@@ -151,27 +151,27 @@ namespace System.Net
 			return null;
 		}
 
-		WebConnection CreateOrReuseConnection (HttpWebRequest request, out bool created)
+		WebConnectionState CreateOrReuseConnection (HttpWebRequest request, out bool created)
 		{
 			var cnc = FindIdleConnection ();
 			if (cnc != null) {
 				created = false;
 				PrepareSharingNtlm (cnc.Connection, request);
-				return cnc.Connection;
+				return cnc;
 			}
 
 			if (ServicePoint.ConnectionLimit > connections.Count || connections.Count == 0) {
 				created = true;
 				cnc = new WebConnectionState (this);
 				connections.AddFirst (cnc);
-				return cnc.Connection;
+				return cnc;
 			}
 
 			created = false;
 			cnc = connections.Last.Value;
 			connections.Remove (cnc);
 			connections.AddFirst (cnc);
-			return cnc.Connection;
+			return cnc;
 		}
 
 		internal Queue Queue {

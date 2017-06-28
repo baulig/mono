@@ -685,6 +685,7 @@ namespace System.Net
 		static bool warned_about_queue = false;
 #endif
 
+		[Obsolete ("KILL")]
 		internal void SendRequest (WebOperation operation)
 		{
 			lock (this) {

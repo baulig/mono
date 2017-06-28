@@ -382,7 +382,7 @@ namespace System.Net
 			protocolVersion = version;
 		}
 
-		internal WebConnection GetConnection (HttpWebRequest request, string groupName)
+		internal WebConnectionState GetConnection (HttpWebRequest request, string groupName)
 		{
 			lock (this) {
 				bool created;

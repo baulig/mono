@@ -93,7 +93,33 @@ namespace System.Net
 				oldOperation = Interlocked.CompareExchange (ref currentOperation, operation, null);
 				if (oldOperation == null)
 					idleSince = DateTime.UtcNow + TimeSpan.FromDays (3650);
+
+				WebConnection.Debug ($"WCG SEND REQUEST: Cnc={Connection.ID} Op={operation.ID} old={oldOperation?.ID}");
+
+				if (oldOperation != null)
+					throw new NotImplementedException ();
+
+				operation.RegisterRequest (ServicePoint, Connection);
 			}
+
+			RunOperation (operation);
+		}
+
+		async void RunOperation (WebOperation operation)
+		{
+			WebConnection.Debug ($"WCG RUN: Cnc={Connection.ID} Op={operation.ID}");
+			operation.Run (Connection);
+
+			Exception throwMe = null;
+			bool keepAlive;
+			try {
+				keepAlive = await operation.WaitForCompletion ().ConfigureAwait (false);
+			} catch (Exception ex) {
+				throwMe = ex;
+				keepAlive = false;
+			}
+
+			WebConnection.Debug ($"WCG RUN DONE: Cnc={Connection.ID} Op={operation.ID} - {keepAlive} {throwMe?.GetType ()}");
 		}
 	}
 }
