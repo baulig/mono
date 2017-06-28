@@ -149,6 +149,7 @@ namespace System.Net
 			requestTask.TrySetException (error);
 			requestWrittenTask.TrySetException (error);
 			responseTask.TrySetException (error);
+			completeResponseReadTask.TrySetException (error);
 		}
 
 		(ExceptionDispatchInfo, bool) SetDisposed (ref ExceptionDispatchInfo field)
@@ -199,8 +200,8 @@ namespace System.Net
 			}
 
 			cts.Token.Register (() => {
+				Request.FinishedReading = true;
 				SetDisposed (ref disposedInfo);
-				connection.Abort (this);
 			});
 		}
 
@@ -350,7 +351,7 @@ namespace System.Net
 					} catch { }
 					data = null;
 				}
-				connection.Reset ();
+				connection.Close ();
 			}
 
 			if (next != null && !next.Aborted) {

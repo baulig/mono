@@ -106,6 +106,8 @@ namespace System.Net
 		public void Close ()
 		{
 			lock (this) {
+				WebConnection.Debug ($"WCD CLOSE: data={ID} Op={Operation?.ID} socket={socket?.ID}");
+
 				if (Operation != null)
 					Operation.Close ();
 

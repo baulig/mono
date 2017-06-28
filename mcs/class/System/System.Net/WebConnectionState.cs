@@ -82,7 +82,7 @@ namespace System.Net
 		{
 			if (!keepAlive) {
 				try {
-					Connection.ReallyCloseIt ();
+					Connection.Close ();
 				} catch { }
 			}
 

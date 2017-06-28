@@ -368,7 +368,7 @@ namespace System.Net
 			try {
 				NetworkStream serverStream = new NetworkStream (data.Socket, false);
 
-				Debug ($"WC CREATE STREAM: Cnc={ID} {requestID} {reused}");
+				Debug ($"WC CREATE STREAM: Cnc={ID} data={data.ID} {requestID} {reused} socket={data.Socket.ID}");
 
 				if (data.Request.Address.Scheme == Uri.UriSchemeHttps) {
 #if SECURITY_DEP
@@ -621,8 +621,6 @@ namespace System.Net
 					Debug ($"WC INIT CONNECTION #2: Cnc={ID} Op={operation.ID} data={data.ID}");
 				} catch (Exception ex) {
 					Debug ($"WC INIT CONNECTION #2 FAILED: Cnc={ID} Op={operation.ID} data={data.ID} - {ex.Message}");
-					if (!operation.Aborted)
-						Close (true);
 					throw;
 				}
 			}
@@ -647,7 +645,6 @@ namespace System.Net
 						null, streamResult.status, webResponse);
 				}
 
-				Close (true);
 				throw GetException (streamResult.status, streamResult.error);
 			}
 
@@ -779,71 +776,12 @@ namespace System.Net
 			}
 		}
 
-		internal void ReallyCloseIt ()
+		internal void Close ()
 		{
 			lock (this) {
 				Reset ();
 				Data.Close ();
 			}
-		}
-
-		internal void Close ()
-		{
-			Close (false);
-		}
-
-		[Obsolete ("KILL")]
-		internal void Close (bool sendNext)
-		{
-			lock (this) {
-				if (Data.Request != null && Data.Request.ReuseConnection) {
-					Data.Request.ReuseConnection = false;
-					return;
-				}
-
-				Data.Close ();
-
-				if (ntlm_authenticated)
-					ResetNtlm ();
-				currentData = new WebConnectionData ();
-
-				connect_request = null;
-				connect_ntlm_auth_state = NtlmAuthState.None;
-			}
-		}
-
-		internal void Abort (WebOperation operation)
-		{
-#if FIXME
-			lock (this) {
-				lock (queue) {
-					HttpWebRequest req = operation.Request;
-					if (Data.Request == req || Data.Request == null) {
-						if (!req.FinishedReading) {
-							status = WebExceptionStatus.RequestCanceled;
-							Close ();
-							if (queue.Count > 0) {
-								operation = (WebOperation)queue.Dequeue ();
-								SendRequest (operation);
-							}
-						}
-						return;
-					}
-
-					req.FinishedReading = true;
-					if (queue.Count > 0 && queue.Peek () == operation) {
-						queue.Dequeue ();
-					} else if (queue.Count > 0) {
-						object[] old = queue.ToArray ();
-						queue.Clear ();
-						for (int i = old.Length - 1; i >= 0; i--) {
-							if (old[i] != operation)
-								queue.Enqueue (old[i]);
-						}
-					}
-				}
-			}
-#endif
 		}
 
 		internal void ResetNtlm ()
