@@ -42,17 +42,24 @@ namespace System.Net
 {
 	class WebConnectionGroup
 	{
-		ServicePoint sPoint;
 		string name;
-		LinkedList<ConnectionState> connections;
+		LinkedList<WebConnectionState> connections;
 		Queue queue;
 		bool closing;
 
+		public ServicePoint ServicePoint {
+			get;
+		}
+
+		public string Name {
+			get;
+		}
+
 		public WebConnectionGroup (ServicePoint sPoint, string name)
 		{
-			this.sPoint = sPoint;
-			this.name = name;
-			connections = new LinkedList<ConnectionState> ();
+			ServicePoint = sPoint;
+			Name = name;
+			connections = new LinkedList<WebConnectionState> ();
 			queue = new Queue ();
 		}
 
@@ -70,7 +77,7 @@ namespace System.Net
 
 			//TODO: what do we do with the queue? Empty it out and abort the requests?
 			//TODO: abort requests or wait for them to finish
-			lock (sPoint) {
+			lock (ServicePoint) {
 				closing = true;
 				var iter = connections.First;
 				while (iter != null) {
@@ -97,7 +104,7 @@ namespace System.Net
 
 		public WebConnection GetConnection (HttpWebRequest request, out bool created)
 		{
-			lock (sPoint) {
+			lock (ServicePoint) {
 				return CreateOrReuseConnection (request, out created);
 			}
 		}
@@ -130,7 +137,7 @@ namespace System.Net
 			}
 		}
 
-		ConnectionState FindIdleConnection ()
+		WebConnectionState FindIdleConnection ()
 		{
 			foreach (var cnc in connections) {
 				if (cnc.Busy)
@@ -153,9 +160,9 @@ namespace System.Net
 				return cnc.Connection;
 			}
 
-			if (sPoint.ConnectionLimit > connections.Count || connections.Count == 0) {
+			if (ServicePoint.ConnectionLimit > connections.Count || connections.Count == 0) {
 				created = true;
-				cnc = new ConnectionState (this);
+				cnc = new WebConnectionState (this);
 				connections.AddFirst (cnc);
 				return cnc.Connection;
 			}
@@ -165,10 +172,6 @@ namespace System.Net
 			connections.Remove (cnc);
 			connections.AddFirst (cnc);
 			return cnc.Connection;
-		}
-
-		public string Name {
-			get { return name; }
 		}
 
 		internal Queue Queue {
@@ -183,7 +186,7 @@ namespace System.Net
 			bool recycled;
 			List<WebConnection> connectionsToClose = null;
 
-			lock (sPoint) {
+			lock (ServicePoint) {
 				if (closing) {
 					idleSince = DateTime.MinValue;
 					return true;
@@ -200,7 +203,7 @@ namespace System.Net
 					if (cnc.Busy)
 						continue;
 
-					if (count <= sPoint.ConnectionLimit && now - cnc.IdleSince < maxIdleTime) {
+					if (count <= ServicePoint.ConnectionLimit && now - cnc.IdleSince < maxIdleTime) {
 						if (cnc.IdleSince > idleSince)
 							idleSince = cnc.IdleSince;
 						continue;
@@ -232,62 +235,6 @@ namespace System.Net
 			// Re-take the lock, then remove them from the connection list.
 			goto again;
 		}
-
-		class ConnectionState : IWebConnectionState {
-			public WebConnection Connection {
-				get;
-				private set;
-			}
-
-			public WebConnectionGroup Group {
-				get;
-				private set;
-			}
-
-			public ServicePoint ServicePoint {
-				get { return Group.sPoint; }
-			}
-
-			bool busy;
-			DateTime idleSince;
-
-			public bool Busy {
-				get { return busy; }
-			}
-
-			public DateTime IdleSince {
-				get { return idleSince; }
-			}
-
-			public bool TrySetBusy ()
-			{
-				lock (ServicePoint) {
-					WebConnection.Debug ($"CS TRY SET BUSY: {busy}");
-					if (busy)
-						return false;
-					busy = true;
-					idleSince = DateTime.UtcNow + TimeSpan.FromDays (3650);
-					return true;
-				}
-			}
-
-			public void SetIdle ()
-			{
-				lock (ServicePoint) {
-					WebConnection.Debug ($"CS SET IDLE: {busy}");
-					busy = false;
-					idleSince = DateTime.UtcNow;
-				}
-			}
-
-			public ConnectionState (WebConnectionGroup group)
-			{
-				Group = group;
-				idleSince = DateTime.UtcNow;
-				Connection = new WebConnection (this, group.sPoint);
-			}
-		}
-		
 	}
 }
 

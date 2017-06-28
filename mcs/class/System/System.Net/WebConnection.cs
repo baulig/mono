@@ -54,7 +54,7 @@ namespace System.Net
 	{
 		ServicePoint sPoint;
 		object socketLock = new object ();
-		IWebConnectionState state;
+		WebConnectionState state;
 		WebExceptionStatus status;
 		bool keepAlive;
 		Queue queue;
@@ -82,7 +82,7 @@ namespace System.Net
 		static extern void xamarin_start_wwan (string uri);
 #endif
 
-		public WebConnection (IWebConnectionState wcs, ServicePoint sPoint)
+		public WebConnection (WebConnectionState wcs, ServicePoint sPoint)
 		{
 			this.state = wcs;
 			this.sPoint = sPoint;

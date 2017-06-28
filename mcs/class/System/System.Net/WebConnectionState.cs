@@ -1,10 +1,10 @@
 //
-// IWebConnectionState.cs
+// WebConnectionState.cs
 //
 // Author:
-//       Martin Baulig <martin.baulig@xamarin.com>
+//       Martin Baulig <mabaul@microsoft.com>
 //
-// Copyright (c) 2014 Xamarin Inc. (http://www.xamarin.com)
+// Copyright (c) 2017 Xamarin Inc. (http://www.xamarin.com)
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -23,30 +23,66 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
+#define MARTIN_DEBUG
 using System;
 using System.Threading;
+using System.Collections;
+using System.Collections.Generic;
+using System.Net.Configuration;
+using System.Net.Sockets;
+using System.Diagnostics;
 
 namespace System.Net
 {
-	interface IWebConnectionState {
-		WebConnectionGroup Group {
+	class WebConnectionState
+	{
+		public WebConnection Connection {
 			get;
 		}
 
-		ServicePoint ServicePoint {
+		public WebConnectionGroup Group {
 			get;
 		}
 
-		bool Busy {
-			get;
+		public ServicePoint ServicePoint => Group.ServicePoint;
+
+		bool busy;
+		DateTime idleSince;
+
+		public bool Busy {
+			get { return busy; }
 		}
 
-		DateTime IdleSince {
-			get;
+		public DateTime IdleSince {
+			get { return idleSince; }
 		}
 
-		bool TrySetBusy ();
+		public bool TrySetBusy ()
+		{
+			lock (ServicePoint) {
+				WebConnection.Debug ($"CS TRY SET BUSY: {busy}");
+				if (busy)
+					return false;
+				busy = true;
+				idleSince = DateTime.UtcNow + TimeSpan.FromDays (3650);
+				return true;
+			}
+		}
 
-		void SetIdle ();
+		public void SetIdle ()
+		{
+			lock (ServicePoint) {
+				WebConnection.Debug ($"CS SET IDLE: {busy}");
+				busy = false;
+				idleSince = DateTime.UtcNow;
+			}
+		}
+
+		public WebConnectionState (WebConnectionGroup group)
+		{
+			Group = group;
+			idleSince = DateTime.UtcNow;
+			Connection = new WebConnection (this, group.ServicePoint);
+		}
 	}
 }
