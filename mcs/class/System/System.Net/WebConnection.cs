@@ -737,9 +737,35 @@ namespace System.Net
 			return true;
 		}
 
-		internal void CloseError ()
+		internal bool PrepareSharingNtlm (WebOperation operation)
 		{
-			Close (true);
+			if (!NtlmAuthenticated)
+				return true;
+
+			bool needs_reset = false;
+			NetworkCredential cnc_cred = NtlmCredential;
+			var request = operation.Request;
+
+			bool isProxy = (request.Proxy != null && !request.Proxy.IsBypassed (request.RequestUri));
+			ICredentials req_icreds = (!isProxy) ? request.Credentials : request.Proxy.Credentials;
+			NetworkCredential req_cred = (req_icreds != null) ? req_icreds.GetCredential (request.RequestUri, "NTLM") : null;
+
+			if (cnc_cred == null || req_cred == null ||
+				cnc_cred.Domain != req_cred.Domain || cnc_cred.UserName != req_cred.UserName ||
+				cnc_cred.Password != req_cred.Password) {
+				needs_reset = true;
+			}
+
+			if (!needs_reset) {
+				bool req_sharing = request.UnsafeAuthenticatedConnectionSharing;
+				bool cnc_sharing = UnsafeAuthenticatedConnectionSharing;
+				needs_reset = (req_sharing == false || req_sharing != cnc_sharing);
+			}
+			if (needs_reset) {
+				Reset (); // closes the authenticated connection
+				return false;
+			}
+			return true;
 		}
 
 		internal void Reset ()
@@ -755,7 +781,10 @@ namespace System.Net
 
 		internal void ReallyCloseIt ()
 		{
-			Reset ();
+			lock (this) {
+				Reset ();
+				Data.Close ();
+			}
 		}
 
 		internal void Close ()

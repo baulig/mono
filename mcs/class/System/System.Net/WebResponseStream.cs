@@ -95,7 +95,7 @@ namespace System.Net
 				}
 
 				closed = true;
-				Connection.CloseError ();
+				Operation.CompleteResponseRead (this, false, throwMe);
 				throw throwMe;
 			}
 
@@ -406,7 +406,6 @@ namespace System.Net
 					// If we have not read all the contents
 					closed = true;
 					Operation.CompleteResponseRead (this, false);
-					Connection.CloseError ();
 				}
 			}
 		}

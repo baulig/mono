@@ -103,7 +103,6 @@ namespace System.Net
 			} catch (Exception ex) {
 				KillBuffer ();
 				closed = true;
-				Connection.CloseError ();
 
 				if (ex is SocketException)
 					ex = new IOException ("Error writing request", ex);
@@ -179,10 +178,11 @@ namespace System.Net
 			if (size > avail) {
 				KillBuffer ();
 				closed = true;
-				Connection.CloseError ();
-				throw new ProtocolViolationException (
+				var throwMe = new ProtocolViolationException (
 					"The number of bytes to be written is greater than " +
 					"the specified ContentLength.");
+				Operation.CompleteRequestWritten (this, throwMe);
+				throw throwMe;
 			}
 		}
 
@@ -266,9 +266,10 @@ namespace System.Net
 			BufferOffsetSize buffer = GetWriteBuffer ();
 			if (buffer != null && !Operation.IsNtlmChallenge && Request.ContentLength != -1 && Request.ContentLength < buffer.Size) {
 				closed = true;
-				Connection.CloseError ();
-				throw new WebException ("Specified Content-Length is less than the number of bytes to write", null,
+				var throwMe = new WebException ("Specified Content-Length is less than the number of bytes to write", null,
 					WebExceptionStatus.ServerProtocolViolation, null);
+				Operation.CompleteRequestWritten (this, throwMe);
+				throw throwMe;
 			}
 
 			await SetHeadersAsync (true, cancellationToken).ConfigureAwait (false);
@@ -339,13 +340,15 @@ namespace System.Net
 			if (!sendChunked && !Operation.IsNtlmChallenge && length != -1 && totalWritten != length) {
 				IOException io = new IOException ("Cannot close the stream until all bytes are written");
 				closed = true;
-				Connection.CloseError();
-				throw new WebException ("Request was cancelled.", WebExceptionStatus.RequestCanceled, WebExceptionInternalStatus.RequestFatal, io);
+				var throwMe = new WebException ("Request was cancelled.", WebExceptionStatus.RequestCanceled, WebExceptionInternalStatus.RequestFatal, io);
+				Operation.CompleteRequestWritten (this, throwMe);
+				throw throwMe;
 			}
 
 			// Commented out the next line to fix xamarin bug #1512
 			//WriteRequest ();
 			disposed = true;
+			Operation.CompleteRequestWritten (this);
 		}
 	}
 }
