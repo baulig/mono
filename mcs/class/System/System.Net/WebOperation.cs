@@ -353,7 +353,7 @@ namespace System.Net
 
 		internal void CompleteResponseRead (WebResponseStream stream, bool ok, Exception error = null)
 		{
-			WebConnection.Debug ($"WO COMPLETE RESPONSE READ: Op={ID} {error != null}");
+			WebConnection.Debug ($"WO COMPLETE RESPONSE READ: Op={ID} {ok} {error?.GetType ()}");
 
 			if (error != null)
 				completeResponseReadTask.TrySetException (error);

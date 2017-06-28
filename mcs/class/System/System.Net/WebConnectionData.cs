@@ -27,7 +27,7 @@
 // OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 // WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //
-
+#define MARTIN_DEBUG
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -62,16 +62,17 @@ namespace System.Net
 			Connection = connection;
 			Operation = operation;
 			Request = operation.Request;
+			WebConnection.Debug ($"WCD CTOR: Cnc={Connection.ID} Op={Operation.ID} Req={Request.ID} data={ID}");
 		}
 
 		public void ReuseConnection (WebConnectionData old)
 		{
 			lock (this) {
+				WebConnection.Debug ($"WCD REUSE CONNECTION: this={ID} data={old.ID}");
 				socket = Interlocked.Exchange (ref old.socket, null);
 				networkStream = Interlocked.Exchange (ref old.networkStream, null);
 				tlsStream = Interlocked.Exchange (ref old.tlsStream, null);
 				Challenge = Interlocked.Exchange (ref old.Challenge, null);
-				Headers = Interlocked.Exchange (ref old.Headers, null);
 				ChunkStream = Interlocked.Exchange (ref old.ChunkStream, null);
 				ChunkedRead = old.ChunkedRead;
 				Version = old.Version;

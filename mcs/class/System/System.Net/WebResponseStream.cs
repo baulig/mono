@@ -252,6 +252,8 @@ namespace System.Net
 
 		internal async Task Initialize (BufferOffsetSize buffer, CancellationToken cancellationToken)
 		{
+			WebConnection.Debug ($"WRP INIT: Cnc={Connection.ID} data={Data.ID} status={Data.StatusCode} bos={buffer.Offset}/{buffer.Size}");
+
 			string me = "WebResponseStream.Initialize()";
 			bool expect_content = ExpectContent (Data.StatusCode, Data.Request.Method);
 			string tencoding = null;
@@ -286,6 +288,8 @@ namespace System.Net
 				}
 			}
 
+			WebConnection.Debug ($"WRP INIT #1: Cnc={Connection.ID} data={Data.ID} - {expect_content} {closed} {nextReadCalled}");
+
 			if (!expect_content) {
 				if (!closed && !nextReadCalled) {
 					if (contentLength == Int64.MaxValue)
@@ -298,7 +302,7 @@ namespace System.Net
 
 		internal async Task ReadAllAsync (CancellationToken cancellationToken)
 		{
-			WebConnection.Debug ($"WCS READ ALL ASYNC: Cnc={Connection.ID}");
+			WebConnection.Debug ($"WRP READ ALL ASYNC: Cnc={Connection.ID} data={Data.ID} - {read_eof} {totalRead} {contentLength} {nextReadCalled}");
 			if (read_eof || totalRead >= contentLength || nextReadCalled) {
 				if (!nextReadCalled) {
 					nextReadCalled = true;
@@ -324,7 +328,7 @@ namespace System.Net
 					throw new WebException ("The operation has timed out.", WebExceptionStatus.Timeout);
 			}
 
-			WebConnection.Debug ($"WCS READ ALL ASYNC #1: Cnc={Connection.ID}");
+			WebConnection.Debug ($"WCS READ ALL ASYNC #1: Cnc={Connection.ID} data={Data.ID}");
 
 			cancellationToken.ThrowIfCancellationRequested ();
 
@@ -385,7 +389,7 @@ namespace System.Net
 				myReadTcs.TrySetException (ex);
 				throw;
 			} finally {
-				WebConnection.Debug ($"WCS READ ALL #2: Cnc={Connection.ID}");
+				WebConnection.Debug ($"WCS READ ALL ASYNC #2: Cnc={Connection.ID}");
 				readTcs = null;
 			}
 
