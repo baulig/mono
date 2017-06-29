@@ -97,7 +97,7 @@ namespace System.Net
 			return (socket.Poll (0, SelectMode.SelectRead) == false);
 		}
 
-		async Task<bool> CheckReusable (WebConnectionData data, CancellationToken cancellationToken)
+		bool CheckReusable (WebConnectionData data, CancellationToken cancellationToken)
 		{
 			if (data == null || cancellationToken.IsCancellationRequested)
 				return false;
@@ -105,7 +105,7 @@ namespace System.Net
 			if (data.Socket != null && data.Socket.Connected) {
 				// Take the chunked stream to the expected state (State.None)
 				try {
-					if (CanReuse (data.Socket) && await CompleteChunkedRead (data, cancellationToken).ConfigureAwait (false))
+					if (CanReuse (data.Socket))
 						return true;
 				} catch {
 					return false;
@@ -241,7 +241,7 @@ namespace System.Net
 			WebConnectionTunnel tunnel = null;
 
 		retry:
-			bool reused = await CheckReusable (oldData, cancellationToken).ConfigureAwait (false);
+			bool reused = CheckReusable (oldData, cancellationToken);
 			Debug ($"WC INIT CONNECTION #1: Cnc={ID} Op={operation.ID} data={data.ID} - {reused} - {operation.WriteBuffer != null} {operation.IsNtlmChallenge}");
 			if (reused) {
 				data.ReuseConnection (oldData);
@@ -329,25 +329,6 @@ namespace System.Net
 				text.Length--;
 
 			output = text.ToString ();
-			return true;
-		}
-
-		async Task<bool> CompleteChunkedRead (WebConnectionData data, CancellationToken cancellationToken)
-		{
-			if (!data.ChunkedRead || data.ChunkStream == null)
-				return true;
-
-			var buffer = new byte[4096];
-			while (data.ChunkStream.WantMore) {
-				if (cancellationToken.IsCancellationRequested)
-					return false;
-				int nbytes = await data.NetworkStream.ReadAsync (buffer, 0, buffer.Length, cancellationToken).ConfigureAwait (false);
-				if (nbytes <= 0)
-					return false; // Socket was disconnected
-
-				data.ChunkStream.Write (buffer, 0, nbytes);
-			}
-
 			return true;
 		}
 
