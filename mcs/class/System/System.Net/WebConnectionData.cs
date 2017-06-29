@@ -42,8 +42,6 @@ namespace System.Net
 		public string StatusDescription;
 		public Version Version;
 		public Version ProxyVersion;
-		// [Obsolete ("WHO USES THIS?")]
-		public string[] Challenge;
 		public bool ChunkedRead;
 		public MonoChunkStream ChunkStream;
 		Stream networkStream;
@@ -72,7 +70,6 @@ namespace System.Net
 				socket = Interlocked.Exchange (ref old.socket, null);
 				networkStream = Interlocked.Exchange (ref old.networkStream, null);
 				tlsStream = Interlocked.Exchange (ref old.tlsStream, null);
-				Challenge = Interlocked.Exchange (ref old.Challenge, null);
 				ChunkStream = Interlocked.Exchange (ref old.ChunkStream, null);
 				ChunkedRead = old.ChunkedRead;
 				Version = old.Version;
