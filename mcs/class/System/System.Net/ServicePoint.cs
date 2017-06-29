@@ -386,7 +386,7 @@ namespace System.Net
 		{
 			lock (this) {
 				var cncGroup = GetConnectionGroup (groupName);
-				var (cnc, created) = cncGroup.SendRequest (operation);
+				var created = cncGroup.SendRequest (operation);
 				if (created) {
 					++currentConnections;
 					if (idleTimer == null)

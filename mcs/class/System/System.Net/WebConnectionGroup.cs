@@ -102,20 +102,20 @@ namespace System.Net
 			}
 		}
 
-		public (WebConnectionState, bool) SendRequest (WebOperation operation)
+		public bool SendRequest (WebOperation operation)
 		{
 			lock (ServicePoint) {
-				var (cnc, created, started) = CreateOrReuseConnection (operation);
-				WebConnection.Debug ($"WCG SEND REQUEST: Op={operation.ID} {created} {started}");
+				var (cnc, created) = CreateOrReuseConnection (operation);
+				WebConnection.Debug ($"WCG SEND REQUEST: Op={operation.ID} {cnc != null} {created}");
 
-				if (started)
+				if (cnc != null) {
 					ScheduleWaitForCompletion (cnc, operation);
-				else {
+				} else {
 					queue.Enqueue (operation);
 					WarnAboutQueue ();
 				}
 
-				return (cnc, created);
+				return created;
 			}
 		}
 
@@ -200,23 +200,20 @@ namespace System.Net
 			return null;
 		}
 
-		(WebConnectionState state, bool created, bool started) CreateOrReuseConnection (WebOperation operation)
+		(WebConnectionState state, bool created) CreateOrReuseConnection (WebOperation operation)
 		{
 			var cnc = FindIdleConnection (operation);
 			if (cnc != null)
-				return (cnc, false, true);
+				return (cnc, false);
 
 			if (ServicePoint.ConnectionLimit > connections.Count || connections.Count == 0) {
 				cnc = new WebConnectionState (this);
 				cnc.StartOperation (operation, false);
 				connections.AddFirst (cnc);
-				return (cnc, true, true);
+				return (cnc, true);
 			}
 
-			cnc = connections.Last.Value;
-			connections.Remove (cnc);
-			connections.AddFirst (cnc);
-			return (cnc, false, false);
+			return (null, false);
 		}
 
 		internal Queue Queue {
