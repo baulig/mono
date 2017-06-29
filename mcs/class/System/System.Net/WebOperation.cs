@@ -333,7 +333,7 @@ namespace System.Net
 
 			if (ok && data != null && stream != null) {
 				cncHeader = stream.Headers != null ? stream.Headers[header] : null;
-				keepAlive = (data.Version == HttpVersion.Version11 && Request.KeepAlive);
+				keepAlive = (stream.Version == HttpVersion.Version11 && Request.KeepAlive);
 				if (data.ProxyVersion != null && data.ProxyVersion != HttpVersion.Version11)
 					keepAlive = false;
 				if (cncHeader != null) {

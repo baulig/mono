@@ -38,7 +38,6 @@ namespace System.Net
 {
 	class WebConnectionData
 	{
-		public Version Version;
 		public Version ProxyVersion;
 		public bool ChunkedRead;
 		public MonoChunkStream ChunkStream;
@@ -70,7 +69,6 @@ namespace System.Net
 				tlsStream = Interlocked.Exchange (ref old.tlsStream, null);
 				ChunkStream = Interlocked.Exchange (ref old.ChunkStream, null);
 				ChunkedRead = old.ChunkedRead;
-				Version = old.Version;
 				ProxyVersion = old.ProxyVersion;
 			}
 		}

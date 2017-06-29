@@ -39,6 +39,11 @@ namespace System.Net
 			private set;
 		}
 
+		public Version Version {
+			get;
+			private set;
+		}
+
 		public WebResponseStream (WebConnection connection, WebOperation operation, WebConnectionData data)
 			: base (connection, operation, data)
 		{
@@ -535,10 +540,10 @@ namespace System.Net
 						throw GetReadException (WebExceptionStatus.ServerProtocolViolation, null, "GetResponse");
 
 					if (String.Compare (parts[0], "HTTP/1.1", true) == 0) {
-						Data.Version = HttpVersion.Version11;
+						Version = HttpVersion.Version11;
 						ServicePoint.SetVersion (HttpVersion.Version11);
 					} else {
-						Data.Version = HttpVersion.Version10;
+						Version = HttpVersion.Version10;
 						ServicePoint.SetVersion (HttpVersion.Version10);
 					}
 
