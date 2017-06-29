@@ -85,11 +85,6 @@ namespace System.Net
 
 	abstract class WebConnectionStream : Stream
 	{
-		bool isRead;
-		WebConnection cnc;
-		WebOperation operation;
-		WebConnectionData data;
-		HttpWebRequest request;
 		protected bool closed;
 		bool disposed;
 		object locker = new object ();
@@ -97,45 +92,35 @@ namespace System.Net
 		int write_timeout;
 		internal bool IgnoreIOErrors;
 
-		public WebConnectionStream (WebConnection cnc, WebOperation operation, WebConnectionData data)
+		protected WebConnectionStream (WebConnection cnc, WebOperation operation, WebConnectionData data)
 		{
-			if (data == null)
-				throw new InvalidOperationException ("data was not initialized");
-			if (data.Request == null)
-				throw new InvalidOperationException ("data.Request was not initialized");
-			isRead = true;
-			this.operation = operation;
-			this.data = data;
-			this.request = data.Request;
-			read_timeout = request.ReadWriteTimeout;
-			write_timeout = read_timeout;
-			this.cnc = cnc;
-		}
+			Connection = cnc;
+			Operation = operation;
+			Request = operation.Request;
+			Data = data;
 
-		public WebConnectionStream (WebConnection cnc, WebOperation operation, WebConnectionData data, HttpWebRequest request)
-		{
-			read_timeout = request.ReadWriteTimeout;
+			read_timeout = Request.ReadWriteTimeout;
 			write_timeout = read_timeout;
-			isRead = false;
-			this.cnc = cnc;
-			this.operation = operation;
-			this.data = data;
-			this.request = request;
 		}
 
 		internal HttpWebRequest Request {
-			get { return request; }
+			get;
 		}
 
 		internal WebConnection Connection {
-			get { return cnc; }
+			get;
 		}
+
 		internal WebOperation Operation {
-			get { return operation; }
+			get;
 		}
+
 		internal WebConnectionData Data {
-			get { return data; }
+			get;
 		}
+
+		internal ServicePoint ServicePoint => Connection.ServicePoint;
+
 		public override bool CanTimeout {
 			get { return true; }
 		}
@@ -166,7 +151,6 @@ namespace System.Net
 
 		public override int Read (byte[] buffer, int offset, int size)
 		{
-			WebConnection.Debug ($"WCS READ: {cnc.ID}");
 			try {
 				return ReadAsync (buffer, offset, size, CancellationToken.None).Result;
 			} catch (Exception e) {
@@ -177,15 +161,12 @@ namespace System.Net
 		public override IAsyncResult BeginRead (byte[] buffer, int offset, int size,
 							AsyncCallback cb, object state)
 		{
-			// WebConnection.Debug ($"WCS BEGIN READ: {cnc.ID}");
-
 			var task = ReadAsync (buffer, offset, size, CancellationToken.None);
 			return TaskToApm.Begin (task, cb, state);
 		}
 
 		public override int EndRead (IAsyncResult r)
 		{
-			// WebConnection.Debug ($"WCS END READ: {cnc.ID}");
 			try {
 				return TaskToApm.End<int> (r);
 			} catch (Exception e) {
@@ -193,13 +174,9 @@ namespace System.Net
 			}
 		}
 
-
 		public override IAsyncResult BeginWrite (byte[] buffer, int offset, int size,
 							 AsyncCallback cb, object state)
 		{
-			if (request.Aborted)
-				throw new WebException ("The request was canceled.", WebExceptionStatus.RequestCanceled);
-
 			var task = WriteAsync (buffer, offset, size, CancellationToken.None);
 			return TaskToApm.Begin (task, cb, state);
 		}
@@ -254,15 +231,9 @@ namespace System.Net
 		}
 
 		public override bool CanSeek {
-			get { return false; }
-		}
-
-		public override bool CanRead {
-			get { return !disposed && isRead; }
-		}
-
-		public override bool CanWrite {
-			get { return !disposed && !isRead; }
+			get {
+				return false;
+			}
 		}
 
 		public override long Position {

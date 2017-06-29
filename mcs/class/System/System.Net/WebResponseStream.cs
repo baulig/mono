@@ -35,6 +35,10 @@ namespace System.Net
 			}
 		}
 
+		public override bool CanRead => true;
+
+		public override bool CanWrite => false;
+
 		public override async Task<int> ReadAsync (byte[] buffer, int offset, int size, CancellationToken cancellationToken)
 		{
 			WebConnection.Debug ($"WRP READ ASYNC: Cnc={Connection.ID}");
@@ -454,7 +458,7 @@ namespace System.Net
 				if (state == ReadState.None) {
 					try {
 						var oldPos = position;
-						if (!GetResponse (Data, Connection.ServicePoint, buffer, ref position, ref state))
+						if (!GetResponse (buffer, ref position, ref state))
 							position = oldPos;
 					} catch (Exception e) {
 						throw GetReadException (WebExceptionStatus.ServerProtocolViolation, e, "ReadDoneAsync4");
@@ -489,7 +493,7 @@ namespace System.Net
 			}
 		}
 
-		static bool GetResponse (WebConnectionData data, ServicePoint sPoint, BufferOffsetSize buffer, ref int pos, ref ReadState state)
+		bool GetResponse (BufferOffsetSize buffer, ref int pos, ref ReadState state)
 		{
 			string line = null;
 			bool lineok = false;
@@ -516,18 +520,18 @@ namespace System.Net
 						throw GetReadException (WebExceptionStatus.ServerProtocolViolation, null, "GetResponse");
 
 					if (String.Compare (parts[0], "HTTP/1.1", true) == 0) {
-						data.Version = HttpVersion.Version11;
-						sPoint.SetVersion (HttpVersion.Version11);
+						Data.Version = HttpVersion.Version11;
+						ServicePoint.SetVersion (HttpVersion.Version11);
 					} else {
-						data.Version = HttpVersion.Version10;
-						sPoint.SetVersion (HttpVersion.Version10);
+						Data.Version = HttpVersion.Version10;
+						ServicePoint.SetVersion (HttpVersion.Version10);
 					}
 
-					data.StatusCode = (int)UInt32.Parse (parts[1]);
+					Data.StatusCode = (int)UInt32.Parse (parts[1]);
 					if (parts.Length >= 3)
-						data.StatusDescription = String.Join (" ", parts, 2, parts.Length - 2);
+						Data.StatusDescription = String.Join (" ", parts, 2, parts.Length - 2);
 					else
-						data.StatusDescription = "";
+						Data.StatusDescription = "";
 
 					if (pos >= buffer.Size)
 						return true;
@@ -536,7 +540,7 @@ namespace System.Net
 				emptyFirstLine = false;
 				if (state == ReadState.Status) {
 					state = ReadState.Headers;
-					data.Headers = new WebHeaderCollection ();
+					Data.Headers = new WebHeaderCollection ();
 					var headerList = new List<string> ();
 					bool finished = false;
 					while (!finished) {
@@ -574,7 +578,7 @@ namespace System.Net
 						var header = s.Substring (0, pos_s);
 						var value = s.Substring (pos_s + 1).Trim ();
 
-						var h = data.Headers;
+						var h = Data.Headers;
 						if (WebHeaderCollection.AllowMultiValues (header)) {
 							h.AddInternal (header, value);
 						} else {
@@ -582,16 +586,16 @@ namespace System.Net
 						}
 					}
 
-					if (data.StatusCode == (int)HttpStatusCode.Continue) {
-						sPoint.SendContinue = true;
+					if (Data.StatusCode == (int)HttpStatusCode.Continue) {
+						ServicePoint.SendContinue = true;
 						if (pos >= buffer.Offset)
 							return true;
 
-						if (data.Request.ExpectContinue) {
-							data.Request.DoContinueDelegate (data.StatusCode, data.Headers);
+						if (Request.ExpectContinue) {
+							Request.DoContinueDelegate (Data.StatusCode, Data.Headers);
 							// Prevent double calls when getting the
 							// headers in several packets.
-							data.Request.ExpectContinue = false;
+							Request.ExpectContinue = false;
 						}
 
 						state = ReadState.None;

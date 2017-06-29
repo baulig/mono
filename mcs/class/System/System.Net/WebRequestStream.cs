@@ -21,7 +21,7 @@ namespace System.Net
 		bool headersSent;
 
 		public WebRequestStream (WebConnection connection, WebOperation operation, WebConnectionData data)
-			: base (connection, operation, data, operation.Request)
+			: base (connection, operation, data)
 		{
 			allowBuffering = operation.Request.InternalAllowBuffering;
 			sendChunked = operation.Request.SendChunked && operation.WriteBuffer == null;
@@ -34,6 +34,10 @@ namespace System.Net
 				throw new NotSupportedException ();
 			}
 		}
+
+		public override bool CanRead => false;
+
+		public override bool CanWrite => true;
 
 		internal bool SendChunked {
 			get { return sendChunked; }
