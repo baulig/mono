@@ -97,13 +97,12 @@ namespace System.Net
 			return (socket.Poll (0, SelectMode.SelectRead) == false);
 		}
 
-		bool CheckReusable (WebConnectionData data, CancellationToken cancellationToken)
+		bool CheckReusable (WebConnectionData data)
 		{
-			if (data == null || cancellationToken.IsCancellationRequested)
+			if (data == null)
 				return false;
 
 			if (data.Socket != null && data.Socket.Connected) {
-				// Take the chunked stream to the expected state (State.None)
 				try {
 					if (CanReuse (data.Socket))
 						return true;
@@ -236,7 +235,9 @@ namespace System.Net
 			WebConnectionTunnel tunnel = null;
 
 		retry:
-			bool reused = CheckReusable (oldData, cancellationToken);
+			operation.ThrowIfClosedOrDisposed (cancellationToken);
+
+			bool reused = CheckReusable (oldData);
 			Debug ($"WC INIT CONNECTION #1: Cnc={ID} Op={operation.ID} data={data.ID} - {reused} - {operation.WriteBuffer != null} {operation.IsNtlmChallenge}");
 			if (reused) {
 				data.ReuseConnection (oldData);
@@ -375,6 +376,25 @@ namespace System.Net
 			lock (this) {
 				Data.Close ();
 				Reset ();
+			}
+		}
+
+		internal void FinishOperation (ref bool keepAlive)
+		{
+			lock (this) {
+				if (Data == null) {
+					keepAlive = false;
+					return;
+				}
+
+				if (!keepAlive || Data.Socket == null || !Data.Socket.Connected) {
+					try {
+						Data.Close ();
+					} catch { }
+					keepAlive = false;
+					currentData = null;
+					ResetNtlm ();
+				}
 			}
 		}
 

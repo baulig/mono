@@ -332,21 +332,11 @@ namespace System.Net
 
 			if (ok && data != null && stream != null) {
 				keepAlive = stream.KeepAlive;
-				if (data.Socket == null || !data.Socket.Connected)
-					keepAlive = false;
 			}
 
 			WebConnection.Debug ($"WO FINISH READING #1: Op={ID} {data != null} {keepAlive}");
 
-			if (!keepAlive) {
-				if (data != null) {
-					try {
-						data.Close ();
-					} catch { }
-					data = null;
-				}
-				connection.Close ();
-			}
+			connection.FinishOperation (ref keepAlive);
 
 			if (next != null && !next.Aborted) {
 				next.Run (connection);
