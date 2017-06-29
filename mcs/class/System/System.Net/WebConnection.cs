@@ -64,15 +64,6 @@ namespace System.Net
 			get { return currentData; }
 		}
 
-		enum NtlmAuthState
-		{
-			None,
-			Challenge,
-			Response
-		}
-		NtlmAuthState connect_ntlm_auth_state;
-		HttpWebRequest connect_request;
-
 #if MONOTOUCH && !MONOTOUCH_TV && !MONOTOUCH_WATCH
 		[System.Runtime.InteropServices.DllImport ("__Internal")]
 		static extern void xamarin_start_wwan (string uri);
@@ -613,9 +604,6 @@ namespace System.Net
 			lock (this) {
 				ResetNtlm ();
 				currentData = new WebConnectionData ();
-
-				connect_request = null;
-				connect_ntlm_auth_state = NtlmAuthState.None;
 			}
 		}
 
