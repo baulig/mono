@@ -47,6 +47,7 @@ System.Net/WebConnectionData.cs
 System.Net/WebConnectionGroup.cs
 System.Net/WebConnectionState.cs
 System.Net/WebConnectionStream.cs
+System.Net/WebConnectionTunnel.cs
 System.Net/WebOperation.cs
 System.Net/WebRequestStream.cs
 System.Net/WebResponseStream.cs

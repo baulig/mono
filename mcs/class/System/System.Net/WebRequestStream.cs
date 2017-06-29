@@ -66,10 +66,6 @@ namespace System.Net
 			return new BufferOffsetSize (buffer, 0, (int)writeBuffer.Length, false);
 		}
 
-		internal bool RequestWritten {
-			get { return requestWritten; }
-		}
-
 		public override async Task WriteAsync (byte[] buffer, int offset, int size, CancellationToken cancellationToken)
 		{
 			WebConnection.Debug ($"WRS WRITE ASYNC: Cnc={Connection.ID}");

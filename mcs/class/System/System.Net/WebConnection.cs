@@ -674,7 +674,7 @@ namespace System.Net
 						 WebExceptionInternalStatus.RequestFatal, error);
 		}
 
-		static bool ReadLine (byte[] buffer, ref int start, int max, ref string output)
+		internal static bool ReadLine (byte[] buffer, ref int start, int max, ref string output)
 		{
 			bool foundCR = false;
 			StringBuilder text = new StringBuilder ();
