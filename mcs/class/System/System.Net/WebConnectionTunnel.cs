@@ -169,27 +169,27 @@ namespace System.Net
 			byte[] connectBytes = Encoding.Default.GetBytes (sb.ToString ());
 			await stream.WriteAsync (connectBytes, 0, connectBytes.Length, cancellationToken).ConfigureAwait (false);
 
-			var (result, buffer, status) = await ReadHeaders (stream, cancellationToken).ConfigureAwait (false);
-			if ((!have_auth || ntlmAuthState == NtlmAuthState.Challenge) &&
-			    result != null && status == 407) { // Needs proxy auth
-				var connectionHeader = result["Connection"];
+			(Headers, Data, StatusCode) = await ReadHeaders (stream, cancellationToken).ConfigureAwait (false);
+
+			if ((!have_auth || ntlmAuthState == NtlmAuthState.Challenge) && Headers != null && StatusCode == 407) { // Needs proxy auth
+				var connectionHeader = Headers["Connection"];
 				if (!string.IsNullOrEmpty (connectionHeader) && connectionHeader.ToLower () == "close") {
 					// The server is requesting that this connection be closed
 					CloseConnection = true;
 				}
 
-				StatusCode = status;
-				Challenge = result.GetValues ("Proxy-Authenticate");
-				Headers = result;
+				Challenge = Headers.GetValues ("Proxy-Authenticate");
 				Success = false;
-				return;
+			} else {
+				Success = StatusCode == 200 && Headers != null;
 			}
 
-			StatusCode = status;
-			Headers = result;
-			Data = buffer;
-
-			Success = status == 200 && result != null;
+			if (Challenge == null && (StatusCode == 401 || StatusCode == 407)) {
+				var response = new HttpWebResponse (ConnectUri, "CONNECT", null, null, null);
+				throw new WebException (
+					StatusCode == 407 ? "(407) Proxy Authentication Required" : "(401) Unauthorized",
+					null, WebExceptionStatus.ProtocolError, response);
+			}
 		}
 
 		async Task<(WebHeaderCollection, byte[], int)> ReadHeaders (Stream stream, CancellationToken cancellationToken)

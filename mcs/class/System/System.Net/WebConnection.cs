@@ -459,17 +459,6 @@ namespace System.Net
 					goto retry;
 				}
 
-				if (error == null && tunnel != null && (tunnel.StatusCode == 401 || tunnel.StatusCode == 407)) {
-					status = WebExceptionStatus.ProtocolError;
-					if (data.Headers == null)
-						data.Headers = new WebHeaderCollection ();
-
-					var webResponse = new HttpWebResponse (sPoint.Address, "CONNECT", data, null, null);
-					error = new WebException (
-						tunnel.StatusCode == 407 ? "(407) Proxy Authentication Required" : "(401) Unauthorized",
-						null, status, webResponse);
-				}
-
 				Debug ($"WC INIT CONNECTION #3 EX: Cnc={ID} data={data.ID} socket={data.Socket?.ID}");
 
 				throw GetException (status, error);
