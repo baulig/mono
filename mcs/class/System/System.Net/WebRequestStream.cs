@@ -274,10 +274,7 @@ namespace System.Net
 
 			await SetHeadersAsync (true, cancellationToken).ConfigureAwait (false);
 
-			WebConnection.Debug ($"WRQ WRITE REQUEST #1: Op={Operation.ID} {Data.ID} {Data.StatusCode} {buffer != null}");
-
-			if (Data.StatusCode != 0 && Data.StatusCode != 100)
-				return;
+			WebConnection.Debug ($"WRQ WRITE REQUEST #1: Op={Operation.ID} {Data.ID} {buffer != null}");
 
 			if (buffer != null && buffer.Size > 0)
 				await Data.NetworkStream.WriteAsync (buffer.Buffer, 0, buffer.Size, cancellationToken).ConfigureAwait (false);

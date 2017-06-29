@@ -29,6 +29,16 @@ namespace System.Net
 			private set;
 		}
 
+		public HttpStatusCode StatusCode {
+			get;
+			private set;
+		}
+
+		public string StatusDescription {
+			get;
+			private set;
+		}
+
 		public WebResponseStream (WebConnection connection, WebOperation operation, WebConnectionData data)
 			: base (connection, operation, data)
 		{
@@ -241,16 +251,17 @@ namespace System.Net
 			}
 		}
 
-		static bool ExpectContent (int statusCode, string method)
-		{
-			if (method == "HEAD")
-				return false;
-			return (statusCode >= 200 && statusCode != 204 && statusCode != 304);
+		bool ExpectContent {
+			get {
+				if (Request.Method == "HEAD")
+					return false;
+				return ((int)StatusCode >= 200 && (int)StatusCode != 204 && (int)StatusCode != 304);
+			}
 		}
 
 		internal async Task Initialize (BufferOffsetSize buffer, CancellationToken cancellationToken)
 		{
-			WebConnection.Debug ($"WRP INIT: Cnc={Connection.ID} data={Data.ID} status={Data.StatusCode} bos={buffer.Offset}/{buffer.Size}");
+			WebConnection.Debug ($"WRP INIT: Cnc={Connection.ID} data={Data.ID} status={(int)StatusCode} bos={buffer.Offset}/{buffer.Size}");
 
 			string contentType = Headers["Transfer-Encoding"];
 			bool chunkedRead = (contentType != null && contentType.IndexOf ("chunked", StringComparison.OrdinalIgnoreCase) != -1);
@@ -267,9 +278,8 @@ namespace System.Net
 				stream_length = -1;
 
 			string me = "WebResponseStream.Initialize()";
-			bool expect_content = ExpectContent (Data.StatusCode, Data.Request.Method);
 			string tencoding = null;
-			if (expect_content)
+			if (ExpectContent)
 				tencoding = Headers["Transfer-Encoding"];
 
 			Data.ChunkedRead = (tencoding != null && tencoding.IndexOf ("chunked", StringComparison.OrdinalIgnoreCase) != -1);
@@ -300,9 +310,9 @@ namespace System.Net
 				}
 			}
 
-			WebConnection.Debug ($"WRP INIT #1: Cnc={Connection.ID} data={Data.ID} - {expect_content} {closed} {nextReadCalled}");
+			WebConnection.Debug ($"WRP INIT #1: Cnc={Connection.ID} data={Data.ID} - {ExpectContent} {closed} {nextReadCalled}");
 
-			if (!expect_content) {
+			if (!ExpectContent) {
 				if (!closed && !nextReadCalled) {
 					if (contentLength == Int64.MaxValue)
 						contentLength = 0;
@@ -532,11 +542,11 @@ namespace System.Net
 						ServicePoint.SetVersion (HttpVersion.Version10);
 					}
 
-					Data.StatusCode = (int)UInt32.Parse (parts[1]);
+					StatusCode = (HttpStatusCode)UInt32.Parse (parts[1]);
 					if (parts.Length >= 3)
-						Data.StatusDescription = String.Join (" ", parts, 2, parts.Length - 2);
+						StatusDescription = String.Join (" ", parts, 2, parts.Length - 2);
 					else
-						Data.StatusDescription = "";
+						StatusDescription = string.Empty;
 
 					if (pos >= buffer.Size)
 						return true;
@@ -590,13 +600,13 @@ namespace System.Net
 						}
 					}
 
-					if (Data.StatusCode == (int)HttpStatusCode.Continue) {
+					if (StatusCode == HttpStatusCode.Continue) {
 						ServicePoint.SendContinue = true;
 						if (pos >= buffer.Offset)
 							return true;
 
 						if (Request.ExpectContinue) {
-							Request.DoContinueDelegate (Data.StatusCode, Headers);
+							Request.DoContinueDelegate ((int)StatusCode, Headers);
 							// Prevent double calls when getting the
 							// headers in several packets.
 							Request.ExpectContinue = false;

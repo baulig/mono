@@ -79,10 +79,10 @@ namespace System.Net
 			this.uri = uri;
 			this.method = method;
 			this.stream = stream;
-			webHeaders = stream?.Headers ?? new WebHeaderCollection ();
+			webHeaders = stream.Headers ?? new WebHeaderCollection ();
 			version = data.Version;
-			statusCode = (HttpStatusCode) data.StatusCode;
-			statusDescription = data.StatusDescription;
+			statusCode = stream.StatusCode;
+			statusDescription = stream.StatusDescription ?? HttpStatusDescription.Get (statusCode);
 			contentLength = -1;
 
 			try {

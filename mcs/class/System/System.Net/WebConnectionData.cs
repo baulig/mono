@@ -38,8 +38,6 @@ namespace System.Net
 {
 	class WebConnectionData
 	{
-		public int StatusCode;
-		public string StatusDescription;
 		public Version Version;
 		public Version ProxyVersion;
 		public bool ChunkedRead;
