@@ -69,6 +69,16 @@ namespace System.Net
 
 		public override bool CanWrite => false;
 
+		protected bool ChunkedRead {
+			get;
+			private set;
+		}
+
+		protected MonoChunkStream ChunkStream {
+			get;
+			private set;
+		}
+
 		public override async Task<int> ReadAsync (byte[] buffer, int offset, int size, CancellationToken cancellationToken)
 		{
 			WebConnection.Debug ($"WRP READ ASYNC: Cnc={Connection.ID}");
@@ -192,18 +202,18 @@ namespace System.Net
 			int nbytes = 0;
 			bool done = false;
 
-			if (!Data.ChunkedRead || (!Data.ChunkStream.DataAvailable && Data.ChunkStream.WantMore)) {
+			if (!ChunkedRead || (!ChunkStream.DataAvailable && ChunkStream.WantMore)) {
 				nbytes = await s.ReadAsync (buffer, offset, size, cancellationToken).ConfigureAwait (false);
-				WebConnection.Debug ($"WRP READ ASYNC #1: Cnc={Connection.ID} {nbytes} {Data.ChunkedRead}");
-				if (!Data.ChunkedRead)
+				WebConnection.Debug ($"WRP READ ASYNC #1: Cnc={Connection.ID} {nbytes} {ChunkedRead}");
+				if (!ChunkedRead)
 					return nbytes;
 				done = nbytes == 0;
 			}
 
 			try {
-				Data.ChunkStream.WriteAndReadBack (buffer, offset, size, ref nbytes);
-				WebConnection.Debug ($"WRP READ ASYNC #1: Cnc={Connection.ID} {done} {nbytes} {Data.ChunkStream.WantMore}");
-				if (!done && nbytes == 0 && Data.ChunkStream.WantMore)
+				ChunkStream.WriteAndReadBack (buffer, offset, size, ref nbytes);
+				WebConnection.Debug ($"WRP READ ASYNC #1: Cnc={Connection.ID} {done} {nbytes} {ChunkStream.WantMore}");
+				if (!done && nbytes == 0 && ChunkStream.WantMore)
 					nbytes = await EnsureReadAsync (buffer, offset, size, cancellationToken).ConfigureAwait (false);
 			} catch (Exception e) {
 				if (e is WebException || e is OperationCanceledException)
@@ -211,7 +221,7 @@ namespace System.Net
 				throw new WebException ("Invalid chunked data.", e, WebExceptionStatus.ServerProtocolViolation, null);
 			}
 
-			if ((done || nbytes == 0) && Data.ChunkStream.ChunkLeft != 0) {
+			if ((done || nbytes == 0) && ChunkStream.ChunkLeft != 0) {
 				// HandleError (WebExceptionStatus.ReceiveFailure, null, "chunked EndRead");
 				throw new WebException ("Read error", null, WebExceptionStatus.ReceiveFailure, null);
 			}
@@ -223,8 +233,8 @@ namespace System.Net
 		{
 			byte[] morebytes = null;
 			int nbytes = 0;
-			while (nbytes == 0 && Data.ChunkStream.WantMore && !cancellationToken.IsCancellationRequested) {
-				int localsize = Data.ChunkStream.ChunkLeft;
+			while (nbytes == 0 && ChunkStream.WantMore && !cancellationToken.IsCancellationRequested) {
+				int localsize = ChunkStream.ChunkLeft;
 				if (localsize <= 0) // not read chunk size yet
 					localsize = 1024;
 				else if (localsize > 16384)
@@ -237,8 +247,8 @@ namespace System.Net
 				if (nread <= 0)
 					return 0; // Error
 
-				Data.ChunkStream.Write (morebytes, 0, nread);
-				nbytes += Data.ChunkStream.Read (buffer, offset + nbytes, size - nbytes);
+				ChunkStream.Write (morebytes, 0, nread);
+				nbytes += ChunkStream.Read (buffer, offset + nbytes, size - nbytes);
 			}
 
 			return nbytes;
@@ -308,8 +318,8 @@ namespace System.Net
 			if (ExpectContent)
 				tencoding = Headers["Transfer-Encoding"];
 
-			Data.ChunkedRead = (tencoding != null && tencoding.IndexOf ("chunked", StringComparison.OrdinalIgnoreCase) != -1);
-			if (!Data.ChunkedRead) {
+			ChunkedRead = (tencoding != null && tencoding.IndexOf ("chunked", StringComparison.OrdinalIgnoreCase) != -1);
+			if (!ChunkedRead) {
 				readBuffer = buffer.Buffer;
 				readBufferOffset = buffer.Offset;
 				readBufferSize = buffer.Size;
@@ -321,16 +331,16 @@ namespace System.Net
 				} catch (Exception e) {
 					throw GetReadException (WebExceptionStatus.ReceiveFailure, e, me);
 				}
-			} else if (Data.ChunkStream == null) {
+			} else if (ChunkStream == null) {
 				try {
-					Data.ChunkStream = new MonoChunkStream (buffer.Buffer, buffer.Offset, buffer.Size, Headers);
+					ChunkStream = new MonoChunkStream (buffer.Buffer, buffer.Offset, buffer.Size, Headers);
 				} catch (Exception e) {
 					throw GetReadException (WebExceptionStatus.ServerProtocolViolation, e, me);
 				}
 			} else {
-				Data.ChunkStream.ResetBuffer ();
+				ChunkStream.ResetBuffer ();
 				try {
-					Data.ChunkStream.Write (buffer.Buffer, buffer.Offset, buffer.Size);
+					ChunkStream.Write (buffer.Buffer, buffer.Offset, buffer.Size);
 				} catch (Exception e) {
 					throw GetReadException (WebExceptionStatus.ServerProtocolViolation, e, me);
 				}

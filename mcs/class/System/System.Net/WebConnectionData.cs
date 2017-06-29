@@ -38,8 +38,6 @@ namespace System.Net
 {
 	class WebConnectionData
 	{
-		public bool ChunkedRead;
-		public MonoChunkStream ChunkStream;
 		Stream networkStream;
 		Socket socket;
 		MonoTlsStream tlsStream;
@@ -66,8 +64,6 @@ namespace System.Net
 				socket = Interlocked.Exchange (ref old.socket, null);
 				networkStream = Interlocked.Exchange (ref old.networkStream, null);
 				tlsStream = Interlocked.Exchange (ref old.tlsStream, null);
-				ChunkStream = Interlocked.Exchange (ref old.ChunkStream, null);
-				ChunkedRead = old.ChunkedRead;
 			}
 		}
 

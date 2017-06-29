@@ -117,7 +117,6 @@ namespace System.Net
 				data.Socket = null;
 			}
 
-			data.ChunkStream = null;
 			return false;
 		}
 
