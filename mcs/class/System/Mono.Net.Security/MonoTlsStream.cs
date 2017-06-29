@@ -57,6 +57,8 @@ namespace Mono.Net.Security
 		readonly NetworkStream networkStream;		
 		readonly HttpWebRequest request;
 
+		readonly MonoTlsSettings settings;
+
 		internal HttpWebRequest Request {
 			get { return request; }
 		}
@@ -66,6 +68,8 @@ namespace Mono.Net.Security
 		internal IMonoSslStream SslStream {
 			get { return sslStream; }
 		}
+#else
+		const string EXCEPTION_MESSAGE = "System.Net.Security.SslStream is not supported on the current platform.";
 #endif
 
 		WebExceptionStatus status;
@@ -78,12 +82,9 @@ namespace Mono.Net.Security
 			get; set;
 		}
 
-#if SECURITY_DEP
-//		readonly ChainValidationHelper validationHelper;
-		readonly MonoTlsSettings settings;
-
 		public MonoTlsStream (HttpWebRequest request, NetworkStream networkStream)
 		{
+#if SECURITY_DEP
 			this.request = request;
 			this.networkStream = networkStream;
 
@@ -91,11 +92,15 @@ namespace Mono.Net.Security
 			provider = request.TlsProvider ?? MonoTlsProviderFactory.GetProviderInternal ();
 			status = WebExceptionStatus.SecureChannelFailure;
 
-			/*validationHelper =*/ ChainValidationHelper.Create (provider, ref settings, this);
+			ChainValidationHelper.Create (provider, ref settings, this);
+#else
+			throw new PlatformNotSupportedException (EXCEPTION_MESSAGE);
+#endif
 		}
 
 		internal async Task<Stream> CreateStream (WebConnectionTunnel tunnel, CancellationToken cancellationToken)
 		{
+#if SECURITY_DEP
 			var socket = networkStream.InternalSocket;
 			WebConnection.Debug ($"MONO TLS STREAM CREATE STREAM: {socket.ID}");
 			sslStream = provider.CreateSslStream (networkStream, false, settings);
@@ -144,7 +149,9 @@ namespace Mono.Net.Security
 			}
 
 			return sslStream.AuthenticatedStream;
-		}
+#else
+			throw new PlatformNotSupportedException (EXCEPTION_MESSAGE);
 #endif
+		}
 	}
 }

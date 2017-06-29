@@ -193,7 +193,6 @@ namespace System.Net
 				Debug ($"WC CREATE STREAM: Cnc={ID} data={data.ID} {requestID} {reused} socket={data.Socket.ID}");
 
 				if (data.Request.Address.Scheme == Uri.UriSchemeHttps) {
-#if SECURITY_DEP
 					if (!reused || data.NetworkStream == null || data.MonoTlsStream == null) {
 						if (sPoint.UseConnect) {
 							if (tunnel == null)
@@ -205,14 +204,10 @@ namespace System.Net
 						await data.Initialize (serverStream, tunnel, cancellationToken).ConfigureAwait (false);
 					}
 					return (WebExceptionStatus.Success, true, tunnel, null);
-#else
-					throw new NotSupportedException ();
-#endif
-				} else {
-					data.Initialize (serverStream);
-
-					return (WebExceptionStatus.Success, true, null, null);
 				}
+
+				data.Initialize (serverStream);
+				return (WebExceptionStatus.Success, true, null, null);
 			} catch (Exception ex) {
 				ex = HttpWebRequest.FlattenException (ex);
 				Debug ($"WC CREATE STREAM EX: Cnc={ID} {requestID} {data.Request.Aborted} - {ex.Message}");
