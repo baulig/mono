@@ -202,7 +202,7 @@ namespace System.Net
 							if (!tunnel.Success)
 								return (WebExceptionStatus.Success, false, tunnel, null);
 						}
-						await data.Initialize (serverStream, tunnel?.Data, cancellationToken).ConfigureAwait (false);
+						await data.Initialize (serverStream, tunnel, cancellationToken).ConfigureAwait (false);
 					}
 					return (WebExceptionStatus.Success, true, tunnel, null);
 #else

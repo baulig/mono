@@ -148,10 +148,10 @@ namespace System.Net
 		}
 
 #if SECURITY_DEP
-		public async Task Initialize (NetworkStream stream, byte[] buffer, CancellationToken cancellationToken)
+		public async Task Initialize (NetworkStream stream, WebConnectionTunnel tunnel, CancellationToken cancellationToken)
 		{
 			tlsStream = new MonoTlsStream (Request, stream);
-			networkStream = await tlsStream.CreateStream (buffer, cancellationToken).ConfigureAwait (false);
+			networkStream = await tlsStream.CreateStream (tunnel, cancellationToken).ConfigureAwait (false);
 		}
 #endif
 	}

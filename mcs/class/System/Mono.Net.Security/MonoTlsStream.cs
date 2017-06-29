@@ -94,7 +94,7 @@ namespace Mono.Net.Security
 			/*validationHelper =*/ ChainValidationHelper.Create (provider, ref settings, this);
 		}
 
-		internal async Task<Stream> CreateStream (byte[] buffer, CancellationToken cancellationToken)
+		internal async Task<Stream> CreateStream (WebConnectionTunnel tunnel, CancellationToken cancellationToken)
 		{
 			var socket = networkStream.InternalSocket;
 			WebConnection.Debug ($"MONO TLS STREAM CREATE STREAM: {socket.ID}");
@@ -135,8 +135,8 @@ namespace Mono.Net.Security
 			}
 
 			try {
-				if (buffer != null)
-					await sslStream.WriteAsync (buffer, 0, buffer.Length, cancellationToken).ConfigureAwait (false);
+				if (tunnel?.Data != null)
+					await sslStream.WriteAsync (tunnel.Data, 0, tunnel.Data.Length, cancellationToken).ConfigureAwait (false);
 			} catch {
 				status = WebExceptionStatus.SendFailure;
 				sslStream = null;
