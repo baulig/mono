@@ -189,7 +189,7 @@ namespace System.Net
 		}
 
 		async Task<(bool, byte[])> CreateTunnel (WebConnectionData data, HttpWebRequest request, Uri connectUri,
-							Stream stream, CancellationToken cancellationToken)
+		                                         Stream stream, CancellationToken cancellationToken)
 		{
 			StringBuilder sb = new StringBuilder ();
 			sb.Append ("CONNECT ");
@@ -297,12 +297,10 @@ namespace System.Net
 				WebHeaderCollection headers = new WebHeaderCollection ();
 				while (ReadLine (ms.GetBuffer (), ref start, (int)ms.Length, ref str)) {
 					if (str == null) {
-						int contentLen = 0;
-						try {
-							contentLen = int.Parse (headers["Content-Length"]);
-						} catch {
+						int contentLen;
+						var clengthHeader = headers["Content-Length"];
+						if (string.IsNullOrEmpty (clengthHeader) || !int.TryParse (clengthHeader, out contentLen))
 							contentLen = 0;
-						}
 
 						if (ms.Length - start - contentLen > 0) {
 							// we've read more data than the response header and conents,
@@ -629,8 +627,11 @@ namespace System.Net
 				if (operation.Aborted)
 					return (null, null);
 
-				if (streamResult.status == WebExceptionStatus.Success && data.Challenge != null)
+				if (streamResult.status == WebExceptionStatus.Success && data.Challenge != null) {
+					Debug ($"WC INIT CONNECTION #4: Cnc={ID} Op={operation.ID} data={data.ID}");
+					oldData = data;
 					goto retry;
+				}
 
 				if (streamResult.error == null && (data.StatusCode == 401 || data.StatusCode == 407)) {
 					streamResult.status = WebExceptionStatus.ProtocolError;
