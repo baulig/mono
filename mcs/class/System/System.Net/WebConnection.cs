@@ -392,7 +392,7 @@ namespace System.Net
 			return true;
 		}
 
-		public bool Continue (ref bool keepAlive, WebOperation next)
+		public bool Continue (ref bool keepAlive, bool register, WebOperation next)
 		{
 			lock (this) {
 				if (next != null && next.Aborted) {
@@ -416,6 +416,9 @@ namespace System.Net
 					keepAlive = false;
 				}
 			}
+
+			if (register)
+				next.RegisterRequest (ServicePoint, this);
 
 			next.Run ();
 			return true;

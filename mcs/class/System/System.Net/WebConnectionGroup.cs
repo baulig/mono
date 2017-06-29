@@ -135,7 +135,7 @@ namespace System.Net
 		{
 			while (operation != null) {
 				var (keepAlive, next) = await WaitForCompletion (connection, operation).ConfigureAwait (false);
-				connection.Continue (ref keepAlive, next);
+				connection.Continue (ref keepAlive, true, next);
 				operation = next;
 			}
 		}

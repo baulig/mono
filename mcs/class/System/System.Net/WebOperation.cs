@@ -185,6 +185,10 @@ namespace System.Net
 		internal void RegisterRequest (ServicePoint servicePoint, WebConnection connection)
 		{
 			lock (this) {
+				if (servicePoint == null)
+					throw new ArgumentNullException (nameof (servicePoint));
+				if (connection == null)
+					throw new ArgumentNullException (nameof (connection));
 				if (Interlocked.CompareExchange (ref requestSent, 1, 0) != 0)
 					throw new InvalidOperationException ("Invalid nested call.");
 				ServicePoint = servicePoint;
@@ -313,7 +317,7 @@ namespace System.Net
 
 			WebConnection.Debug ($"WO FINISH READING #1: Op={ID} {stream != null} {keepAlive}");
 
-			if (!Connection.Continue (ref keepAlive, next))
+			if (!Connection.Continue (ref keepAlive, false, next))
 				return keepAlive;
 
 			return await next.WaitForCompletion ().ConfigureAwait (false);
