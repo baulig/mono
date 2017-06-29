@@ -274,7 +274,7 @@ namespace System.Net
 
 				requestTask.TrySetResult ((data, requestStream));
 
-				var stream = new WebResponseStream (connection, this, data);
+				var stream = new WebResponseStream (requestStream);
 
 				await stream.InitReadAsync (cts.Token).ConfigureAwait (false);
 				responseStream = stream;
@@ -325,23 +325,13 @@ namespace System.Net
 			WebConnection.Debug ($"WO FINISH READING DONE: Op={ID}");
 		}
 
-		async Task<bool> FinishReadingInner (WebConnection connection, bool ok, WebConnectionData data, WebResponseStream stream, WebOperation next)
+		async Task<bool> FinishReadingInner (WebConnection connection, bool ok, WebConnectionData data,
+		                                     WebResponseStream stream, WebOperation next)
 		{
-			string header = ServicePoint.UsesProxy ? "Proxy-Connection" : "Connection";
-			string cncHeader = null;
 			bool keepAlive = false;
 
 			if (ok && data != null && stream != null) {
-				cncHeader = stream.Headers != null ? stream.Headers[header] : null;
-				keepAlive = (stream.Version == HttpVersion.Version11 && Request.KeepAlive);
-				if (data.ProxyVersion != null && data.ProxyVersion != HttpVersion.Version11)
-					keepAlive = false;
-				if (cncHeader != null) {
-					cncHeader = cncHeader.ToLower ();
-					keepAlive = (Request.KeepAlive && cncHeader.IndexOf ("keep-alive", StringComparison.Ordinal) != -1);
-					if (cncHeader.IndexOf ("close", StringComparison.Ordinal) != -1)
-						keepAlive = false;
-				}
+				keepAlive = stream.KeepAlive;
 				if (data.Socket == null || !data.Socket.Connected)
 					keepAlive = false;
 			}

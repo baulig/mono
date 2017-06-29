@@ -24,6 +24,10 @@ namespace System.Net
 		int nestedRead;
 		bool read_eof;
 
+		public WebRequestStream RequestStream {
+			get;
+		}
+
 		public WebHeaderCollection Headers {
 			get;
 			private set;
@@ -44,9 +48,15 @@ namespace System.Net
 			private set;
 		}
 
-		public WebResponseStream (WebConnection connection, WebOperation operation, WebConnectionData data)
-			: base (connection, operation, data)
+		public bool KeepAlive {
+			get;
+			private set;
+		}
+
+		public WebResponseStream (WebRequestStream request)
+			: base (request.Connection, request.Operation, request.Data)
 		{
+			RequestStream = request;
 		}
 
 		public override long Length {
@@ -264,7 +274,7 @@ namespace System.Net
 			}
 		}
 
-		internal async Task Initialize (BufferOffsetSize buffer, CancellationToken cancellationToken)
+		async Task Initialize (BufferOffsetSize buffer, CancellationToken cancellationToken)
 		{
 			WebConnection.Debug ($"WRP INIT: Cnc={Connection.ID} data={Data.ID} status={(int)StatusCode} bos={buffer.Offset}/{buffer.Size}");
 
@@ -276,6 +286,17 @@ namespace System.Net
 					contentLength = Int64.MaxValue;
 			} else {
 				contentLength = Int64.MaxValue;
+			}
+
+			if (Version == HttpVersion.Version11 && RequestStream.KeepAlive) {
+				KeepAlive = true;
+				var cncHeader = Headers[ServicePoint.UsesProxy ? "Proxy-Connection" : "Connection"];
+				if (cncHeader != null) {
+					cncHeader = cncHeader.ToLower ();
+					KeepAlive = cncHeader.IndexOf ("keep-alive", StringComparison.Ordinal) != -1;
+					if (cncHeader.IndexOf ("close", StringComparison.Ordinal) != -1)
+						KeepAlive = false;
+				}
 			}
 
 			// Negative numbers?

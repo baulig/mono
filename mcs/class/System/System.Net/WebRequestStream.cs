@@ -20,13 +20,21 @@ namespace System.Net
 		byte[] headers;
 		bool headersSent;
 
-		public WebRequestStream (WebConnection connection, WebOperation operation, WebConnectionData data)
+		public WebRequestStream (WebConnection connection, WebOperation operation, WebConnectionData data, WebConnectionTunnel tunnel)
 			: base (connection, operation, data)
 		{
 			allowBuffering = operation.Request.InternalAllowBuffering;
 			sendChunked = operation.Request.SendChunked && operation.WriteBuffer == null;
 			if (!sendChunked && allowBuffering && operation.WriteBuffer == null)
 				writeBuffer = new MemoryStream ();
+
+			KeepAlive = Request.KeepAlive;
+			if (tunnel?.ProxyVersion != null && tunnel?.ProxyVersion != HttpVersion.Version11)
+				KeepAlive = false;
+		}
+
+		public bool KeepAlive {
+			get;
 		}
 
 		public override long Length {
