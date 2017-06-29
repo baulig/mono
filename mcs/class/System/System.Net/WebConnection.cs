@@ -321,7 +321,7 @@ namespace System.Net
 			return needs_reset;
 		}
 
-		internal void Reset ()
+		void Reset ()
 		{
 			Debug ($"WC RESET: Cnc={ID}");
 
@@ -421,7 +421,7 @@ namespace System.Net
 			return true;
 		}
 
-		internal void ResetNtlm ()
+		void ResetNtlm ()
 		{
 			ntlm_authenticated = false;
 			ntlm_credentials = null;
