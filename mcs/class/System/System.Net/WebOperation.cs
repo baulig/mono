@@ -182,7 +182,7 @@ namespace System.Net
 			exception.Throw ();
 		}
 
-		void RegisterRequest (ServicePoint servicePoint, WebConnection connection)
+		internal void RegisterRequest (ServicePoint servicePoint, WebConnection connection)
 		{
 			lock (this) {
 				if (Interlocked.CompareExchange (ref requestSent, 1, 0) != 0)
@@ -195,12 +195,6 @@ namespace System.Net
 				Request.FinishedReading = true;
 				SetDisposed (ref disposedInfo);
 			});
-		}
-
-		internal void Run (ServicePoint servicePoint, WebConnection connection)
-		{
-			RegisterRequest (servicePoint, connection);
-			Run (connection);
 		}
 
 		public void SetPriorityRequest (WebOperation operation)
@@ -241,14 +235,14 @@ namespace System.Net
 			return finishedTask.Task;
 		}
 
-		internal async void Run (WebConnection connection)
+		internal async void Run ()
 		{
 			try {
-				FinishReading (connection);
+				FinishReading ();
 
 				ThrowIfClosedOrDisposed ();
 
-				var requestStream = await connection.InitConnection (this, cts.Token).ConfigureAwait (false);
+				var requestStream = await Connection.InitConnection (this, cts.Token).ConfigureAwait (false);
 
 				ThrowIfClosedOrDisposed ();
 
@@ -276,7 +270,7 @@ namespace System.Net
 			}
 		}
 
-		async void FinishReading (WebConnection connection)
+		async void FinishReading ()
 		{
 			bool ok = false;
 			Exception error = null;
@@ -300,7 +294,7 @@ namespace System.Net
 			WebConnection.Debug ($"WO FINISH READING: Op={ID} {ok} {error != null} {stream != null} {next != null}");
 
 			try {
-				var keepAlive = await FinishReadingInner (connection, ok, stream, next).ConfigureAwait (false);
+				var keepAlive = await FinishReadingInner (ok, stream, next).ConfigureAwait (false);
 				finishedTask.TrySetResult (keepAlive);
 			} catch (Exception ex) {
 				finishedTask.TrySetException (ex);
@@ -309,8 +303,7 @@ namespace System.Net
 			WebConnection.Debug ($"WO FINISH READING DONE: Op={ID}");
 		}
 
-		async Task<bool> FinishReadingInner (WebConnection connection, bool ok,
-		                                     WebResponseStream stream, WebOperation next)
+		async Task<bool> FinishReadingInner (bool ok, WebResponseStream stream, WebOperation next)
 		{
 			bool keepAlive = false;
 
@@ -320,7 +313,7 @@ namespace System.Net
 
 			WebConnection.Debug ($"WO FINISH READING #1: Op={ID} {stream != null} {keepAlive}");
 
-			if (!connection.Continue (ref keepAlive, next))
+			if (!Connection.Continue (ref keepAlive, next))
 				return keepAlive;
 
 			return await next.WaitForCompletion ().ConfigureAwait (false);

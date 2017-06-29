@@ -387,7 +387,8 @@ namespace System.Net
 					Close ();
 			}
 
-			operation.Run (ServicePoint, this);
+			operation.RegisterRequest (ServicePoint, this);
+			operation.Run ();
 			return true;
 		}
 
@@ -416,7 +417,7 @@ namespace System.Net
 				}
 			}
 
-			next.Run (this);
+			next.Run ();
 			return true;
 		}
 
