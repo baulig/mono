@@ -43,7 +43,6 @@ System.Net/ServicePoint.cs
 System.Net/ServicePointManager.cs
 System.Net/ServicePointManager.extra.cs
 System.Net/WebConnection.cs
-System.Net/WebConnectionData.cs
 System.Net/WebConnectionGroup.cs
 System.Net/WebConnectionState.cs
 System.Net/WebConnectionStream.cs
