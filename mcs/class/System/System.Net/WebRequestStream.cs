@@ -20,9 +20,9 @@ namespace System.Net
 		byte[] headers;
 		bool headersSent;
 
-		public WebRequestStream (WebConnection connection, WebOperation operation, WebConnectionData data,
+		public WebRequestStream (WebConnection connection, WebOperation operation,
 		                         Stream stream, WebConnectionTunnel tunnel)
-			: base (connection, operation, data, stream)
+			: base (connection, operation, stream)
 		{
 			allowBuffering = operation.Request.InternalAllowBuffering;
 			sendChunked = operation.Request.SendChunked && operation.WriteBuffer == null;
@@ -283,7 +283,7 @@ namespace System.Net
 
 			await SetHeadersAsync (true, cancellationToken).ConfigureAwait (false);
 
-			WebConnection.Debug ($"WRQ WRITE REQUEST #1: Op={Operation.ID} {Data.ID} {buffer != null}");
+			WebConnection.Debug ($"WRQ WRITE REQUEST #1: Op={Operation.ID} {buffer != null}");
 
 			if (buffer != null && buffer.Size > 0)
 				await InnerStream.WriteAsync (buffer.Buffer, 0, buffer.Size, cancellationToken).ConfigureAwait (false);

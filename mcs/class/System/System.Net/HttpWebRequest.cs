@@ -997,7 +997,6 @@ namespace System.Net
 			}
 
 			while (true) {
-				WebConnectionData data = null;
 				WebException throwMe = null;
 				HttpWebResponse response = null;
 				WebResponseStream stream = null;
@@ -1031,9 +1030,8 @@ namespace System.Net
 					}
 
 					stream = responseStreamTask.Result;
-					data = stream.Data;
 
-					WebConnection.Debug ($"HWR RESPONSE LOOP #0: Req={ID} - data={data.ID} {stream?.Headers != null}");
+					WebConnection.Debug ($"HWR RESPONSE LOOP #0: Req={ID} - {stream?.Headers != null}");
 
 					(response, redirect, mustReadAll, writeBuffer, ntlm) = await GetResponseFromData (
 						stream, cancellationToken).ConfigureAwait (false);
@@ -1099,8 +1097,7 @@ namespace System.Net
 			 * WebConnection has either called SetResponseData() or SetResponseError().
 		 	*/
 
-			var data = stream.Data;
-			var response = new HttpWebResponse (actualUri, method, data, stream, cookieContainer);
+			var response = new HttpWebResponse (actualUri, method, stream, cookieContainer);
 
 			WebException throwMe = null;
 			bool redirect = false;
@@ -1123,7 +1120,7 @@ namespace System.Net
 
 				if (!redirect) {
 					if ((isProxy ? proxy_auth_state : auth_state).IsNtlmAuthenticated && (int)response.StatusCode < 400) {
-						data.Connection.NtlmAuthenticated = true;
+						stream.Connection.NtlmAuthenticated = true;
 					}
 
 					// clear internal buffer so that it does not
@@ -1139,7 +1136,7 @@ namespace System.Net
 					webHeaders.RemoveInternal ("Transfer-Encoding");
 				}
 
-				ntlm = HandleNtlmAuth (data, response, writeBuffer, cancellationToken);
+				ntlm = HandleNtlmAuth (stream, response, writeBuffer, cancellationToken);
 				WebConnection.Debug ($"HWR REDIRECT: {ntlm} {mustReadAll}");
 				if (ntlm != null)
 					mustReadAll = true;
@@ -1462,7 +1459,7 @@ namespace System.Net
 			return Encoding.UTF8.GetBytes (reqstr);
 		}
 
-		WebOperation HandleNtlmAuth (WebConnectionData data, HttpWebResponse response,
+		WebOperation HandleNtlmAuth (WebResponseStream stream, HttpWebResponse response,
 		                             BufferOffsetSize writeBuffer, CancellationToken cancellationToken)
 		{
 			bool isProxy = response.StatusCode == HttpStatusCode.ProxyAuthenticationRequired;
@@ -1472,11 +1469,11 @@ namespace System.Net
 			var isChallenge = auth_state.NtlmAuthState == NtlmAuthState.Challenge || proxy_auth_state.NtlmAuthState == NtlmAuthState.Challenge;
 
 			var operation = new WebOperation (this, writeBuffer, isChallenge, cancellationToken);
-			data.Operation.SetPriorityRequest (operation);
+			stream.Operation.SetPriorityRequest (operation);
 			var creds = (!isProxy || proxy == null) ? credentials : proxy.Credentials;
 			if (creds != null) {
-				data.Connection.NtlmCredential = creds.GetCredential (requestUri, "NTLM");
-				data.Connection.UnsafeAuthenticatedConnectionSharing = unsafe_auth_blah;
+				stream.Connection.NtlmCredential = creds.GetCredential (requestUri, "NTLM");
+				stream.Connection.UnsafeAuthenticatedConnectionSharing = unsafe_auth_blah;
 			}
 			return operation;
 		}

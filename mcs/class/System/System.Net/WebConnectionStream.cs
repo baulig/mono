@@ -92,12 +92,11 @@ namespace System.Net
 		int write_timeout;
 		internal bool IgnoreIOErrors;
 
-		protected WebConnectionStream (WebConnection cnc, WebOperation operation, WebConnectionData data, Stream stream)
+		protected WebConnectionStream (WebConnection cnc, WebOperation operation, Stream stream)
 		{
 			Connection = cnc;
 			Operation = operation;
 			Request = operation.Request;
-			Data = data;
 			InnerStream = stream;
 
 			read_timeout = Request.ReadWriteTimeout;
@@ -113,10 +112,6 @@ namespace System.Net
 		}
 
 		internal WebOperation Operation {
-			get;
-		}
-
-		internal WebConnectionData Data {
 			get;
 		}
 

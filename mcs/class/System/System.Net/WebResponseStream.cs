@@ -54,7 +54,7 @@ namespace System.Net
 		}
 
 		public WebResponseStream (WebRequestStream request, Stream stream)
-			: base (request.Connection, request.Operation, request.Data, stream)
+			: base (request.Connection, request.Operation, stream)
 		{
 			RequestStream = request;
 		}
@@ -283,7 +283,7 @@ namespace System.Net
 
 		async Task Initialize (BufferOffsetSize buffer, CancellationToken cancellationToken)
 		{
-			WebConnection.Debug ($"WRP INIT: Cnc={Connection.ID} data={Data.ID} status={(int)StatusCode} bos={buffer.Offset}/{buffer.Size}");
+			WebConnection.Debug ($"WRP INIT: Cnc={Connection.ID} status={(int)StatusCode} bos={buffer.Offset}/{buffer.Size}");
 
 			string contentType = Headers["Transfer-Encoding"];
 			bool chunkedRead = (contentType != null && contentType.IndexOf ("chunked", StringComparison.OrdinalIgnoreCase) != -1);
@@ -343,7 +343,7 @@ namespace System.Net
 				}
 			}
 
-			WebConnection.Debug ($"WRP INIT #1: Cnc={Connection.ID} data={Data.ID} - {ExpectContent} {closed} {nextReadCalled}");
+			WebConnection.Debug ($"WRP INIT #1: Cnc={Connection.ID} - {ExpectContent} {closed} {nextReadCalled}");
 
 			if (!ExpectContent) {
 				if (!closed && !nextReadCalled) {
@@ -357,7 +357,7 @@ namespace System.Net
 
 		internal async Task ReadAllAsync (CancellationToken cancellationToken)
 		{
-			WebConnection.Debug ($"WRP READ ALL ASYNC: Cnc={Connection.ID} data={Data.ID} - {read_eof} {totalRead} {contentLength} {nextReadCalled}");
+			WebConnection.Debug ($"WRP READ ALL ASYNC: Cnc={Connection.ID} - {read_eof} {totalRead} {contentLength} {nextReadCalled}");
 			if (read_eof || totalRead >= contentLength || nextReadCalled) {
 				if (!nextReadCalled) {
 					nextReadCalled = true;
@@ -383,7 +383,7 @@ namespace System.Net
 					throw new WebException ("The operation has timed out.", WebExceptionStatus.Timeout);
 			}
 
-			WebConnection.Debug ($"WRP READ ALL ASYNC #1: Cnc={Connection.ID} data={Data.ID}");
+			WebConnection.Debug ($"WRP READ ALL ASYNC #1: Cnc={Connection.ID}");
 
 			cancellationToken.ThrowIfCancellationRequested ();
 
