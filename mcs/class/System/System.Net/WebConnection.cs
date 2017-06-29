@@ -188,176 +188,11 @@ namespace System.Net
 			throw GetException (WebExceptionStatus.ConnectFailure, null);
 		}
 
-		async Task<(bool, byte[])> CreateTunnel (WebConnectionData data, HttpWebRequest request, Uri connectUri,
-		                                         Stream stream, CancellationToken cancellationToken)
-		{
-			StringBuilder sb = new StringBuilder ();
-			sb.Append ("CONNECT ");
-			sb.Append (request.Address.Host);
-			sb.Append (':');
-			sb.Append (request.Address.Port);
-			sb.Append (" HTTP/");
-			if (request.ServicePoint.ProtocolVersion == HttpVersion.Version11)
-				sb.Append ("1.1");
-			else
-				sb.Append ("1.0");
-
-			sb.Append ("\r\nHost: ");
-			sb.Append (request.Address.Authority);
-
-			bool ntlm = false;
-			var challenge = data.Challenge;
-			data.Challenge = null;
-			var auth_header = request.Headers["Proxy-Authorization"];
-			bool have_auth = auth_header != null;
-			if (have_auth) {
-				sb.Append ("\r\nProxy-Authorization: ");
-				sb.Append (auth_header);
-				ntlm = auth_header.ToUpper ().Contains ("NTLM");
-			} else if (challenge != null && data.StatusCode == 407) {
-				ICredentials creds = request.Proxy.Credentials;
-				have_auth = true;
-
-				if (connect_request == null) {
-					// create a CONNECT request to use with Authenticate
-					connect_request = (HttpWebRequest)WebRequest.Create (
-						connectUri.Scheme + "://" + connectUri.Host + ":" + connectUri.Port + "/");
-					connect_request.Method = "CONNECT";
-					connect_request.Credentials = creds;
-				}
-
-				if (creds != null) {
-					for (int i = 0; i < challenge.Length; i++) {
-						var auth = AuthenticationManager.Authenticate (challenge[i], connect_request, creds);
-						if (auth == null)
-							continue;
-						ntlm = (auth.ModuleAuthenticationType == "NTLM");
-						sb.Append ("\r\nProxy-Authorization: ");
-						sb.Append (auth.Message);
-						break;
-					}
-				}
-			}
-
-			if (ntlm) {
-				sb.Append ("\r\nProxy-Connection: keep-alive");
-				connect_ntlm_auth_state++;
-			}
-
-			sb.Append ("\r\n\r\n");
-
-			data.StatusCode = 0;
-			byte[] connectBytes = Encoding.Default.GetBytes (sb.ToString ());
-			await stream.WriteAsync (connectBytes, 0, connectBytes.Length, cancellationToken).ConfigureAwait (false);
-
-			var (result, buffer, status) = await ReadHeaders (data, stream, cancellationToken).ConfigureAwait (false);
-			if ((!have_auth || connect_ntlm_auth_state == NtlmAuthState.Challenge) &&
-			    result != null && status == 407) { // Needs proxy auth
-				var connectionHeader = result["Connection"];
-				if (data.Socket != null && !string.IsNullOrEmpty (connectionHeader) &&
-				    connectionHeader.ToLower () == "close") {
-					// The server is requesting that this connection be closed
-					data.Socket.Close ();
-					data.Socket = null;
-				}
-
-				data.StatusCode = status;
-				data.Challenge = result.GetValues ("Proxy-Authenticate");
-				data.Headers = result;
-				return (false, buffer);
-			}
-
-			if (status != 200) {
-				data.StatusCode = status;
-				data.Headers = result;
-				return (false, buffer);
-			}
-
-			return (result != null, buffer);
-		}
-
-		async Task<(WebHeaderCollection, byte[], int)> ReadHeaders (WebConnectionData data, Stream stream, CancellationToken cancellationToken)
-		{
-			byte[] retBuffer = null;
-			int status = 200;
-
-			byte[] buffer = new byte[1024];
-			MemoryStream ms = new MemoryStream ();
-
-			while (true) {
-				cancellationToken.ThrowIfCancellationRequested ();
-				int n = await stream.ReadAsync (buffer, 0, 1024, cancellationToken).ConfigureAwait (false);
-				if (n == 0)
-					throw GetException (WebExceptionStatus.ServerProtocolViolation, null);
-
-				ms.Write (buffer, 0, n);
-				int start = 0;
-				string str = null;
-				bool gotStatus = false;
-				WebHeaderCollection headers = new WebHeaderCollection ();
-				while (ReadLine (ms.GetBuffer (), ref start, (int)ms.Length, ref str)) {
-					if (str == null) {
-						int contentLen;
-						var clengthHeader = headers["Content-Length"];
-						if (string.IsNullOrEmpty (clengthHeader) || !int.TryParse (clengthHeader, out contentLen))
-							contentLen = 0;
-
-						if (ms.Length - start - contentLen > 0) {
-							// we've read more data than the response header and conents,
-							// give back extra data to the caller
-							retBuffer = new byte[ms.Length - start - contentLen];
-							Buffer.BlockCopy (ms.GetBuffer (), start + contentLen, retBuffer, 0, retBuffer.Length);
-						} else {
-							// haven't read in some or all of the contents for the response, do so now
-							FlushContents (stream, contentLen - (int)(ms.Length - start));
-						}
-
-						return (headers, retBuffer, status);
-					}
-
-					if (gotStatus) {
-						headers.Add (str);
-						continue;
-					}
-
-					string[] parts = str.Split (' ');
-					if (parts.Length < 2)
-						throw GetException (WebExceptionStatus.ServerProtocolViolation, null);
-
-					if (String.Compare (parts[0], "HTTP/1.1", true) == 0)
-						data.ProxyVersion = HttpVersion.Version11;
-					else if (String.Compare (parts[0], "HTTP/1.0", true) == 0)
-						data.ProxyVersion = HttpVersion.Version10;
-					else
-						throw GetException (WebExceptionStatus.ServerProtocolViolation, null);
-
-					status = (int)UInt32.Parse (parts[1]);
-					if (parts.Length >= 3)
-						data.StatusDescription = String.Join (" ", parts, 2, parts.Length - 2);
-
-					gotStatus = true;
-				}
-			}
-		}
-
-		void FlushContents (Stream stream, int contentLength)
-		{
-			while (contentLength > 0) {
-				byte[] contentBuffer = new byte[contentLength];
-				int bytesRead = stream.Read (contentBuffer, 0, contentLength);
-				if (bytesRead > 0) {
-					contentLength -= bytesRead;
-				} else {
-					break;
-				}
-			}
-		}
-
 		static int nextID, nextRequestID;
 		public readonly int ID = ++nextID;
 
-		async Task<(WebExceptionStatus status, bool success, Exception error)> CreateStream (
-			WebConnectionData data, bool reused, CancellationToken cancellationToken)
+		async Task<(WebExceptionStatus status, bool success, WebConnectionTunnel tunnel, Exception error)> CreateStream (
+			WebConnectionData data, bool reused, WebConnectionTunnel oldTunnel, CancellationToken cancellationToken)
 		{
 			var requestID = ++nextRequestID;
 
@@ -368,39 +203,34 @@ namespace System.Net
 
 				if (data.Request.Address.Scheme == Uri.UriSchemeHttps) {
 #if SECURITY_DEP
+					WebConnectionTunnel tunnel = null;
 					if (!reused || data.NetworkStream == null || data.MonoTlsStream == null) {
-						byte[] buffer = null;
 						if (sPoint.UseConnect) {
-							bool ok;
-							(ok, buffer) = await CreateTunnel (
-								data, data.Request, sPoint.Address,
-								serverStream, cancellationToken).ConfigureAwait (false);
-							if (!ok)
-								return (WebExceptionStatus.Success, false, null);
+							tunnel = new WebConnectionTunnel (data.Request, sPoint.Address);
+							await tunnel.Initialize (data, serverStream, cancellationToken).ConfigureAwait (false);
+							if (!tunnel.Success)
+								return (WebExceptionStatus.Success, false, tunnel, null);
 						}
-						await data.Initialize (serverStream, buffer, cancellationToken).ConfigureAwait (false);
+						await data.Initialize (serverStream, tunnel?.Data, cancellationToken).ConfigureAwait (false);
 					}
-					// we also need to set ServicePoint.Certificate 
-					// and ServicePoint.ClientCertificate but this can
-					// only be done later (after handshake - which is
-					// done only after a read operation).
+					return (WebExceptionStatus.Success, true, tunnel, null);
 #else
 					throw new NotSupportedException ();
 #endif
 				} else {
 					data.Initialize (serverStream);
+
+					return (WebExceptionStatus.Success, true, null, null);
 				}
 			} catch (Exception ex) {
 				ex = HttpWebRequest.FlattenException (ex);
 				Debug ($"WC CREATE STREAM EX: Cnc={ID} {requestID} {data.Request.Aborted} - {ex.Message}");
 				if (data.Request.Aborted || data.MonoTlsStream == null)
-					return (WebExceptionStatus.ConnectFailure, false, ex);
-				return (data.MonoTlsStream.ExceptionStatus, false, ex);
+					return (WebExceptionStatus.ConnectFailure, false, null, ex);
+				return (data.MonoTlsStream.ExceptionStatus, false, null, ex);
 			} finally {
 				Debug ($"WC CREATE STREAM DONE: Cnc={ID} {requestID}");
 			}
-
-			return (WebExceptionStatus.Success, true, null);
 		}
 
 		internal async Task<WebResponseStream> InitReadAsync (
@@ -605,6 +435,7 @@ namespace System.Net
 			keepAlive = request.KeepAlive;
 			var data = new WebConnectionData (this, operation);
 			var oldData = Interlocked.Exchange (ref currentData, data);
+			WebConnectionTunnel oldTunnel = null;
 
 		retry:
 			bool reused = await CheckReusable (oldData, cancellationToken).ConfigureAwait (false);
@@ -621,14 +452,15 @@ namespace System.Net
 				}
 			}
 
-			var streamResult = await CreateStream (data, reused, cancellationToken).ConfigureAwait (false);
+			var streamResult = await CreateStream (data, reused, oldTunnel, cancellationToken).ConfigureAwait (false);
 			Debug ($"WC INIT CONNECTION #3: Cnc={ID} Op={operation.ID} data={data.ID} - {streamResult.status} {streamResult.success}");
 			if (!streamResult.success) {
 				if (operation.Aborted)
 					return (null, null);
 
-				if (streamResult.status == WebExceptionStatus.Success && data.Challenge != null) {
+				if (streamResult.status == WebExceptionStatus.Success && streamResult.tunnel?.Challenge != null) {
 					Debug ($"WC INIT CONNECTION #4: Cnc={ID} Op={operation.ID} data={data.ID}");
+					oldTunnel = streamResult.tunnel;
 					oldData = data;
 					goto retry;
 				}

@@ -40,9 +40,11 @@ namespace System.Net
 	{
 		public int StatusCode;
 		public string StatusDescription;
+		// [Obsolete ("WHO USES THIS?")]
 		public WebHeaderCollection Headers;
 		public Version Version;
 		public Version ProxyVersion;
+		// [Obsolete ("WHO USES THIS?")]
 		public string[] Challenge;
 		public bool ChunkedRead;
 		public MonoChunkStream ChunkStream;

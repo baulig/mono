@@ -52,18 +52,10 @@ namespace System.Net
 			get;
 		}
 
-		WebConnectionTunnel (HttpWebRequest request, Uri connectUri)
+		public WebConnectionTunnel (HttpWebRequest request, Uri connectUri)
 		{
 			Request = request;
 			ConnectUri = connectUri;
-		}
-
-		internal async Task<WebConnectionTunnel> Create (WebConnectionData data, HttpWebRequest request, Uri connectUri,
-		                                                 Stream stream, CancellationToken cancellationToken)
-		{
-			var tunnel = new WebConnectionTunnel (request, connectUri);
-			await tunnel.CreateTunnel (data, request, connectUri, stream, cancellationToken);
-			return tunnel;
 		}
 
 		enum NtlmAuthState
@@ -73,50 +65,84 @@ namespace System.Net
 			Response
 		}
 
-		HttpWebRequest connect_request;
-		NtlmAuthState connect_ntlm_auth_state;
+		HttpWebRequest connectRequest;
+		NtlmAuthState ntlmAuthState;
 
-		async Task<(bool, byte[])> CreateTunnel (WebConnectionData data, HttpWebRequest request, Uri connectUri,
-							 Stream stream, CancellationToken cancellationToken)
+		public bool Success {
+			get;
+			private set;
+		}
+
+		public int StatusCode {
+			get;
+			private set;
+		}
+
+		public string StatusDescription {
+			get;
+			private set;
+		}
+
+		public string[] Challenge {
+			get;
+			private set;
+		}
+
+		public WebHeaderCollection Headers {
+			get;
+			private set;
+		}
+
+		public Version ProxyVersion {
+			get;
+			private set;
+		}
+
+		public byte[] Data {
+			get;
+			private set;
+		}
+
+		internal async Task Initialize (WebConnectionData data, Stream stream, CancellationToken cancellationToken)
 		{
 			StringBuilder sb = new StringBuilder ();
 			sb.Append ("CONNECT ");
-			sb.Append (request.Address.Host);
+			sb.Append (Request.Address.Host);
 			sb.Append (':');
-			sb.Append (request.Address.Port);
+			sb.Append (Request.Address.Port);
 			sb.Append (" HTTP/");
-			if (request.ServicePoint.ProtocolVersion == HttpVersion.Version11)
+			if (Request.ServicePoint.ProtocolVersion == HttpVersion.Version11)
 				sb.Append ("1.1");
 			else
 				sb.Append ("1.0");
 
 			sb.Append ("\r\nHost: ");
-			sb.Append (request.Address.Authority);
+			sb.Append (Request.Address.Authority);
 
 			bool ntlm = false;
-			var challenge = data.Challenge;
-			data.Challenge = null;
-			var auth_header = request.Headers["Proxy-Authorization"];
+			var challenge = Challenge;
+			challenge = null;
+			var auth_header = Request.Headers["Proxy-Authorization"];
 			bool have_auth = auth_header != null;
 			if (have_auth) {
 				sb.Append ("\r\nProxy-Authorization: ");
 				sb.Append (auth_header);
 				ntlm = auth_header.ToUpper ().Contains ("NTLM");
-			} else if (challenge != null && data.StatusCode == 407) {
-				ICredentials creds = request.Proxy.Credentials;
+			} else if (challenge != null && StatusCode == 407) {
+				ICredentials creds = Request.Proxy.Credentials;
 				have_auth = true;
 
-				if (connect_request == null) {
+				if (connectRequest == null) {
 					// create a CONNECT request to use with Authenticate
-					connect_request = (HttpWebRequest)WebRequest.Create (
-						connectUri.Scheme + "://" + connectUri.Host + ":" + connectUri.Port + "/");
-					connect_request.Method = "CONNECT";
-					connect_request.Credentials = creds;
+					connectRequest = (HttpWebRequest)WebRequest.Create (
+						ConnectUri.Scheme + "://" + ConnectUri.Host + ":" + ConnectUri.Port + "/");
+					connectRequest.Method = "CONNECT";
+					connectRequest.Credentials = creds;
 				}
 
 				if (creds != null) {
 					for (int i = 0; i < challenge.Length; i++) {
-						var auth = AuthenticationManager.Authenticate (challenge[i], connect_request, creds);
+						var auth = AuthenticationManager.Authenticate (challenge[i], connectRequest, creds);
 						if (auth == null)
 							continue;
 						ntlm = (auth.ModuleAuthenticationType == "NTLM");
@@ -129,17 +155,17 @@ namespace System.Net
 
 			if (ntlm) {
 				sb.Append ("\r\nProxy-Connection: keep-alive");
-				connect_ntlm_auth_state++;
+				ntlmAuthState++;
 			}
 
 			sb.Append ("\r\n\r\n");
 
-			data.StatusCode = 0;
+			StatusCode = 0;
 			byte[] connectBytes = Encoding.Default.GetBytes (sb.ToString ());
 			await stream.WriteAsync (connectBytes, 0, connectBytes.Length, cancellationToken).ConfigureAwait (false);
 
 			var (result, buffer, status) = await ReadHeaders (data, stream, cancellationToken).ConfigureAwait (false);
-			if ((!have_auth || connect_ntlm_auth_state == NtlmAuthState.Challenge) &&
+			if ((!have_auth || ntlmAuthState == NtlmAuthState.Challenge) &&
 			    result != null && status == 407) { // Needs proxy auth
 				var connectionHeader = result["Connection"];
 				if (data.Socket != null && !string.IsNullOrEmpty (connectionHeader) &&
@@ -149,19 +175,18 @@ namespace System.Net
 					data.Socket = null;
 				}
 
-				data.StatusCode = status;
-				data.Challenge = result.GetValues ("Proxy-Authenticate");
-				data.Headers = result;
-				return (false, buffer);
+				StatusCode = status;
+				Challenge = result.GetValues ("Proxy-Authenticate");
+				Headers = result;
+				Success = false;
+				return;
 			}
 
-			if (status != 200) {
-				data.StatusCode = status;
-				data.Headers = result;
-				return (false, buffer);
-			}
+			StatusCode = status;
+			Headers = result;
+			Data = buffer;
 
-			return (result != null, buffer);
+			Success = status != 200 && result != null;
 		}
 
 		async Task<(WebHeaderCollection, byte[], int)> ReadHeaders (WebConnectionData data, Stream stream, CancellationToken cancellationToken)
@@ -213,15 +238,15 @@ namespace System.Net
 						throw WebConnection.GetException (WebExceptionStatus.ServerProtocolViolation, null);
 
 					if (String.Compare (parts[0], "HTTP/1.1", true) == 0)
-						data.ProxyVersion = HttpVersion.Version11;
+						ProxyVersion = HttpVersion.Version11;
 					else if (String.Compare (parts[0], "HTTP/1.0", true) == 0)
-						data.ProxyVersion = HttpVersion.Version10;
+						ProxyVersion = HttpVersion.Version10;
 					else
 						throw WebConnection.GetException (WebExceptionStatus.ServerProtocolViolation, null);
 
 					status = (int)UInt32.Parse (parts[1]);
 					if (parts.Length >= 3)
-						data.StatusDescription = String.Join (" ", parts, 2, parts.Length - 2);
+						StatusDescription = String.Join (" ", parts, 2, parts.Length - 2);
 
 					gotStatus = true;
 				}
