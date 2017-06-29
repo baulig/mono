@@ -271,7 +271,7 @@ namespace System.Net
 				goto retry;
 			}
 
-			var stream = new WebRequestStream (this, operation, data, tunnel);
+			var stream = new WebRequestStream (this, operation, data, data.NetworkStream, tunnel);
 			return (data, stream);
 		}
 

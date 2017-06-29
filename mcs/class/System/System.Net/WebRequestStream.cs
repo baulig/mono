@@ -20,8 +20,9 @@ namespace System.Net
 		byte[] headers;
 		bool headersSent;
 
-		public WebRequestStream (WebConnection connection, WebOperation operation, WebConnectionData data, WebConnectionTunnel tunnel)
-			: base (connection, operation, data)
+		public WebRequestStream (WebConnection connection, WebOperation operation, WebConnectionData data,
+		                         Stream stream, WebConnectionTunnel tunnel)
+			: base (connection, operation, data, stream)
 		{
 			allowBuffering = operation.Request.InternalAllowBuffering;
 			sendChunked = operation.Request.SendChunked && operation.WriteBuffer == null;
@@ -169,7 +170,7 @@ namespace System.Net
 			}
 
 			try {
-				await Data.NetworkStream.WriteAsync (buffer, offset, size, cancellationToken).ConfigureAwait (false);
+				await InnerStream.WriteAsync (buffer, offset, size, cancellationToken).ConfigureAwait (false);
 			} catch {
 				if (!IgnoreIOErrors)
 					throw;
@@ -247,7 +248,7 @@ namespace System.Net
 			WebConnection.Debug ($"WRQ SET HEADERS: Op={Operation.ID} {Request.ContentLength}");
 
 			try {
-				await Data.NetworkStream.WriteAsync (headers, 0, headers.Length, cancellationToken).ConfigureAwait (false);
+				await InnerStream.WriteAsync (headers, 0, headers.Length, cancellationToken).ConfigureAwait (false);
 				var cl = Request.ContentLength;
 				if (!sendChunked && cl == 0)
 					requestWritten = true;
@@ -285,7 +286,7 @@ namespace System.Net
 			WebConnection.Debug ($"WRQ WRITE REQUEST #1: Op={Operation.ID} {Data.ID} {buffer != null}");
 
 			if (buffer != null && buffer.Size > 0)
-				await Data.NetworkStream.WriteAsync (buffer.Buffer, 0, buffer.Size, cancellationToken).ConfigureAwait (false);
+				await InnerStream.WriteAsync (buffer.Buffer, 0, buffer.Size, cancellationToken).ConfigureAwait (false);
 
 			Operation.CompleteRequestWritten (this);
 		}
@@ -308,7 +309,7 @@ namespace System.Net
 				try {
 					Operation.ThrowIfClosedOrDisposed (cts.Token);
 					byte[] chunk = Encoding.ASCII.GetBytes ("0\r\n\r\n");
-					await Data.NetworkStream.WriteAsync (chunk, 0, chunk.Length, cts.Token).ConfigureAwait (false);
+					await InnerStream.WriteAsync (chunk, 0, chunk.Length, cts.Token).ConfigureAwait (false);
 				} catch {
 					;
 				} finally {

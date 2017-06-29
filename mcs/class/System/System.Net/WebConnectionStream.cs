@@ -92,12 +92,13 @@ namespace System.Net
 		int write_timeout;
 		internal bool IgnoreIOErrors;
 
-		protected WebConnectionStream (WebConnection cnc, WebOperation operation, WebConnectionData data)
+		protected WebConnectionStream (WebConnection cnc, WebOperation operation, WebConnectionData data, Stream stream)
 		{
 			Connection = cnc;
 			Operation = operation;
 			Request = operation.Request;
 			Data = data;
+			InnerStream = stream;
 
 			read_timeout = Request.ReadWriteTimeout;
 			write_timeout = read_timeout;
@@ -120,6 +121,10 @@ namespace System.Net
 		}
 
 		internal ServicePoint ServicePoint => Connection.ServicePoint;
+
+		protected Stream InnerStream {
+			get;
+		}
 
 		public override bool CanTimeout {
 			get { return true; }

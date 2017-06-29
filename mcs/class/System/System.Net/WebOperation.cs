@@ -274,7 +274,7 @@ namespace System.Net
 
 				requestTask.TrySetResult ((data, requestStream));
 
-				var stream = new WebResponseStream (requestStream);
+				var stream = new WebResponseStream (requestStream, data.NetworkStream);
 
 				await stream.InitReadAsync (cts.Token).ConfigureAwait (false);
 				responseStream = stream;

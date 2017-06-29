@@ -53,8 +53,8 @@ namespace System.Net
 			private set;
 		}
 
-		public WebResponseStream (WebRequestStream request)
-			: base (request.Connection, request.Operation, request.Data)
+		public WebResponseStream (WebRequestStream request, Stream stream)
+			: base (request.Connection, request.Operation, request.Data, stream)
 		{
 			RequestStream = request;
 		}
@@ -195,15 +195,12 @@ namespace System.Net
 			WebConnection.Debug ($"WRP READ ASYNC: Cnc={Connection.ID}");
 
 			Operation.ThrowIfDisposed (cancellationToken);
-			var s = Data.NetworkStream;
-			if (s == null)
-				throw new ObjectDisposedException (typeof (NetworkStream).FullName);
 
 			int nbytes = 0;
 			bool done = false;
 
 			if (!ChunkedRead || (!ChunkStream.DataAvailable && ChunkStream.WantMore)) {
-				nbytes = await s.ReadAsync (buffer, offset, size, cancellationToken).ConfigureAwait (false);
+				nbytes = await InnerStream.ReadAsync (buffer, offset, size, cancellationToken).ConfigureAwait (false);
 				WebConnection.Debug ($"WRP READ ASYNC #1: Cnc={Connection.ID} {nbytes} {ChunkedRead}");
 				if (!ChunkedRead)
 					return nbytes;
@@ -243,7 +240,7 @@ namespace System.Net
 				if (morebytes == null || morebytes.Length < localsize)
 					morebytes = new byte[localsize];
 
-				int nread = await Data.NetworkStream.ReadAsync (morebytes, 0, localsize, cancellationToken).ConfigureAwait (false);
+				int nread = await InnerStream.ReadAsync (morebytes, 0, localsize, cancellationToken).ConfigureAwait (false);
 				if (nread <= 0)
 					return 0; // Error
 
@@ -492,7 +489,7 @@ namespace System.Net
 
 				WebConnection.Debug ($"WRP INIT READ ASYNC LOOP: Cnc={Connection.ID} Op={Operation.ID} {state} - {buffer.Offset}/{buffer.Size}");
 
-				var nread = await Data.NetworkStream.ReadAsync (
+				var nread = await InnerStream.ReadAsync (
 					buffer.Buffer, buffer.Offset, buffer.Size, cancellationToken).ConfigureAwait (false);
 
 				WebConnection.Debug ($"WRP INIT READ ASYNC LOOP #1: Cnc={Connection.ID} Op={Operation.ID} {state} - {buffer.Offset}/{buffer.Size} - {nread}");
