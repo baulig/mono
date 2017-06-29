@@ -1,6 +1,8 @@
 #define MARTIN_DEBUG
 using System.IO;
 using System.Text;
+using System.Collections;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Runtime.ExceptionServices;
@@ -25,19 +27,6 @@ namespace System.Net
 		public WebResponseStream (WebConnection connection, WebOperation operation, WebConnectionData data)
 			: base (connection, operation, data)
 		{
-			string contentType = data.Headers["Transfer-Encoding"];
-			bool chunkedRead = (contentType != null && contentType.IndexOf ("chunked", StringComparison.OrdinalIgnoreCase) != -1);
-			string clength = data.Headers["Content-Length"];
-			if (!chunkedRead && !string.IsNullOrEmpty (clength)) {
-				if (!long.TryParse (clength, out contentLength))
-					contentLength = Int64.MaxValue;
-			} else {
-				contentLength = Int64.MaxValue;
-			}
-
-			// Negative numbers?
-			if (!Int32.TryParse (clength, out stream_length))
-				stream_length = -1;
 		}
 
 		public override long Length {
@@ -48,7 +37,7 @@ namespace System.Net
 
 		public override async Task<int> ReadAsync (byte[] buffer, int offset, int size, CancellationToken cancellationToken)
 		{
-			WebConnection.Debug ($"WCS READ ASYNC: Cnc={Connection.ID}");
+			WebConnection.Debug ($"WRP READ ASYNC: Cnc={Connection.ID}");
 
 			cancellationToken.ThrowIfCancellationRequested ();
 
@@ -70,13 +59,13 @@ namespace System.Net
 				 * 'readTcs' is set by ReadAllAsync().
 				 */
 				var oldReadTcs = Interlocked.CompareExchange (ref readTcs, myReadTcs, null);
-				WebConnection.Debug ($"WCS READ ASYNC #1: Cnc={Connection.ID} {oldReadTcs != null}");
+				WebConnection.Debug ($"WRP READ ASYNC #1: Cnc={Connection.ID} {oldReadTcs != null}");
 				if (oldReadTcs == null)
 					break;
 				await oldReadTcs.Task.ConfigureAwait (false);
 			}
 
-			WebConnection.Debug ($"WCS READ ASYNC #2: Cnc={Connection.ID} {totalRead} {contentLength}");
+			WebConnection.Debug ($"WRP READ ASYNC #2: Cnc={Connection.ID} {totalRead} {contentLength}");
 
 			int oldBytes = 0, nbytes = 0;
 			Exception throwMe = null;
@@ -115,9 +104,9 @@ namespace System.Net
 			}
 
 			if (totalRead >= contentLength && !nextReadCalled) {
-				WebConnection.Debug ($"WCS READ ASYNC - READ ALL: Cnc={Connection.ID} {oldBytes} {nbytes}");
+				WebConnection.Debug ($"WRP READ ASYNC - READ ALL: Cnc={Connection.ID} {oldBytes} {nbytes}");
 				await ReadAllAsync (cancellationToken).ConfigureAwait (false);
-				WebConnection.Debug ($"WCS READ ASYNC - READ ALL DONE: Cnc={Connection.ID} {oldBytes} {nbytes}");
+				WebConnection.Debug ($"WRP READ ASYNC - READ ALL DONE: Cnc={Connection.ID} {oldBytes} {nbytes}");
 			}
 
 			return oldBytes + nbytes;
@@ -125,7 +114,7 @@ namespace System.Net
 
 		async Task<(int, int)> ProcessRead (byte[] buffer, int offset, int size, CancellationToken cancellationToken)
 		{
-			WebConnection.Debug ($"WCS PROCESS READ: Cnc={Connection.ID} {totalRead} {contentLength}");
+			WebConnection.Debug ($"WRP PROCESS READ: Cnc={Connection.ID} {totalRead} {contentLength}");
 
 			cancellationToken.ThrowIfCancellationRequested ();
 			if (totalRead >= contentLength || cancellationToken.IsCancellationRequested)
@@ -148,7 +137,7 @@ namespace System.Net
 			if (contentLength != Int64.MaxValue && contentLength - totalRead < size)
 				size = (int)(contentLength - totalRead);
 
-			WebConnection.Debug ($"WCS READ ASYNC #1: Cnc={Connection.ID} {oldBytes} {size} {read_eof}");
+			WebConnection.Debug ($"WRP READ ASYNC #1: Cnc={Connection.ID} {oldBytes} {size} {read_eof}");
 
 			if (read_eof)
 				return (oldBytes, 0);
@@ -171,7 +160,7 @@ namespace System.Net
 
 			if (!Data.ChunkedRead || (!Data.ChunkStream.DataAvailable && Data.ChunkStream.WantMore)) {
 				nbytes = await s.ReadAsync (buffer, offset, size, cancellationToken).ConfigureAwait (false);
-				WebConnection.Debug ($"WC READ ASYNC #1: Cnc={Connection.ID} {nbytes} {Data.ChunkedRead}");
+				WebConnection.Debug ($"WRP READ ASYNC #1: Cnc={Connection.ID} {nbytes} {Data.ChunkedRead}");
 				if (!Data.ChunkedRead)
 					return nbytes;
 				done = nbytes == 0;
@@ -179,7 +168,7 @@ namespace System.Net
 
 			try {
 				Data.ChunkStream.WriteAndReadBack (buffer, offset, size, ref nbytes);
-				WebConnection.Debug ($"WC READ ASYNC #1: Cnc={Connection.ID} {done} {nbytes} {Data.ChunkStream.WantMore}");
+				WebConnection.Debug ($"WRP READ ASYNC #1: Cnc={Connection.ID} {done} {nbytes} {Data.ChunkStream.WantMore}");
 				if (!done && nbytes == 0 && Data.ChunkStream.WantMore)
 					nbytes = await EnsureReadAsync (buffer, offset, size, cancellationToken).ConfigureAwait (false);
 			} catch (Exception e) {
@@ -254,6 +243,20 @@ namespace System.Net
 		{
 			WebConnection.Debug ($"WRP INIT: Cnc={Connection.ID} data={Data.ID} status={Data.StatusCode} bos={buffer.Offset}/{buffer.Size}");
 
+			string contentType = Data.Headers["Transfer-Encoding"];
+			bool chunkedRead = (contentType != null && contentType.IndexOf ("chunked", StringComparison.OrdinalIgnoreCase) != -1);
+			string clength = Data.Headers["Content-Length"];
+			if (!chunkedRead && !string.IsNullOrEmpty (clength)) {
+				if (!long.TryParse (clength, out contentLength))
+					contentLength = Int64.MaxValue;
+			} else {
+				contentLength = Int64.MaxValue;
+			}
+
+			// Negative numbers?
+			if (!Int32.TryParse (clength, out stream_length))
+				stream_length = -1;
+
 			string me = "WebResponseStream.Initialize()";
 			bool expect_content = ExpectContent (Data.StatusCode, Data.Request.Method);
 			string tencoding = null;
@@ -271,20 +274,20 @@ namespace System.Net
 							await ReadAllAsync (cancellationToken).ConfigureAwait (false);
 					}
 				} catch (Exception e) {
-					throw WebConnection.GetReadException (WebExceptionStatus.ReceiveFailure, e, me);
+					throw GetReadException (WebExceptionStatus.ReceiveFailure, e, me);
 				}
 			} else if (Data.ChunkStream == null) {
 				try {
 					Data.ChunkStream = new MonoChunkStream (buffer.Buffer, buffer.Offset, buffer.Size, Data.Headers);
 				} catch (Exception e) {
-					throw WebConnection.GetReadException (WebExceptionStatus.ServerProtocolViolation, e, me);
+					throw GetReadException (WebExceptionStatus.ServerProtocolViolation, e, me);
 				}
 			} else {
 				Data.ChunkStream.ResetBuffer ();
 				try {
 					Data.ChunkStream.Write (buffer.Buffer, buffer.Offset, buffer.Size);
 				} catch (Exception e) {
-					throw WebConnection.GetReadException (WebExceptionStatus.ServerProtocolViolation, e, me);
+					throw GetReadException (WebExceptionStatus.ServerProtocolViolation, e, me);
 				}
 			}
 
@@ -328,7 +331,7 @@ namespace System.Net
 					throw new WebException ("The operation has timed out.", WebExceptionStatus.Timeout);
 			}
 
-			WebConnection.Debug ($"WCS READ ALL ASYNC #1: Cnc={Connection.ID} data={Data.ID}");
+			WebConnection.Debug ($"WRP READ ALL ASYNC #1: Cnc={Connection.ID} data={Data.ID}");
 
 			cancellationToken.ThrowIfCancellationRequested ();
 
@@ -385,11 +388,11 @@ namespace System.Net
 				nextReadCalled = true;
 				myReadTcs.TrySetResult (new_size);
 			} catch (Exception ex) {
-				WebConnection.Debug ($"WCS READ ALL ASYNC EX: Cnc={Connection.ID} {ex.Message}");
+				WebConnection.Debug ($"WRP READ ALL ASYNC EX: Cnc={Connection.ID} {ex.Message}");
 				myReadTcs.TrySetException (ex);
 				throw;
 			} finally {
-				WebConnection.Debug ($"WCS READ ALL ASYNC #2: Cnc={Connection.ID}");
+				WebConnection.Debug ($"WRP READ ALL ASYNC #2: Cnc={Connection.ID}");
 				readTcs = null;
 			}
 
@@ -409,5 +412,200 @@ namespace System.Net
 				}
 			}
 		}
+
+		internal static WebException GetReadException (WebExceptionStatus status, Exception error, string where)
+		{
+			string msg = $"Error getting response stream ({where}): {status}";
+			if (error == null)
+				return new WebException ($"Error getting response stream ({where}): {status}", status);
+			if (error is WebException wex)
+				return wex;
+			return new WebException ($"Error getting response stream ({where}): {status} {error.Message}", status,
+						 WebExceptionInternalStatus.RequestFatal, error);
+		}
+
+		internal async Task InitReadAsync (CancellationToken cancellationToken)
+		{
+			WebConnection.Debug ($"WRP INIT READ ASYNC: Cnc={Connection.ID} Op={Operation.ID}");
+
+			var buffer = new BufferOffsetSize (new byte[4096], false);
+			var state = ReadState.None;
+			int position = 0;
+
+			while (true) {
+				Operation.ThrowIfClosedOrDisposed (cancellationToken);
+
+				WebConnection.Debug ($"WRP INIT READ ASYNC LOOP: Cnc={Connection.ID} Op={Operation.ID} {state} - {buffer.Offset}/{buffer.Size}");
+
+				var nread = await Data.NetworkStream.ReadAsync (
+					buffer.Buffer, buffer.Offset, buffer.Size, cancellationToken).ConfigureAwait (false);
+
+				WebConnection.Debug ($"WRP INIT READ ASYNC LOOP #1: Cnc={Connection.ID} Op={Operation.ID} {state} - {buffer.Offset}/{buffer.Size} - {nread}");
+
+				if (nread == 0)
+					throw GetReadException (WebExceptionStatus.ReceiveFailure, null, "ReadDoneAsync2");
+
+				if (nread < 0)
+					throw GetReadException (WebExceptionStatus.ServerProtocolViolation, null, "ReadDoneAsync3");
+
+				buffer.Offset += nread;
+				buffer.Size -= nread;
+
+				if (state == ReadState.None) {
+					try {
+						var oldPos = position;
+						if (!GetResponse (Data, Connection.ServicePoint, buffer, ref position, ref state))
+							position = oldPos;
+					} catch (Exception e) {
+						throw GetReadException (WebExceptionStatus.ServerProtocolViolation, e, "ReadDoneAsync4");
+					}
+				}
+
+				if (state == ReadState.Aborted)
+					throw GetReadException (WebExceptionStatus.RequestCanceled, null, "ReadDoneAsync5");
+
+				if (state == ReadState.Content) {
+					buffer.Size = buffer.Offset;
+					buffer.Offset = position;
+					break;
+				}
+
+				int est = nread * 2;
+				if (est > buffer.Size) {
+					var newBuffer = new byte[est];
+					Buffer.BlockCopy (buffer.Buffer, 0, newBuffer, 0, buffer.Offset);
+					buffer = new BufferOffsetSize (newBuffer, buffer.Offset, newBuffer.Length - buffer.Offset, false);
+				}
+				state = ReadState.None;
+			}
+
+			WebConnection.Debug ($"WRP INIT READ ASYNC LOOP DONE: Cnc={Connection.ID} Op={Operation.ID} - {buffer.Offset} {buffer.Size}");
+
+			try {
+				Operation.ThrowIfDisposed (cancellationToken);
+				await Initialize (buffer, cancellationToken).ConfigureAwait (false);
+			} catch (Exception e) {
+				throw GetReadException (WebExceptionStatus.ReceiveFailure, e, "ReadDoneAsync6");
+			}
+		}
+
+		static bool GetResponse (WebConnectionData data, ServicePoint sPoint, BufferOffsetSize buffer, ref int pos, ref ReadState state)
+		{
+			string line = null;
+			bool lineok = false;
+			bool isContinue = false;
+			bool emptyFirstLine = false;
+			do {
+				if (state == ReadState.Aborted)
+					throw GetReadException (WebExceptionStatus.RequestCanceled, null, "GetResponse");
+
+				if (state == ReadState.None) {
+					lineok = WebConnection.ReadLine (buffer.Buffer, ref pos, buffer.Offset, ref line);
+					if (!lineok)
+						return false;
+
+					if (line == null) {
+						emptyFirstLine = true;
+						continue;
+					}
+					emptyFirstLine = false;
+					state = ReadState.Status;
+
+					string[] parts = line.Split (' ');
+					if (parts.Length < 2)
+						throw GetReadException (WebExceptionStatus.ServerProtocolViolation, null, "GetResponse");
+
+					if (String.Compare (parts[0], "HTTP/1.1", true) == 0) {
+						data.Version = HttpVersion.Version11;
+						sPoint.SetVersion (HttpVersion.Version11);
+					} else {
+						data.Version = HttpVersion.Version10;
+						sPoint.SetVersion (HttpVersion.Version10);
+					}
+
+					data.StatusCode = (int)UInt32.Parse (parts[1]);
+					if (parts.Length >= 3)
+						data.StatusDescription = String.Join (" ", parts, 2, parts.Length - 2);
+					else
+						data.StatusDescription = "";
+
+					if (pos >= buffer.Size)
+						return true;
+				}
+
+				emptyFirstLine = false;
+				if (state == ReadState.Status) {
+					state = ReadState.Headers;
+					data.Headers = new WebHeaderCollection ();
+					var headerList = new List<string> ();
+					bool finished = false;
+					while (!finished) {
+						if (WebConnection.ReadLine (buffer.Buffer, ref pos, buffer.Offset, ref line) == false)
+							break;
+
+						if (line == null) {
+							// Empty line: end of headers
+							finished = true;
+							continue;
+						}
+
+						if (line.Length > 0 && (line[0] == ' ' || line[0] == '\t')) {
+							int count = headerList.Count - 1;
+							if (count < 0)
+								break;
+
+							string prev = headerList[count] + line;
+							headerList[count] = prev;
+						} else {
+							headerList.Add (line);
+						}
+					}
+
+					if (!finished)
+						return false;
+
+					// .NET uses ParseHeaders or ParseHeadersStrict which is much better
+					foreach (string s in headerList) {
+
+						int pos_s = s.IndexOf (':');
+						if (pos_s == -1)
+							throw new ArgumentException ("no colon found", "header");
+
+						var header = s.Substring (0, pos_s);
+						var value = s.Substring (pos_s + 1).Trim ();
+
+						var h = data.Headers;
+						if (WebHeaderCollection.AllowMultiValues (header)) {
+							h.AddInternal (header, value);
+						} else {
+							h.SetInternal (header, value);
+						}
+					}
+
+					if (data.StatusCode == (int)HttpStatusCode.Continue) {
+						sPoint.SendContinue = true;
+						if (pos >= buffer.Offset)
+							return true;
+
+						if (data.Request.ExpectContinue) {
+							data.Request.DoContinueDelegate (data.StatusCode, data.Headers);
+							// Prevent double calls when getting the
+							// headers in several packets.
+							data.Request.ExpectContinue = false;
+						}
+
+						state = ReadState.None;
+						isContinue = true;
+					} else {
+						state = ReadState.Content;
+						return true;
+					}
+				}
+			} while (emptyFirstLine || isContinue);
+
+			throw GetReadException (WebExceptionStatus.ServerProtocolViolation, null, "GetResponse");
+		}
+
+
 	}
 }

@@ -101,8 +101,6 @@ namespace System.Net
 		{
 			if (data == null)
 				throw new InvalidOperationException ("data was not initialized");
-			if (data.Headers == null)
-				throw new InvalidOperationException ("data.Headers was not initialized");
 			if (data.Request == null)
 				throw new InvalidOperationException ("data.Request was not initialized");
 			isRead = true;
