@@ -315,9 +315,14 @@ namespace System.Net
 				keepAlive = stream.KeepAlive;
 			}
 
+			if (Aborted || (next != null && next.Aborted)) {
+				next = null;
+				keepAlive = false;
+			}
+
 			WebConnection.Debug ($"WO FINISH READING #1: Op={ID} {stream != null} {keepAlive}");
 
-			if (!Connection.Continue (ref keepAlive, false, next))
+			if (!Connection.Continue (ref keepAlive, true, next))
 				return keepAlive;
 
 			return await next.WaitForCompletion ().ConfigureAwait (false);

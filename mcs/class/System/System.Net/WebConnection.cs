@@ -392,22 +392,17 @@ namespace System.Net
 			return true;
 		}
 
-		public bool Continue (ref bool keepAlive, bool register, WebOperation next)
+		public bool Continue (ref bool keepAlive, bool priority, WebOperation next)
 		{
 			lock (this) {
-				if (next != null && next.Aborted) {
-					keepAlive = false;
-					next = null;
-				}
-
 				if (!keepAlive || socket == null || !socket.Connected) {
 					Close ();
 					keepAlive = false;
 				}
 
-				currentOperation = next;
 				if (next == null) {
 					idleSince = DateTime.UtcNow;
+					currentOperation = null;
 					return false;
 				}
 
@@ -415,10 +410,21 @@ namespace System.Net
 					Close ();
 					keepAlive = false;
 				}
-			}
 
-			if (register)
-				next.RegisterRequest (ServicePoint, this);
+				if (!keepAlive && !priority) {
+					/*
+					 * It's not a priority request (NTLM Challenge) and we closed
+					 * the socket, so let's cleanup and tell WebConnectionGroup
+					 * to find a better one.
+					 */
+					idleSince = DateTime.UtcNow;
+					currentOperation = null;
+					return false;
+				}
+
+				// Ok, we got another connection.  Let's run it!
+				currentOperation = next;
+			}
 
 			next.Run ();
 			return true;

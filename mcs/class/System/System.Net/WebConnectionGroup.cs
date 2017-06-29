@@ -105,7 +105,7 @@ namespace System.Net
 		public bool SendRequest (WebOperation operation)
 		{
 			lock (ServicePoint) {
-				var (cnc, created) = CreateOrReuseConnection (operation);
+				var (cnc, created) = CreateOrReuseConnection (operation, false);
 				WebConnection.Debug ($"WCG SEND REQUEST: Op={operation.ID} {cnc != null} {created}");
 
 				if (cnc != null) {
@@ -135,8 +135,38 @@ namespace System.Net
 		{
 			while (operation != null) {
 				var (keepAlive, next) = await WaitForCompletion (connection, operation).ConfigureAwait (false);
-				connection.Continue (ref keepAlive, true, next);
-				operation = next;
+
+				lock (ServicePoint) {
+					var started = connection.Continue (ref keepAlive, false, next);
+
+					if (started) {
+						// WaitForCompletion() found another request in the queue and
+						// WebConnection.Continue() has accepted to be reused.
+						operation = next;
+						continue;
+					}
+
+					if (!keepAlive) {
+						// Get rid of the connection unless it has accepted to run another
+						// request.
+						RemoveConnection (connection);
+					}
+
+					if (next == null) {
+						// We are done.
+						return;
+					}
+
+					/*
+					 * At this point, `keepAlive' is always false because `connection.Continue()'
+					 * would have returned true otherwise.
+					 * 
+					 * Let's try to find another idle connection or force creating a new one.
+					 */
+					var (newCnc, created) = CreateOrReuseConnection (next, true);
+					connection = newCnc;
+					operation = next;
+				}
 			}
 		}
 
@@ -171,7 +201,7 @@ namespace System.Net
 			return (keepAlive, next);
 		}
 
-		void RemoveConnection (WebConnection state)
+		void RemoveConnection (WebConnection connection)
 		{
 			var iter = connections.First;
 			while (iter != null) {
@@ -179,7 +209,7 @@ namespace System.Net
 				var node = iter;
 				iter = iter.Next;
 
-				if (state == current) {
+				if (connection == current) {
 					connections.Remove (current);
 					break;
 				}
@@ -200,17 +230,17 @@ namespace System.Net
 			return null;
 		}
 
-		(WebConnection state, bool created) CreateOrReuseConnection (WebOperation operation)
+		(WebConnection connection, bool created) CreateOrReuseConnection (WebOperation operation, bool force)
 		{
-			var cnc = FindIdleConnection (operation);
-			if (cnc != null)
-				return (cnc, false);
+			var connection = FindIdleConnection (operation);
+			if (connection != null)
+				return (connection, false);
 
-			if (ServicePoint.ConnectionLimit > connections.Count || connections.Count == 0) {
-				cnc = new WebConnection (this, ServicePoint);
-				cnc.StartOperation (operation, false);
-				connections.AddFirst (cnc);
-				return (cnc, true);
+			if (force || ServicePoint.ConnectionLimit > connections.Count || connections.Count == 0) {
+				connection = new WebConnection (this, ServicePoint);
+				connection.StartOperation (operation, false);
+				connections.AddFirst (connection);
+				return (connection, true);
 			}
 
 			return (null, false);
