@@ -227,12 +227,8 @@ namespace System.Net
 			Debug ($"WC INIT CONNECTION: Cnc={ID} Req={operation.Request.ID} Op={operation.ID}");
 
 			var request = operation.Request;
-			request.WebConnection = this;
-			if (request.ReuseConnection)
-				request.StoredConnection = this;
 
-			if (operation.Aborted)
-				return (null, null);
+			operation.ThrowIfClosedOrDisposed (cancellationToken);
 
 			keepAlive = request.KeepAlive;
 			var data = new WebConnectionData (this, operation);

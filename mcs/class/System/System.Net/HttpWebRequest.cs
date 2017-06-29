@@ -105,7 +105,6 @@ namespace System.Net
 		bool getResponseCalled;
 		object locker = new object ();
 		bool finished_reading;
-		internal WebConnection WebConnection;
 		DecompressionMethods auto_decomp;
 		int maxResponseHeadersLength;
 		static int defaultMaxResponseHeadersLength;
@@ -1659,8 +1658,6 @@ namespace System.Net
 			get;
 			set;
 		}
-
-		internal WebConnection StoredConnection;
 
 #region referencesource
         internal static StringBuilder GenerateConnectionGroup(string connectionGroupName, bool unsafeConnectionGroup, bool isInternalGroup)
