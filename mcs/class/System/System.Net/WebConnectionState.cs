@@ -35,6 +35,7 @@ using System.Diagnostics;
 
 namespace System.Net
 {
+#if FIXME
 	class WebConnectionState
 	{
 		public WebConnection Connection {
@@ -97,4 +98,5 @@ namespace System.Net
 			next.Run (ServicePoint, Connection);
 		}
 	}
+#endif
 }

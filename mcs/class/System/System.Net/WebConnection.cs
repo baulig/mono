@@ -70,7 +70,7 @@ namespace System.Net
 		static extern void xamarin_start_wwan (string uri);
 #endif
 
-		public WebConnection (ServicePoint sPoint)
+		public WebConnection (WebConnectionGroup group, ServicePoint sPoint)
 		{
 			ServicePoint = sPoint;
 		}
@@ -293,7 +293,7 @@ namespace System.Net
 			return true;
 		}
 
-		internal bool PrepareSharingNtlm (WebOperation operation)
+		bool PrepareSharingNtlm (WebOperation operation)
 		{
 			if (!NtlmAuthenticated)
 				return true;
@@ -317,11 +317,8 @@ namespace System.Net
 				bool cnc_sharing = UnsafeAuthenticatedConnectionSharing;
 				needs_reset = (req_sharing == false || req_sharing != cnc_sharing);
 			}
-			if (needs_reset) {
-				ResetNtlm (); // closes the authenticated connection
-				return false;
-			}
-			return true;
+
+			return needs_reset;
 		}
 
 		internal void Reset ()
@@ -419,7 +416,7 @@ namespace System.Net
 				}
 			}
 
-			next.Run (ServicePoint, this);
+			next.Run (this);
 			return true;
 		}
 

@@ -43,7 +43,7 @@ namespace System.Net
 {
 	class WebConnectionGroup
 	{
-		LinkedList<WebConnectionState> connections;
+		LinkedList<WebConnection> connections;
 		Queue queue;
 		bool closing;
 
@@ -59,7 +59,7 @@ namespace System.Net
 		{
 			ServicePoint = sPoint;
 			Name = name;
-			connections = new LinkedList<WebConnectionState> ();
+			connections = new LinkedList<WebConnection> ();
 			queue = new Queue ();
 		}
 
@@ -81,7 +81,7 @@ namespace System.Net
 				closing = true;
 				var iter = connections.First;
 				while (iter != null) {
-					var cnc = iter.Value.Connection;
+					var cnc = iter.Value;
 					var node = iter;
 					iter = iter.Next;
 
@@ -131,16 +131,16 @@ namespace System.Net
 #endif
 		}
 
-		async void ScheduleWaitForCompletion (WebConnectionState state, WebOperation operation)
+		async void ScheduleWaitForCompletion (WebConnection connection, WebOperation operation)
 		{
 			while (operation != null) {
-				var (keepAlive, next) = await WaitForCompletion (state, operation).ConfigureAwait (false);
-				state.Continue (keepAlive, next);
+				var (keepAlive, next) = await WaitForCompletion (connection, operation).ConfigureAwait (false);
+				connection.Continue (ref keepAlive, next);
 				operation = next;
 			}
 		}
 
-		async Task<(bool, WebOperation)> WaitForCompletion (WebConnectionState state, WebOperation operation)
+		async Task<(bool, WebOperation)> WaitForCompletion (WebConnection connection, WebOperation operation)
 		{
 			WebConnection.Debug ($"WCG WAIT FOR COMPLETION: Op={operation.ID}");
 
@@ -158,7 +158,7 @@ namespace System.Net
 			WebOperation next = null;
 			lock (ServicePoint) {
 				if (!keepAlive)
-					RemoveConnection (state);
+					RemoveConnection (connection);
 				while (queue.Count > 0 && next == null) {
 					next = (WebOperation)queue.Dequeue ();
 					if (next.Aborted)
@@ -171,7 +171,7 @@ namespace System.Net
 			return (keepAlive, next);
 		}
 
-		void RemoveConnection (WebConnectionState state)
+		void RemoveConnection (WebConnection state)
 		{
 			var iter = connections.First;
 			while (iter != null) {
@@ -186,7 +186,7 @@ namespace System.Net
 			}
 		}
 
-		WebConnectionState FindIdleConnection (WebOperation operation)
+		WebConnection FindIdleConnection (WebOperation operation)
 		{
 			foreach (var cnc in connections) {
 				if (!cnc.StartOperation (operation, true))
@@ -200,14 +200,14 @@ namespace System.Net
 			return null;
 		}
 
-		(WebConnectionState state, bool created) CreateOrReuseConnection (WebOperation operation)
+		(WebConnection state, bool created) CreateOrReuseConnection (WebOperation operation)
 		{
 			var cnc = FindIdleConnection (operation);
 			if (cnc != null)
 				return (cnc, false);
 
 			if (ServicePoint.ConnectionLimit > connections.Count || connections.Count == 0) {
-				cnc = new WebConnectionState (this);
+				cnc = new WebConnection (this, ServicePoint);
 				cnc.StartOperation (operation, false);
 				connections.AddFirst (cnc);
 				return (cnc, true);
@@ -259,7 +259,7 @@ namespace System.Net
 
 					if (connectionsToClose == null)
 						connectionsToClose = new List<WebConnection> ();
-					connectionsToClose.Add (cnc.Connection);
+					connectionsToClose.Add (cnc);
 					connections.Remove (node);
 				}
 
