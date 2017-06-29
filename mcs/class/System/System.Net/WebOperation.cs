@@ -320,14 +320,10 @@ namespace System.Net
 
 			WebConnection.Debug ($"WO FINISH READING #1: Op={ID} {stream != null} {keepAlive}");
 
-			connection.FinishOperation (ref keepAlive);
+			if (!connection.Continue (ref keepAlive, next))
+				return keepAlive;
 
-			if (next != null && !next.Aborted) {
-				next.Run (connection);
-				return await next.WaitForCompletion ().ConfigureAwait (false);
-			}
-
-			return keepAlive;
+			return await next.WaitForCompletion ().ConfigureAwait (false);
 		}
 
 		internal void CompleteRequestWritten (WebRequestStream stream, Exception error = null)

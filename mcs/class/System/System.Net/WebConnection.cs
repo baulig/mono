@@ -367,17 +367,60 @@ namespace System.Net
 			}
 		}
 
-		internal void FinishOperation (ref bool keepAlive)
+		DateTime idleSince;
+		WebOperation currentOperation;
+
+		public bool Busy {
+			get { return currentOperation != null; }
+		}
+
+		public DateTime IdleSince {
+			get { return idleSince; }
+		}
+
+		public bool StartOperation (WebOperation operation, bool reused)
 		{
 			lock (this) {
-				if (!keepAlive || socket == null || !socket.Connected) {
-					try {
-						Close ();
-					} catch { }
+				if (Interlocked.CompareExchange (ref currentOperation, operation, null) != null)
+					return false;
+
+				idleSince = DateTime.UtcNow + TimeSpan.FromDays (3650);
+
+				if (reused && !PrepareSharingNtlm (operation))
+					Close ();
+			}
+
+			operation.Run (ServicePoint, this);
+			return true;
+		}
+
+		public bool Continue (ref bool keepAlive, WebOperation next)
+		{
+			lock (this) {
+				if (next != null && next.Aborted) {
 					keepAlive = false;
-					ResetNtlm ();
+					next = null;
+				}
+
+				if (!keepAlive || socket == null || !socket.Connected) {
+					Close ();
+					keepAlive = false;
+				}
+
+				currentOperation = next;
+				if (next == null) {
+					idleSince = DateTime.UtcNow;
+					return false;
+				}
+
+				if (keepAlive && !PrepareSharingNtlm (next)) {
+					Close ();
+					keepAlive = false;
 				}
 			}
+
+			next.Run (ServicePoint, this);
+			return true;
 		}
 
 		internal void ResetNtlm ()
