@@ -62,7 +62,7 @@ namespace System.Net
 		{
 			Group = group;
 			idleSince = DateTime.UtcNow;
-			Connection = new WebConnection (this, group.ServicePoint);
+			Connection = new WebConnection (group.ServicePoint);
 		}
 
 		public bool StartOperation (WebOperation operation, bool reused)

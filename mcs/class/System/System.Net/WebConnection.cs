@@ -54,9 +54,7 @@ namespace System.Net
 	{
 		ServicePoint sPoint;
 		object socketLock = new object ();
-		WebExceptionStatus status;
 		bool keepAlive;
-		WebOperation priority_request;
 		NetworkCredential ntlm_credentials;
 		bool ntlm_authenticated;
 		bool unsafe_sharing;
@@ -80,7 +78,7 @@ namespace System.Net
 		static extern void xamarin_start_wwan (string uri);
 #endif
 
-		public WebConnection (WebConnectionState wcs, ServicePoint sPoint)
+		public WebConnection (ServicePoint sPoint)
 		{
 			this.sPoint = sPoint;
 			currentData = new WebConnectionData ();
@@ -110,7 +108,7 @@ namespace System.Net
 			if (data == null || cancellationToken.IsCancellationRequested)
 				return false;
 
-			if (data.Socket != null && data.Socket.Connected && status == WebExceptionStatus.Success) {
+			if (data.Socket != null && data.Socket.Connected) {
 				// Take the chunked stream to the expected state (State.None)
 				try {
 					if (CanReuse (data.Socket) && await CompleteChunkedRead (data, cancellationToken).ConfigureAwait (false))
@@ -396,7 +394,7 @@ namespace System.Net
 				}
 			} catch (Exception ex) {
 				ex = HttpWebRequest.FlattenException (ex);
-				Debug ($"WC CREATE STREAM EX: Cnc={ID} {requestID} {data.Request.Aborted} - {status} - {ex.Message}");
+				Debug ($"WC CREATE STREAM EX: Cnc={ID} {requestID} {data.Request.Aborted} - {ex.Message}");
 				if (data.Request.Aborted || data.MonoTlsStream == null)
 					return (WebExceptionStatus.ConnectFailure, false, ex);
 				return (data.MonoTlsStream.ExceptionStatus, false, ex);
@@ -795,19 +793,6 @@ namespace System.Net
 			ntlm_authenticated = false;
 			ntlm_credentials = null;
 			unsafe_sharing = false;
-		}
-
-		internal bool Connected {
-			get {
-				lock (this) {
-					return (Data.Socket != null && Data.Socket.Connected);
-				}
-			}
-		}
-
-		// -Used for NTLM authentication
-		internal WebOperation PriorityRequest {
-			set { priority_request = value; }
 		}
 
 		internal bool NtlmAuthenticated {

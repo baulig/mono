@@ -43,7 +43,6 @@ namespace System.Net
 {
 	class WebConnectionGroup
 	{
-		string name;
 		LinkedList<WebConnectionState> connections;
 		Queue queue;
 		bool closing;
