@@ -52,15 +52,10 @@ namespace System.Net
 			get;
 		}
 
-		public WebConnectionTunnel OldTunnel {
-			get;
-		}
-
-		public WebConnectionTunnel (HttpWebRequest request, Uri connectUri, WebConnectionTunnel oldTunnel)
+		public WebConnectionTunnel (HttpWebRequest request, Uri connectUri)
 		{
 			Request = request;
 			ConnectUri = connectUri;
-			OldTunnel = oldTunnel;
 		}
 
 		enum NtlmAuthState
@@ -130,7 +125,8 @@ namespace System.Net
 			sb.Append (Request.Address.Authority);
 
 			bool ntlm = false;
-			var challenge = OldTunnel?.Challenge;
+			var challenge = Challenge;
+			Challenge = null;
 			var auth_header = Request.Headers["Proxy-Authorization"];
 			bool have_auth = auth_header != null;
 			if (have_auth) {
@@ -193,7 +189,7 @@ namespace System.Net
 			Headers = result;
 			Data = buffer;
 
-			Success = status != 200 && result != null;
+			Success = status == 200 && result != null;
 		}
 
 		async Task<(WebHeaderCollection, byte[], int)> ReadHeaders (Stream stream, CancellationToken cancellationToken)

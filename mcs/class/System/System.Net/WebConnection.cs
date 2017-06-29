@@ -192,7 +192,7 @@ namespace System.Net
 		public readonly int ID = ++nextID;
 
 		async Task<(WebExceptionStatus status, bool success, WebConnectionTunnel tunnel, Exception error)> CreateStream (
-			WebConnectionData data, bool reused, WebConnectionTunnel oldTunnel, CancellationToken cancellationToken)
+			WebConnectionData data, bool reused, WebConnectionTunnel tunnel, CancellationToken cancellationToken)
 		{
 			var requestID = ++nextRequestID;
 
@@ -203,10 +203,10 @@ namespace System.Net
 
 				if (data.Request.Address.Scheme == Uri.UriSchemeHttps) {
 #if SECURITY_DEP
-					WebConnectionTunnel tunnel = null;
 					if (!reused || data.NetworkStream == null || data.MonoTlsStream == null) {
 						if (sPoint.UseConnect) {
-							tunnel = new WebConnectionTunnel (data.Request, sPoint.Address, oldTunnel);
+							if (tunnel == null)
+								tunnel = new WebConnectionTunnel (data.Request, sPoint.Address);
 							await tunnel.Initialize (serverStream, cancellationToken).ConfigureAwait (false);
 							if (!tunnel.Success)
 								return (WebExceptionStatus.Success, false, tunnel, null);
