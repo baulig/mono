@@ -206,8 +206,8 @@ namespace System.Net
 					WebConnectionTunnel tunnel = null;
 					if (!reused || data.NetworkStream == null || data.MonoTlsStream == null) {
 						if (sPoint.UseConnect) {
-							tunnel = new WebConnectionTunnel (data.Request, sPoint.Address);
-							await tunnel.Initialize (data, serverStream, cancellationToken).ConfigureAwait (false);
+							tunnel = new WebConnectionTunnel (data.Request, sPoint.Address, oldTunnel);
+							await tunnel.Initialize (serverStream, cancellationToken).ConfigureAwait (false);
 							if (!tunnel.Success)
 								return (WebExceptionStatus.Success, false, tunnel, null);
 						}
@@ -435,7 +435,7 @@ namespace System.Net
 			keepAlive = request.KeepAlive;
 			var data = new WebConnectionData (this, operation);
 			var oldData = Interlocked.Exchange (ref currentData, data);
-			WebConnectionTunnel oldTunnel = null;
+			WebConnectionTunnel tunnel = null;
 
 		retry:
 			bool reused = await CheckReusable (oldData, cancellationToken).ConfigureAwait (false);
@@ -452,33 +452,41 @@ namespace System.Net
 				}
 			}
 
-			var streamResult = await CreateStream (data, reused, oldTunnel, cancellationToken).ConfigureAwait (false);
+			var streamResult = await CreateStream (data, reused, tunnel, cancellationToken).ConfigureAwait (false);
+			tunnel = streamResult.tunnel;
+			var status = streamResult.status;
+			var error = streamResult.error;
+
 			Debug ($"WC INIT CONNECTION #3: Cnc={ID} Op={operation.ID} data={data.ID} - {streamResult.status} {streamResult.success}");
 			if (!streamResult.success) {
 				if (operation.Aborted)
 					return (null, null);
 
-				if (streamResult.status == WebExceptionStatus.Success && streamResult.tunnel?.Challenge != null) {
+				if (status == WebExceptionStatus.Success && tunnel?.Challenge != null) {
 					Debug ($"WC INIT CONNECTION #4: Cnc={ID} Op={operation.ID} data={data.ID}");
-					oldTunnel = streamResult.tunnel;
-					oldData = data;
+					if (tunnel.CloseConnection) {
+						data.CloseSocket ();
+						oldData = null;
+					} else {
+						oldData = data;
+					}
 					goto retry;
 				}
 
-				if (streamResult.error == null && (data.StatusCode == 401 || data.StatusCode == 407)) {
-					streamResult.status = WebExceptionStatus.ProtocolError;
+				if (error == null && tunnel != null && (tunnel.StatusCode == 401 || tunnel.StatusCode == 407)) {
+					status = WebExceptionStatus.ProtocolError;
 					if (data.Headers == null)
 						data.Headers = new WebHeaderCollection ();
 
 					var webResponse = new HttpWebResponse (sPoint.Address, "CONNECT", data, null, null);
-					streamResult.error = new WebException (
-						data.StatusCode == 407 ? "(407) Proxy Authentication Required" : "(401) Unauthorized",
-						null, streamResult.status, webResponse);
+					error = new WebException (
+						tunnel.StatusCode == 407 ? "(407) Proxy Authentication Required" : "(401) Unauthorized",
+						null, status, webResponse);
 				}
 
 				Debug ($"WC INIT CONNECTION #3 EX: Cnc={ID} data={data.ID} socket={data.Socket?.ID}");
 
-				throw GetException (streamResult.status, streamResult.error);
+				throw GetException (status, error);
 			}
 
 			var stream = new WebRequestStream (this, operation, data);

@@ -52,10 +52,15 @@ namespace System.Net
 			get;
 		}
 
-		public WebConnectionTunnel (HttpWebRequest request, Uri connectUri)
+		public WebConnectionTunnel OldTunnel {
+			get;
+		}
+
+		public WebConnectionTunnel (HttpWebRequest request, Uri connectUri, WebConnectionTunnel oldTunnel)
 		{
 			Request = request;
 			ConnectUri = connectUri;
+			OldTunnel = oldTunnel;
 		}
 
 		enum NtlmAuthState
@@ -69,6 +74,11 @@ namespace System.Net
 		NtlmAuthState ntlmAuthState;
 
 		public bool Success {
+			get;
+			private set;
+		}
+
+		public bool CloseConnection {
 			get;
 			private set;
 		}
@@ -103,7 +113,7 @@ namespace System.Net
 			private set;
 		}
 
-		internal async Task Initialize (WebConnectionData data, Stream stream, CancellationToken cancellationToken)
+		internal async Task Initialize (Stream stream, CancellationToken cancellationToken)
 		{
 			StringBuilder sb = new StringBuilder ();
 			sb.Append ("CONNECT ");
@@ -120,8 +130,7 @@ namespace System.Net
 			sb.Append (Request.Address.Authority);
 
 			bool ntlm = false;
-			var challenge = Challenge;
-			challenge = null;
+			var challenge = OldTunnel?.Challenge;
 			var auth_header = Request.Headers["Proxy-Authorization"];
 			bool have_auth = auth_header != null;
 			if (have_auth) {
@@ -164,15 +173,13 @@ namespace System.Net
 			byte[] connectBytes = Encoding.Default.GetBytes (sb.ToString ());
 			await stream.WriteAsync (connectBytes, 0, connectBytes.Length, cancellationToken).ConfigureAwait (false);
 
-			var (result, buffer, status) = await ReadHeaders (data, stream, cancellationToken).ConfigureAwait (false);
+			var (result, buffer, status) = await ReadHeaders (stream, cancellationToken).ConfigureAwait (false);
 			if ((!have_auth || ntlmAuthState == NtlmAuthState.Challenge) &&
 			    result != null && status == 407) { // Needs proxy auth
 				var connectionHeader = result["Connection"];
-				if (data.Socket != null && !string.IsNullOrEmpty (connectionHeader) &&
-				    connectionHeader.ToLower () == "close") {
+				if (!string.IsNullOrEmpty (connectionHeader) && connectionHeader.ToLower () == "close") {
 					// The server is requesting that this connection be closed
-					data.Socket.Close ();
-					data.Socket = null;
+					CloseConnection = true;
 				}
 
 				StatusCode = status;
@@ -189,7 +196,7 @@ namespace System.Net
 			Success = status != 200 && result != null;
 		}
 
-		async Task<(WebHeaderCollection, byte[], int)> ReadHeaders (WebConnectionData data, Stream stream, CancellationToken cancellationToken)
+		async Task<(WebHeaderCollection, byte[], int)> ReadHeaders (Stream stream, CancellationToken cancellationToken)
 		{
 			byte[] retBuffer = null;
 			int status = 200;

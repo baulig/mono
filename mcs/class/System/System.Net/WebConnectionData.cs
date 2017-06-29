@@ -113,6 +113,15 @@ namespace System.Net
 				if (Operation != null)
 					Operation.Close ();
 
+				CloseSocket ();
+			}
+		}
+
+		public void CloseSocket ()
+		{
+			lock (this) {
+				WebConnection.Debug ($"WCD CLOSE: data={ID} Op={Operation?.ID} socket={socket?.ID}");
+
 				if (networkStream != null) {
 					try {
 						networkStream.Close ();
