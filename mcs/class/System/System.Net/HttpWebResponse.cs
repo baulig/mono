@@ -62,6 +62,17 @@ namespace System.Net
 		Stream stream;
 		
 		// Constructors
+
+		internal HttpWebResponse (Uri uri, string method, HttpStatusCode status, WebHeaderCollection headers)
+		{
+			this.uri = uri;
+			this.method = method;
+			this.statusCode = status;
+			this.statusDescription = HttpStatusDescription.Get (status);
+			this.webHeaders = headers;
+			version = HttpVersion.Version10;
+			contentLength = -1;
+		}
 		
 		internal HttpWebResponse (Uri uri, string method, WebConnectionData data, WebResponseStream stream, CookieContainer container)
 		{

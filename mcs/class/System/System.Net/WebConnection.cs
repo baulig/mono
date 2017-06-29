@@ -182,7 +182,7 @@ namespace System.Net
 		static int nextID, nextRequestID;
 		public readonly int ID = ++nextID;
 
-		async Task<(WebExceptionStatus status, bool success, WebConnectionTunnel tunnel, Exception error)> CreateStream (
+		async Task<(bool success, WebConnectionTunnel tunnel)> CreateStream (
 			WebConnectionData data, bool reused, WebConnectionTunnel tunnel, CancellationToken cancellationToken)
 		{
 			var requestID = ++nextRequestID;
@@ -199,21 +199,21 @@ namespace System.Net
 								tunnel = new WebConnectionTunnel (data.Request, sPoint.Address);
 							await tunnel.Initialize (serverStream, cancellationToken).ConfigureAwait (false);
 							if (!tunnel.Success)
-								return (WebExceptionStatus.Success, false, tunnel, null);
+								return (false, tunnel);
 						}
 						await data.Initialize (serverStream, tunnel, cancellationToken).ConfigureAwait (false);
 					}
-					return (WebExceptionStatus.Success, true, tunnel, null);
+					return (true, tunnel);
 				}
 
 				data.Initialize (serverStream);
-				return (WebExceptionStatus.Success, true, null, null);
+				return (true, null);
 			} catch (Exception ex) {
 				ex = HttpWebRequest.FlattenException (ex);
 				Debug ($"WC CREATE STREAM EX: Cnc={ID} {requestID} {data.Request.Aborted} - {ex.Message}");
 				if (data.Request.Aborted || data.MonoTlsStream == null)
-					return (WebExceptionStatus.ConnectFailure, false, null, ex);
-				return (data.MonoTlsStream.ExceptionStatus, false, null, ex);
+					throw GetException (WebExceptionStatus.ConnectFailure, ex);
+				throw GetException (data.MonoTlsStream.ExceptionStatus, ex);
 			} finally {
 				Debug ($"WC CREATE STREAM DONE: Cnc={ID} {requestID}");
 			}
@@ -438,30 +438,25 @@ namespace System.Net
 				}
 			}
 
-			var streamResult = await CreateStream (data, reused, tunnel, cancellationToken).ConfigureAwait (false);
-			tunnel = streamResult.tunnel;
-			var status = streamResult.status;
-			var error = streamResult.error;
+			bool success;
+			(success, tunnel) = await CreateStream (data, reused, tunnel, cancellationToken).ConfigureAwait (false);
 
-			Debug ($"WC INIT CONNECTION #3: Cnc={ID} Op={operation.ID} data={data.ID} - {streamResult.status} {streamResult.success}");
-			if (!streamResult.success) {
+			Debug ($"WC INIT CONNECTION #3: Cnc={ID} Op={operation.ID} data={data.ID} - {success}");
+			if (!success) {
 				if (operation.Aborted)
 					return (null, null);
 
-				if (status == WebExceptionStatus.Success && tunnel?.Challenge != null) {
-					Debug ($"WC INIT CONNECTION #4: Cnc={ID} Op={operation.ID} data={data.ID}");
-					if (tunnel.CloseConnection) {
-						data.CloseSocket ();
-						oldData = null;
-					} else {
-						oldData = data;
-					}
-					goto retry;
+				if (tunnel?.Challenge == null)
+					throw GetException (WebExceptionStatus.ProtocolError, null);
+
+				Debug ($"WC INIT CONNECTION #4: Cnc={ID} Op={operation.ID} data={data.ID}");
+				if (tunnel.CloseConnection) {
+					data.CloseSocket ();
+					oldData = null;
+				} else {
+					oldData = data;
 				}
-
-				Debug ($"WC INIT CONNECTION #3 EX: Cnc={ID} data={data.ID} socket={data.Socket?.ID}");
-
-				throw GetException (status, error);
+				goto retry;
 			}
 
 			var stream = new WebRequestStream (this, operation, data);

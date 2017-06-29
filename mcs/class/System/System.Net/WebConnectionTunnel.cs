@@ -185,7 +185,7 @@ namespace System.Net
 			}
 
 			if (Challenge == null && (StatusCode == 401 || StatusCode == 407)) {
-				var response = new HttpWebResponse (ConnectUri, "CONNECT", null, null, null);
+				var response = new HttpWebResponse (ConnectUri, "CONNECT", (HttpStatusCode)StatusCode, Headers);
 				throw new WebException (
 					StatusCode == 407 ? "(407) Proxy Authentication Required" : "(401) Unauthorized",
 					null, WebExceptionStatus.ProtocolError, response);
