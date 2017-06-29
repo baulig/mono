@@ -67,7 +67,7 @@ namespace System.Net
 			WriteBuffer = writeBuffer;
 			IsNtlmChallenge = isNtlmChallenge;
 			cts = CancellationTokenSource.CreateLinkedTokenSource (cancellationToken);
-			requestTask = new TaskCompletionSource<(WebConnectionData data, WebRequestStream stream)> ();
+			requestTask = new TaskCompletionSource<WebRequestStream> ();
 			requestWrittenTask = new TaskCompletionSource<WebRequestStream> ();
 			completeResponseReadTask = new TaskCompletionSource<bool> ();
 			responseTask = new TaskCompletionSource<WebResponseStream> ();
@@ -75,12 +75,11 @@ namespace System.Net
 		}
 
 		CancellationTokenSource cts;
-		TaskCompletionSource<(WebConnectionData data, WebRequestStream stream)> requestTask;
+		TaskCompletionSource<WebRequestStream> requestTask;
 		TaskCompletionSource<WebRequestStream> requestWrittenTask;
 		TaskCompletionSource<WebResponseStream> responseTask;
 		TaskCompletionSource<bool> completeResponseReadTask;
 		TaskCompletionSource<bool> finishedTask;
-		WebConnectionData connectionData;
 		WebRequestStream writeStream;
 		WebResponseStream responseStream;
 		ExceptionDispatchInfo disposedInfo;
@@ -125,13 +124,6 @@ namespace System.Net
 			if (stream != null) {
 				try {
 					stream.Close ();
-				} catch { }
-			}
-
-			var data = Interlocked.Exchange (ref connectionData, null);
-			if (data != null) {
-				try {
-					data.Close ();
 				} catch { }
 			}
 		}
@@ -222,10 +214,9 @@ namespace System.Net
 			}
 		}
 
-		public async Task<WebRequestStream> GetRequestStream ()
+		public Task<WebRequestStream> GetRequestStream ()
 		{
-			var result = await requestTask.Task.ConfigureAwait (false);
-			return result.stream;
+			return requestTask.Task;
 		}
 
 		public Task WaitUntilRequestWritten ()
@@ -257,24 +248,19 @@ namespace System.Net
 
 				ThrowIfClosedOrDisposed ();
 
-				var (data, requestStream) = await connection.InitConnection (this, cts.Token).ConfigureAwait (false);
-				if (data == null || Aborted) {
-					SetCanceled ();
-					return;
-				}
-
-				writeStream = requestStream;
-				connectionData = data;
+				var requestStream = await connection.InitConnection (this, cts.Token).ConfigureAwait (false);
 
 				ThrowIfClosedOrDisposed ();
+
+				writeStream = requestStream;
 
 				await requestStream.Initialize (cts.Token).ConfigureAwait (false);
 
 				ThrowIfClosedOrDisposed ();
 
-				requestTask.TrySetResult ((data, requestStream));
+				requestTask.TrySetResult (requestStream);
 
-				var stream = new WebResponseStream (requestStream, data.NetworkStream);
+				var stream = new WebResponseStream (requestStream);
 
 				await stream.InitReadAsync (cts.Token).ConfigureAwait (false);
 				responseStream = stream;
@@ -301,22 +287,20 @@ namespace System.Net
 				error = e;
 			}
 
-			WebConnectionData data;
 			WebResponseStream stream;
 			WebOperation next;
 
 			lock (this) {
 				finishedReading = true;
-				data = Interlocked.Exchange (ref connectionData, null);
 				stream = Interlocked.Exchange (ref responseStream, null);
 				next = Interlocked.Exchange (ref priorityRequest, null);
 				Request.FinishedReading = true;
 			}
 
-			WebConnection.Debug ($"WO FINISH READING: Op={ID} {ok} {error != null} {data != null} {next != null}");
+			WebConnection.Debug ($"WO FINISH READING: Op={ID} {ok} {error != null} {stream != null} {next != null}");
 
 			try {
-				var keepAlive = await FinishReadingInner (connection, ok, data, stream, next).ConfigureAwait (false);
+				var keepAlive = await FinishReadingInner (connection, ok, stream, next).ConfigureAwait (false);
 				finishedTask.TrySetResult (keepAlive);
 			} catch (Exception ex) {
 				finishedTask.TrySetException (ex);
@@ -325,16 +309,16 @@ namespace System.Net
 			WebConnection.Debug ($"WO FINISH READING DONE: Op={ID}");
 		}
 
-		async Task<bool> FinishReadingInner (WebConnection connection, bool ok, WebConnectionData data,
+		async Task<bool> FinishReadingInner (WebConnection connection, bool ok,
 		                                     WebResponseStream stream, WebOperation next)
 		{
 			bool keepAlive = false;
 
-			if (ok && data != null && stream != null) {
+			if (ok && stream != null) {
 				keepAlive = stream.KeepAlive;
 			}
 
-			WebConnection.Debug ($"WO FINISH READING #1: Op={ID} {data != null} {keepAlive}");
+			WebConnection.Debug ($"WO FINISH READING #1: Op={ID} {stream != null} {keepAlive}");
 
 			connection.FinishOperation (ref keepAlive);
 

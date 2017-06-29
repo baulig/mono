@@ -52,16 +52,13 @@ namespace System.Net
 
 	class WebConnection
 	{
-		object socketLock = new object ();
-		bool keepAlive;
 		NetworkCredential ntlm_credentials;
 		bool ntlm_authenticated;
 		bool unsafe_sharing;
-
-		WebConnectionData currentData;
-		WebConnectionData Data {
-			get { return currentData; }
-		}
+		Stream networkStream;
+		Socket socket;
+		MonoTlsStream monoTlsStream;
+		WebConnectionTunnel tunnel;
 
 		public ServicePoint ServicePoint {
 			get;
@@ -75,7 +72,6 @@ namespace System.Net
 		public WebConnection (ServicePoint sPoint)
 		{
 			ServicePoint = sPoint;
-			currentData = new WebConnectionData ();
 		}
 
 		[Conditional ("MARTIN_DEBUG")]
@@ -90,36 +86,26 @@ namespace System.Net
 			Console.Error.WriteLine (message);
 		}
 
-		bool CanReuse (Socket socket)
+		bool CanReuse ()
 		{
 			// The real condition is !(socket.Poll (0, SelectMode.SelectRead) || socket.Available != 0)
 			// but if there's data pending to read (!) we won't reuse the socket.
 			return (socket.Poll (0, SelectMode.SelectRead) == false);
 		}
 
-		bool CheckReusable (WebConnectionData data)
+		bool CheckReusable ()
 		{
-			if (data == null)
-				return false;
-
-			if (data.Socket != null && data.Socket.Connected) {
+			if (socket != null && socket.Connected) {
 				try {
-					if (CanReuse (data.Socket))
+					if (CanReuse ())
 						return true;
-				} catch {
-					return false;
-				}
-			}
-
-			if (data.Socket != null) {
-				data.Socket.Close ();
-				data.Socket = null;
+				} catch { }
 			}
 
 			return false;
 		}
 
-		async Task<Socket> Connect (WebOperation operation, WebConnectionData data, CancellationToken cancellationToken)
+		async Task Connect (WebOperation operation, CancellationToken cancellationToken)
 		{
 			IPHostEntry hostEntry = ServicePoint.HostEntry;
 
@@ -139,7 +125,6 @@ namespace System.Net
 			foreach (IPAddress address in hostEntry.AddressList) {
 				operation.ThrowIfDisposed (cancellationToken);
 
-				Socket socket;
 				try {
 					socket = new Socket (address.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
 				} catch (Exception se) {
@@ -155,8 +140,7 @@ namespace System.Net
 				}
 
 				if (!ServicePoint.CallEndPointDelegate (socket, remote)) {
-					socket.Close ();
-					socket = null;
+					Interlocked.Exchange (ref socket, null)?.Close ();
 					continue;
 				} else {
 					try {
@@ -165,16 +149,13 @@ namespace System.Net
 					} catch (ObjectDisposedException) {
 						throw;
 					} catch (Exception exc) {
-						Socket s = socket;
-						socket = null;
-						if (s != null)
-							s.Close ();
+						Interlocked.Exchange (ref socket, null)?.Close ();
 						throw GetException (WebExceptionStatus.ConnectFailure, exc);
 					}
 				}
 
 				if (socket != null)
-					return socket;
+					return;
 			}
 
 			throw GetException (WebExceptionStatus.ConnectFailure, null);
@@ -183,97 +164,80 @@ namespace System.Net
 		static int nextID, nextRequestID;
 		public readonly int ID = ++nextID;
 
-		async Task<(bool success, WebConnectionTunnel tunnel)> CreateStream (
-			WebConnectionData data, bool reused, WebConnectionTunnel tunnel, CancellationToken cancellationToken)
+		async Task<bool> CreateStream (WebOperation operation, bool reused, CancellationToken cancellationToken)
 		{
 			var requestID = ++nextRequestID;
 
 			try {
-				NetworkStream serverStream = new NetworkStream (data.Socket, false);
+				var stream = new NetworkStream (socket, false);
 
-				Debug ($"WC CREATE STREAM: Cnc={ID} data={data.ID} {requestID} {reused} socket={data.Socket.ID}");
+				Debug ($"WC CREATE STREAM: Cnc={ID} {requestID} {reused} socket={socket.ID}");
 
-				if (data.Request.Address.Scheme == Uri.UriSchemeHttps) {
-					if (!reused || data.NetworkStream == null || data.MonoTlsStream == null) {
+				if (operation.Request.Address.Scheme == Uri.UriSchemeHttps) {
+					if (!reused || monoTlsStream == null) {
 						if (ServicePoint.UseConnect) {
 							if (tunnel == null)
-								tunnel = new WebConnectionTunnel (data.Request, ServicePoint.Address);
-							await tunnel.Initialize (serverStream, cancellationToken).ConfigureAwait (false);
+								tunnel = new WebConnectionTunnel (operation.Request, ServicePoint.Address);
+							await tunnel.Initialize (stream, cancellationToken).ConfigureAwait (false);
 							if (!tunnel.Success)
-								return (false, tunnel);
+								return false;
 						}
-						await data.Initialize (serverStream, tunnel, cancellationToken).ConfigureAwait (false);
+						monoTlsStream = new MonoTlsStream (operation.Request, stream);
+						networkStream = await monoTlsStream.CreateStream (tunnel, cancellationToken).ConfigureAwait (false);
 					}
-					return (true, tunnel);
+					return true;
 				}
 
-				data.Initialize (serverStream);
-				return (true, null);
+				networkStream = stream;
+				return true;
 			} catch (Exception ex) {
 				ex = HttpWebRequest.FlattenException (ex);
-				Debug ($"WC CREATE STREAM EX: Cnc={ID} {requestID} {data.Request.Aborted} - {ex.Message}");
-				if (data.Request.Aborted || data.MonoTlsStream == null)
+				Debug ($"WC CREATE STREAM EX: Cnc={ID} {requestID} {operation.Aborted} - {ex.Message}");
+				if (operation.Aborted || monoTlsStream == null)
 					throw GetException (WebExceptionStatus.ConnectFailure, ex);
-				throw GetException (data.MonoTlsStream.ExceptionStatus, ex);
+				throw GetException (monoTlsStream.ExceptionStatus, ex);
 			} finally {
 				Debug ($"WC CREATE STREAM DONE: Cnc={ID} {requestID}");
 			}
 		}
 
-		internal async Task<(WebConnectionData, WebRequestStream)> InitConnection (
-			WebOperation operation, CancellationToken cancellationToken)
+		internal async Task<WebRequestStream> InitConnection (WebOperation operation, CancellationToken cancellationToken)
 		{
 			Debug ($"WC INIT CONNECTION: Cnc={ID} Req={operation.Request.ID} Op={operation.ID}");
 
-			var request = operation.Request;
-
-			operation.ThrowIfClosedOrDisposed (cancellationToken);
-
-			keepAlive = request.KeepAlive;
-			var data = new WebConnectionData (this, operation);
-			var oldData = Interlocked.Exchange (ref currentData, data);
-			WebConnectionTunnel tunnel = null;
-
+			bool reset = true;
 		retry:
 			operation.ThrowIfClosedOrDisposed (cancellationToken);
 
-			bool reused = CheckReusable (oldData);
-			Debug ($"WC INIT CONNECTION #1: Cnc={ID} Op={operation.ID} data={data.ID} - {reused} - {operation.WriteBuffer != null} {operation.IsNtlmChallenge}");
-			if (reused) {
-				data.ReuseConnection (oldData);
-			} else {
+			var reused = CheckReusable ();
+			Debug ($"WC INIT CONNECTION #1: Cnc={ID} Op={operation.ID} - {reused} - {operation.WriteBuffer != null} {operation.IsNtlmChallenge}");
+			if (!reused) {
+				CloseSocket ();
+				if (reset)
+					Reset ();
 				try {
-					data.Socket = await Connect (operation, data, cancellationToken).ConfigureAwait (false);
-					Debug ($"WC INIT CONNECTION #2: Cnc={ID} Op={operation.ID} data={data.ID}");
+					await Connect (operation, cancellationToken).ConfigureAwait (false);
+					Debug ($"WC INIT CONNECTION #2: Cnc={ID} Op={operation.ID}");
 				} catch (Exception ex) {
-					Debug ($"WC INIT CONNECTION #2 FAILED: Cnc={ID} Op={operation.ID} data={data.ID} - {ex.Message}");
+					Debug ($"WC INIT CONNECTION #2 FAILED: Cnc={ID} Op={operation.ID} - {ex.Message}");
 					throw;
 				}
 			}
 
-			bool success;
-			(success, tunnel) = await CreateStream (data, reused, tunnel, cancellationToken).ConfigureAwait (false);
+			var success = await CreateStream (operation, reused, cancellationToken).ConfigureAwait (false);
 
-			Debug ($"WC INIT CONNECTION #3: Cnc={ID} Op={operation.ID} data={data.ID} - {success}");
+			Debug ($"WC INIT CONNECTION #3: Cnc={ID} Op={operation.ID} - {success}");
 			if (!success) {
-				if (operation.Aborted)
-					return (null, null);
-
 				if (tunnel?.Challenge == null)
 					throw GetException (WebExceptionStatus.ProtocolError, null);
 
-				Debug ($"WC INIT CONNECTION #4: Cnc={ID} Op={operation.ID} data={data.ID}");
-				if (tunnel.CloseConnection) {
-					data.CloseSocket ();
-					oldData = null;
-				} else {
-					oldData = data;
-				}
+				if (tunnel.CloseConnection)
+					CloseSocket ();
+				reset = false;
 				goto retry;
 			}
 
-			var stream = new WebRequestStream (this, operation, data.NetworkStream, tunnel);
-			return (data, stream);
+			return new WebRequestStream (this, operation, networkStream, tunnel);
 		}
 
 		internal static WebException GetException (WebExceptionStatus status, Exception error)
@@ -353,7 +317,7 @@ namespace System.Net
 				needs_reset = (req_sharing == false || req_sharing != cnc_sharing);
 			}
 			if (needs_reset) {
-				Reset (); // closes the authenticated connection
+				ResetNtlm (); // closes the authenticated connection
 				return false;
 			}
 			return true;
@@ -364,8 +328,8 @@ namespace System.Net
 			Debug ($"WC RESET: Cnc={ID}");
 
 			lock (this) {
+				tunnel = null;
 				ResetNtlm ();
-				currentData = new WebConnectionData ();
 			}
 		}
 
@@ -374,25 +338,42 @@ namespace System.Net
 			Debug ($"WC CLOSE: Cnc={ID}");
 
 			lock (this) {
-				Data.Close ();
+				CloseSocket ();
 				Reset ();
+			}
+		}
+
+		void CloseSocket ()
+		{
+			Debug ($"WC CLOSE SOCKET: Cnc={ID}");
+
+			lock (this) {
+				if (networkStream != null) {
+					try {
+						networkStream.Dispose ();
+					} catch { }
+					networkStream = null;
+				}
+
+				if (socket != null) {
+					try {
+						socket.Dispose ();
+					} catch { }
+					socket = null;
+				}
+
+				monoTlsStream = null;
 			}
 		}
 
 		internal void FinishOperation (ref bool keepAlive)
 		{
 			lock (this) {
-				if (Data == null) {
-					keepAlive = false;
-					return;
-				}
-
-				if (!keepAlive || Data.Socket == null || !Data.Socket.Connected) {
+				if (!keepAlive || socket == null || !socket.Connected) {
 					try {
-						Data.Close ();
+						Close ();
 					} catch { }
 					keepAlive = false;
-					currentData = null;
 					ResetNtlm ();
 				}
 			}

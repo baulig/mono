@@ -53,8 +53,8 @@ namespace System.Net
 			private set;
 		}
 
-		public WebResponseStream (WebRequestStream request, Stream stream)
-			: base (request.Connection, request.Operation, stream)
+		public WebResponseStream (WebRequestStream request)
+			: base (request.Connection, request.Operation, request.InnerStream)
 		{
 			RequestStream = request;
 		}

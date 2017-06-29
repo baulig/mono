@@ -117,7 +117,7 @@ namespace System.Net
 
 		internal ServicePoint ServicePoint => Connection.ServicePoint;
 
-		protected Stream InnerStream {
+		internal Stream InnerStream {
 			get;
 		}
 
