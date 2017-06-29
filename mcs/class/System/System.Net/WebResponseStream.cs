@@ -24,6 +24,11 @@ namespace System.Net
 		int nestedRead;
 		bool read_eof;
 
+		public WebHeaderCollection Headers {
+			get;
+			private set;
+		}
+
 		public WebResponseStream (WebConnection connection, WebOperation operation, WebConnectionData data)
 			: base (connection, operation, data)
 		{
@@ -216,7 +221,7 @@ namespace System.Net
 
 		bool CheckAuthHeader (string headerName)
 		{
-			var authHeader = Data.Headers[headerName];
+			var authHeader = Headers[headerName];
 			return (authHeader != null && authHeader.IndexOf ("NTLM", StringComparison.Ordinal) != -1);
 		}
 
@@ -247,9 +252,9 @@ namespace System.Net
 		{
 			WebConnection.Debug ($"WRP INIT: Cnc={Connection.ID} data={Data.ID} status={Data.StatusCode} bos={buffer.Offset}/{buffer.Size}");
 
-			string contentType = Data.Headers["Transfer-Encoding"];
+			string contentType = Headers["Transfer-Encoding"];
 			bool chunkedRead = (contentType != null && contentType.IndexOf ("chunked", StringComparison.OrdinalIgnoreCase) != -1);
-			string clength = Data.Headers["Content-Length"];
+			string clength = Headers["Content-Length"];
 			if (!chunkedRead && !string.IsNullOrEmpty (clength)) {
 				if (!long.TryParse (clength, out contentLength))
 					contentLength = Int64.MaxValue;
@@ -265,7 +270,7 @@ namespace System.Net
 			bool expect_content = ExpectContent (Data.StatusCode, Data.Request.Method);
 			string tencoding = null;
 			if (expect_content)
-				tencoding = Data.Headers["Transfer-Encoding"];
+				tencoding = Headers["Transfer-Encoding"];
 
 			Data.ChunkedRead = (tencoding != null && tencoding.IndexOf ("chunked", StringComparison.OrdinalIgnoreCase) != -1);
 			if (!Data.ChunkedRead) {
@@ -282,7 +287,7 @@ namespace System.Net
 				}
 			} else if (Data.ChunkStream == null) {
 				try {
-					Data.ChunkStream = new MonoChunkStream (buffer.Buffer, buffer.Offset, buffer.Size, Data.Headers);
+					Data.ChunkStream = new MonoChunkStream (buffer.Buffer, buffer.Offset, buffer.Size, Headers);
 				} catch (Exception e) {
 					throw GetReadException (WebExceptionStatus.ServerProtocolViolation, e, me);
 				}
@@ -540,7 +545,7 @@ namespace System.Net
 				emptyFirstLine = false;
 				if (state == ReadState.Status) {
 					state = ReadState.Headers;
-					Data.Headers = new WebHeaderCollection ();
+					Headers = new WebHeaderCollection ();
 					var headerList = new List<string> ();
 					bool finished = false;
 					while (!finished) {
@@ -578,11 +583,10 @@ namespace System.Net
 						var header = s.Substring (0, pos_s);
 						var value = s.Substring (pos_s + 1).Trim ();
 
-						var h = Data.Headers;
 						if (WebHeaderCollection.AllowMultiValues (header)) {
-							h.AddInternal (header, value);
+							Headers.AddInternal (header, value);
 						} else {
-							h.SetInternal (header, value);
+							Headers.SetInternal (header, value);
 						}
 					}
 
@@ -592,7 +596,7 @@ namespace System.Net
 							return true;
 
 						if (Request.ExpectContinue) {
-							Request.DoContinueDelegate (Data.StatusCode, Data.Headers);
+							Request.DoContinueDelegate (Data.StatusCode, Headers);
 							// Prevent double calls when getting the
 							// headers in several packets.
 							Request.ExpectContinue = false;

@@ -40,8 +40,6 @@ namespace System.Net
 	{
 		public int StatusCode;
 		public string StatusDescription;
-		// [Obsolete ("WHO USES THIS?")]
-		public WebHeaderCollection Headers;
 		public Version Version;
 		public Version ProxyVersion;
 		// [Obsolete ("WHO USES THIS?")]

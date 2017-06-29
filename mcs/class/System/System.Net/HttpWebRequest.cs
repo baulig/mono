@@ -1034,7 +1034,7 @@ namespace System.Net
 					stream = responseStreamTask.Result;
 					data = stream.Data;
 
-					WebConnection.Debug ($"HWR RESPONSE LOOP #0: Req={ID} - data={data.ID} {data.Headers != null}");
+					WebConnection.Debug ($"HWR RESPONSE LOOP #0: Req={ID} - data={data.ID} {stream?.Headers != null}");
 
 					(response, redirect, mustReadAll, writeBuffer, ntlm) = await GetResponseFromData (
 						stream, cancellationToken).ConfigureAwait (false);

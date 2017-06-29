@@ -302,11 +302,13 @@ namespace System.Net
 			}
 
 			WebConnectionData data;
+			WebResponseStream stream;
 			WebOperation next;
 
 			lock (this) {
 				finishedReading = true;
 				data = Interlocked.Exchange (ref connectionData, null);
+				stream = Interlocked.Exchange (ref responseStream, null);
 				next = Interlocked.Exchange (ref priorityRequest, null);
 				Request.FinishedReading = true;
 			}
@@ -314,7 +316,7 @@ namespace System.Net
 			WebConnection.Debug ($"WO FINISH READING: Op={ID} {ok} {error != null} {data != null} {next != null}");
 
 			try {
-				var keepAlive = await FinishReadingInner (connection, ok, data, next).ConfigureAwait (false);
+				var keepAlive = await FinishReadingInner (connection, ok, data, stream, next).ConfigureAwait (false);
 				finishedTask.TrySetResult (keepAlive);
 			} catch (Exception ex) {
 				finishedTask.TrySetException (ex);
@@ -323,14 +325,14 @@ namespace System.Net
 			WebConnection.Debug ($"WO FINISH READING DONE: Op={ID}");
 		}
 
-		async Task<bool> FinishReadingInner (WebConnection connection, bool ok, WebConnectionData data, WebOperation next)
+		async Task<bool> FinishReadingInner (WebConnection connection, bool ok, WebConnectionData data, WebResponseStream stream, WebOperation next)
 		{
 			string header = ServicePoint.UsesProxy ? "Proxy-Connection" : "Connection";
 			string cncHeader = null;
 			bool keepAlive = false;
 
-			if (ok && data != null) {
-				cncHeader = data.Headers != null ? data.Headers[header] : null;
+			if (ok && data != null && stream != null) {
+				cncHeader = stream.Headers != null ? stream.Headers[header] : null;
 				keepAlive = (data.Version == HttpVersion.Version11 && Request.KeepAlive);
 				if (data.ProxyVersion != null && data.ProxyVersion != HttpVersion.Version11)
 					keepAlive = false;
