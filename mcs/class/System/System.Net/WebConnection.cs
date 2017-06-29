@@ -3,10 +3,11 @@
 //
 // Authors:
 //	Gonzalo Paniagua Javier (gonzalo@ximian.com)
+//      Martin Baulig <mabaul@microsoft.com>
 //
 // (C) 2003 Ximian, Inc (http://www.ximian.com)
+// Copyright (c) 2017 Xamarin Inc. (http://www.xamarin.com)
 //
-
 //
 // Permission is hereby granted, free of charge, to any person obtaining
 // a copy of this software and associated documentation files (the
