@@ -42,6 +42,7 @@ System.Net/ResponseStream.cs
 System.Net/ServicePoint.cs
 System.Net/ServicePointManager.cs
 System.Net/ServicePointManager.extra.cs
+System.Net/ServicePointScheduler.cs
 System.Net/WebConnection.cs
 System.Net/WebConnectionGroup.cs
 System.Net/WebConnectionStream.cs
