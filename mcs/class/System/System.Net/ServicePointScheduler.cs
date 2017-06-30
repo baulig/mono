@@ -58,6 +58,7 @@ namespace System.Net
 			schedulerEvent = new AsyncManualResetEvent (false);
 			maxIdleTime = servicePoint.MaxIdleTime;
 			defaultGroup = new ConnectionGroup (this, string.Empty);
+			operations = new LinkedList<WebOperation> (); 
 		}
 
 		[Conditional ("MARTIN_DEBUG")]
@@ -77,6 +78,7 @@ namespace System.Net
 		AsyncManualResetEvent schedulerEvent;
 		ConnectionGroup defaultGroup;
 		Dictionary<string, ConnectionGroup> groups;
+		LinkedList<WebOperation> operations;
 
 		static int nextId;
 		public readonly int ID = ++nextId;
@@ -97,10 +99,43 @@ namespace System.Net
 		{
 			while (true) {
 				Debug ($"SCHEDULER");
-				var ret = await schedulerEvent.WaitAsync (maxIdleTime);
-				Debug ($"SCHEDULER EVENT: {ret}");
+
+				// Gather list of currently running operations.
+				WebOperation[] operationArray;
+				Task[] taskArray;
+				lock (ServicePoint) {
+					operationArray = new WebOperation[operations.Count];
+					operations.CopyTo (operationArray, 0);
+
+					taskArray = new Task[operationArray.Length + 1];
+					taskArray[0] = schedulerEvent.WaitAsync (maxIdleTime);
+					for (int i = 0; i < operationArray.Length; i++)
+						taskArray[i + 1] = operationArray[i].WaitForCompletion (true);
+				}
+
+				Debug ($"SCHEDULER #1: {operationArray.Length}");
+
+				var ret = await Task.WhenAny (taskArray).ConfigureAwait (false);
 
 				lock (ServicePoint) {
+					if (ret != taskArray[0]) {
+						int idx = -1;
+						for (int i = 1; i < taskArray.Length; i++) {
+							if (ret == taskArray[i]) {
+								idx = i;
+								break;
+							}
+						}
+
+						var operation = operationArray[idx - 1];
+						Debug ($"SCHEDULER #2: {idx} Op={operation.ID}");
+						operations.Remove (operation);
+						SchedulerIteration (operation);
+						continue;
+					}
+
+					Debug ($"SCHEDULER #3");
+
 					schedulerEvent.Reset ();
 
 					bool repeat;
@@ -114,6 +149,13 @@ namespace System.Net
 					} while (repeat);
 				}
 			}
+		}
+
+		void SchedulerIteration (WebOperation operation)
+		{
+			Debug ($"ITERATION: Op={operation.ID}");
+
+
 		}
 
 		bool SchedulerIteration (ConnectionGroup group)
@@ -137,9 +179,8 @@ namespace System.Net
 			}
 
 			Debug ($"ITERATION - OPERATION STARTED: group={group.ID} Op={next.ID} Cnc={connection.ID}");
-
-
-			return false;
+			operations.AddLast (next);
+			return true;
 		}
 
 		public void SendRequest (WebOperation operation, string groupName)
