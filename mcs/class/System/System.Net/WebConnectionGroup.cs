@@ -139,6 +139,8 @@ namespace System.Net
 				lock (ServicePoint) {
 					var started = connection.Continue (ref keepAlive, false, next);
 
+					WebConnection.Debug ($"WCG WAIT FOR COMPLETION LOOP: Cnc={connection.ID} Op={operation.ID} started={started} keepalive={keepAlive} next={next?.ID}");
+
 					if (started) {
 						// WaitForCompletion() found another request in the queue and
 						// WebConnection.Continue() has accepted to be reused.
@@ -172,7 +174,7 @@ namespace System.Net
 
 		async Task<(bool, WebOperation)> WaitForCompletion (WebConnection connection, WebOperation operation)
 		{
-			WebConnection.Debug ($"WCG WAIT FOR COMPLETION: Op={operation.ID}");
+			WebConnection.Debug ($"WCG WAIT FOR COMPLETION: Cnc={connection.ID} Op={operation.ID}");
 
 			Exception throwMe = null;
 			bool keepAlive;
@@ -183,12 +185,10 @@ namespace System.Net
 				keepAlive = false;
 			}
 
-			WebConnection.Debug ($"WCG WAIT FOR COMPLETION #1: Op={operation.ID} {keepAlive} {throwMe?.GetType ()}");
+			WebConnection.Debug ($"WCG WAIT FOR COMPLETION #1: Cnc={connection.ID} Op={operation.ID} keepAlive={keepAlive} {throwMe?.GetType ()}");
 
 			WebOperation next = null;
 			lock (ServicePoint) {
-				if (!keepAlive)
-					RemoveConnection (connection);
 				while (queue.Count > 0 && next == null) {
 					next = (WebOperation)queue.Dequeue ();
 					if (next.Aborted)
@@ -196,13 +196,14 @@ namespace System.Net
 				}
 			}
 
-			WebConnection.Debug ($"WCG WAIT FOR COMPLETION DONE: Op={operation.ID} {keepAlive} {next?.ID}");
+			WebConnection.Debug ($"WCG WAIT FOR COMPLETION DONE: Cnc={connection.ID} Op={operation.ID} keepAlive={keepAlive} next={next?.ID}");
 
 			return (keepAlive, next);
 		}
 
 		void RemoveConnection (WebConnection connection)
 		{
+			WebConnection.Debug ($"WCG REMOVE: Cnc={connection.ID} {connections.Count}");
 			var iter = connections.First;
 			while (iter != null) {
 				var current = iter.Value;
@@ -211,13 +212,16 @@ namespace System.Net
 
 				if (connection == current) {
 					connections.Remove (current);
-					break;
+					return;
 				}
 			}
+
+			throw new NotImplementedException ();
 		}
 
 		WebConnection FindIdleConnection (WebOperation operation)
 		{
+			WebConnection.Debug ($"WCG FIND IDLE: {connections.Count}");
 			foreach (var cnc in connections) {
 				if (!cnc.StartOperation (operation, true))
 					continue;

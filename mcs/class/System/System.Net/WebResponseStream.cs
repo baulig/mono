@@ -194,6 +194,9 @@ namespace System.Net
 		{
 			WebConnection.Debug ($"WRP READ ASYNC: Cnc={Connection.ID}");
 
+			if (Connection.ID < 0)
+				throw new NotImplementedException ("DISPOSED!");
+
 			Operation.ThrowIfDisposed (cancellationToken);
 
 			int nbytes = 0;

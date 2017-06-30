@@ -295,7 +295,7 @@ namespace System.Net
 				Request.FinishedReading = true;
 			}
 
-			WebConnection.Debug ($"WO FINISH READING: Op={ID} {ok} {error != null} {stream != null} {next != null}");
+			WebConnection.Debug ($"WO FINISH READING: Cnc={Connection.ID} Op={ID} ok={ok} error={error != null} stream={stream != null} next={next != null}");
 
 			try {
 				var keepAlive = await FinishReadingInner (ok, stream, next).ConfigureAwait (false);
@@ -304,7 +304,7 @@ namespace System.Net
 				finishedTask.TrySetException (ex);
 			}
 
-			WebConnection.Debug ($"WO FINISH READING DONE: Op={ID}");
+			WebConnection.Debug ($"WO FINISH READING DONE: Cnc={Connection.ID} Op={ID}");
 		}
 
 		async Task<bool> FinishReadingInner (bool ok, WebResponseStream stream, WebOperation next)
@@ -320,7 +320,7 @@ namespace System.Net
 				keepAlive = false;
 			}
 
-			WebConnection.Debug ($"WO FINISH READING #1: Op={ID} {stream != null} {keepAlive}");
+			WebConnection.Debug ($"WO FINISH READING #1: Cnc={Connection.ID} Op={ID} stream={stream != null} keepAlive={keepAlive} next={next?.ID}");
 
 			if (!Connection.Continue (ref keepAlive, true, next))
 				return keepAlive;

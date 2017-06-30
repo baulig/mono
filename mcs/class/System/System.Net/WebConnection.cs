@@ -60,6 +60,7 @@ namespace System.Net
 		Socket socket;
 		MonoTlsStream monoTlsStream;
 		WebConnectionTunnel tunnel;
+		bool disposed;
 
 		public ServicePoint ServicePoint {
 			get;
@@ -163,7 +164,9 @@ namespace System.Net
 		}
 
 		static int nextID, nextRequestID;
-		public readonly int ID = ++nextID;
+		public readonly int id = ++nextID;
+
+		public int ID => disposed ? -id : id;
 
 		async Task<bool> CreateStream (WebOperation operation, bool reused, CancellationToken cancellationToken)
 		{
@@ -220,7 +223,7 @@ namespace System.Net
 					await Connect (operation, cancellationToken).ConfigureAwait (false);
 					Debug ($"WC INIT CONNECTION #2: Cnc={ID} Op={operation.ID}");
 				} catch (Exception ex) {
-					Debug ($"WC INIT CONNECTION #2 FAILED: Cnc={ID} Op={operation.ID} - {ex.Message}");
+					Debug ($"WC INIT CONNECTION #2 FAILED: Cnc={ID} Op={operation.ID} - {ex.Message}\n{ex}");
 					throw;
 				}
 			}
@@ -323,8 +326,6 @@ namespace System.Net
 
 		void Reset ()
 		{
-			Debug ($"WC RESET: Cnc={ID}");
-
 			lock (this) {
 				tunnel = null;
 				ResetNtlm ();
@@ -334,17 +335,20 @@ namespace System.Net
 		internal void Close ()
 		{
 			Debug ($"WC CLOSE: Cnc={ID}");
+			Close (true);
+		}
 
+		void Close (bool reset)
+		{
 			lock (this) {
 				CloseSocket ();
-				Reset ();
+				if (reset)
+					Reset ();
 			}
 		}
 
 		void CloseSocket ()
 		{
-			Debug ($"WC CLOSE SOCKET: Cnc={ID}");
-
 			lock (this) {
 				if (networkStream != null) {
 					try {
@@ -381,13 +385,22 @@ namespace System.Net
 				if (Interlocked.CompareExchange (ref currentOperation, operation, null) != null)
 					return false;
 
+				if (disposed) {
+					Debug ($"WC START - DISPOSED: Cnc={ID}!\n{Environment.StackTrace}");
+					throw new NotImplementedException ("DISPOSED");
+				}
+
 				idleSince = DateTime.UtcNow + TimeSpan.FromDays (3650);
 
-				if (reused && !PrepareSharingNtlm (operation))
-					Close ();
+				if (reused && !PrepareSharingNtlm (operation)) {
+					Debug ($"WC START - CAN'T REUSE: Cnc={ID} Op={operation.ID}");
+					Close (true);
+				}
+
+				operation.RegisterRequest (ServicePoint, this);
+				Debug ($"WC START: Cnc={ID} Op={operation.ID}");
 			}
 
-			operation.RegisterRequest (ServicePoint, this);
 			operation.Run ();
 			return true;
 		}
@@ -395,19 +408,24 @@ namespace System.Net
 		public bool Continue (ref bool keepAlive, bool priority, WebOperation next)
 		{
 			lock (this) {
+				Debug ($"WC CONTINUE: Cnc={ID} keepAlive={keepAlive} connected={socket?.Connected} priority={priority} next={next?.ID} current={currentOperation?.ID}");
 				if (!keepAlive || socket == null || !socket.Connected) {
-					Close ();
+					Close (true);
 					keepAlive = false;
 				}
 
 				if (next == null) {
-					idleSince = DateTime.UtcNow;
-					currentOperation = null;
+					if (!keepAlive)
+						Dispose ();
+					else {
+						idleSince = DateTime.UtcNow;
+						currentOperation = null;
+					}
 					return false;
 				}
 
 				if (keepAlive && !PrepareSharingNtlm (next)) {
-					Close ();
+					Close (true);
 					keepAlive = false;
 				}
 
@@ -417,8 +435,7 @@ namespace System.Net
 					 * the socket, so let's cleanup and tell WebConnectionGroup
 					 * to find a better one.
 					 */
-					idleSince = DateTime.UtcNow;
-					currentOperation = null;
+					Dispose ();
 					return false;
 				}
 
@@ -428,6 +445,12 @@ namespace System.Net
 
 			next.Run ();
 			return true;
+		}
+
+		void Dispose ()
+		{
+			Debug ($"WC DISPOSE: Cnc={ID}");
+			disposed = true;
 		}
 
 		void ResetNtlm ()
