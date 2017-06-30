@@ -439,6 +439,9 @@ namespace System.Net
 
 				// Ok, we got another connection.  Let's run it!
 				currentOperation = next;
+
+				if (!priority)
+					next.RegisterRequest (ServicePoint, this);
 			}
 
 			next.Run ();
