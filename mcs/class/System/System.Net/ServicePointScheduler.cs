@@ -79,6 +79,13 @@ namespace System.Net
 		ConnectionGroup defaultGroup;
 		Dictionary<string, ConnectionGroup> groups;
 		LinkedList<(ConnectionGroup, WebOperation)> operations;
+		int currentConnections;
+
+		public int CurrentConnections {
+			get {
+				return currentConnections;
+			}
+		}
 
 		static int nextId;
 		public readonly int ID = ++nextId;
@@ -223,6 +230,16 @@ namespace System.Net
 			}
 		}
 
+		void OnConnectionCreated (WebConnection connection)
+		{
+			Interlocked.Increment (ref currentConnections);
+		}
+
+		void OnConnectionClosed (WebConnection connection)
+		{
+			Interlocked.Decrement (ref currentConnections);
+		}
+
 		class ConnectionGroup
 		{
 			public ServicePointScheduler Scheduler {
@@ -256,7 +273,9 @@ namespace System.Net
 
 			public void RemoveConnection (WebConnection connection)
 			{
+				Scheduler.Debug ($"REMOVING CONNECTION: group={ID} cnc={connection.ID}");
 				connections.Remove (connection);
+				Scheduler.OnConnectionClosed (connection);
 			}
 
 			public void Cleanup ()
@@ -270,6 +289,7 @@ namespace System.Net
 					if (connection.Closed) {
 						Scheduler.Debug ($"REMOVING CONNECTION: group={ID} cnc={connection.ID}");
 						connections.Remove (node);
+						Scheduler.OnConnectionClosed (connection);
 					}
 				}
 			}
@@ -286,6 +306,7 @@ namespace System.Net
 				while (iter != null) {
 					var operation = iter.Value;
 					var node = iter;
+					iter = iter.Next;
 
 					if (operation.Aborted) {
 						queue.Remove (node);
@@ -300,14 +321,27 @@ namespace System.Net
 
 			public WebConnection FindIdleConnection (WebOperation operation)
 			{
+				// First let's find the ideal candidate.
+				WebConnection candidate = null;
 				foreach (var connection in connections) {
-					if (!connection.StartOperation (operation, true))
-						continue;
+					if (connection.CanReuseConnection (operation)) {
+						if (candidate == null || connection.IdleSince > candidate.IdleSince)
+							candidate = connection;
+					}
+				}
 
-					connections.Remove (connection);
-					connections.AddFirst (connection);
+				// Found one?  Make sure it's actually willing to run it.
+				if (candidate != null && candidate.StartOperation (operation, true)) {
 					queue.Remove (operation);
-					return connection;
+					return candidate;
+				}
+
+				// Ok, let's loop again and pick the first one that accepts the new operation.
+				foreach (var connection in connections) {
+					if (connection.StartOperation (operation, true)) {
+						queue.Remove (operation);
+						return connection;
+					}
 				}
 
 				return null;
@@ -323,6 +357,7 @@ namespace System.Net
 					connection = new WebConnection (Group, Scheduler.ServicePoint);
 					connection.StartOperation (operation, false);
 					connections.AddFirst (connection);
+					Scheduler.OnConnectionCreated (connection);
 					queue.Remove (operation);
 					return (connection, true);
 				}

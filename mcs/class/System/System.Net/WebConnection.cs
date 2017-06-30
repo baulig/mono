@@ -296,6 +296,33 @@ namespace System.Net
 			return true;
 		}
 
+		internal bool CanReuseConnection (WebOperation operation)
+		{
+			lock (this) {
+				if (Closed || currentOperation != null)
+					return false;
+				if (!NtlmAuthenticated)
+					return true;
+
+				NetworkCredential cnc_cred = NtlmCredential;
+				var request = operation.Request;
+
+				bool isProxy = (request.Proxy != null && !request.Proxy.IsBypassed (request.RequestUri));
+				ICredentials req_icreds = (!isProxy) ? request.Credentials : request.Proxy.Credentials;
+				NetworkCredential req_cred = (req_icreds != null) ? req_icreds.GetCredential (request.RequestUri, "NTLM") : null;
+
+				if (cnc_cred == null || req_cred == null ||
+					cnc_cred.Domain != req_cred.Domain || cnc_cred.UserName != req_cred.UserName ||
+					cnc_cred.Password != req_cred.Password) {
+					return false;
+				}
+
+				bool req_sharing = request.UnsafeAuthenticatedConnectionSharing;
+				bool cnc_sharing = UnsafeAuthenticatedConnectionSharing;
+				return !(req_sharing == false || req_sharing != cnc_sharing);
+			}
+		}
+
 		bool PrepareSharingNtlm (WebOperation operation)
 		{
 			if (!NtlmAuthenticated)

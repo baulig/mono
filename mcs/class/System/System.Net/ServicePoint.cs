@@ -123,7 +123,7 @@ namespace System.Net
 
 		public int CurrentConnections {
 			get {
-				return currentConnections;
+				return Scheduler.CurrentConnections;
 			}
 		}
 
