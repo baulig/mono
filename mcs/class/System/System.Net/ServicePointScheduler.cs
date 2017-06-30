@@ -26,6 +26,7 @@
 #define MARTIN_DEBUG
 using System.IO;
 using System.Collections;
+using System.Collections.Generic;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
@@ -55,16 +56,34 @@ namespace System.Net
 			ServicePoint = servicePoint;
 
 			schedulerEvent = new AsyncManualResetEvent (false);
+			maxIdleTime = servicePoint.MaxIdleTime;
+			defaultGroup = new ConnectionGroup (this, string.Empty);
+		}
+
+		[Conditional ("MARTIN_DEBUG")]
+		static void Debug (string message, params object[] args)
+		{
+			WebConnection.Debug ($"SPS({ID}): {string.Format (message, args)}");
+		}
+
+		[Conditional ("MARTIN_DEBUG")]
+		internal static void Debug (string message)
+		{
+			WebConnection.Debug ($"SPS({ID}): {message}");
 		}
 
 		int running;
 		int maxIdleTime = 100000;
 		AsyncManualResetEvent schedulerEvent;
+		ConnectionGroup defaultGroup;
+		Dictionary<string, ConnectionGroup> groups;
 
 		static int nextId;
 		public readonly int ID = ++nextId;
 
-		readonly string ME = $"SPS({ID})";
+		internal string ME {
+			get;
+		}
 
 		public void Run ()
 		{
@@ -82,16 +101,80 @@ namespace System.Net
 				var ret = await schedulerEvent.WaitAsync (maxIdleTime);
 
 				lock (ServicePoint) {
-					while (SchedulerIteration ())
-						;
+					bool repeat;
+					do {
+						repeat = SchedulerIteration (defaultGroup);
+
+						if (groups != null) {
+							foreach (var group in groups)
+								repeat |= SchedulerIteration (group);
+						}
+					} while (repeat);
 				}
-			}			
+			}
 		}
 
-		bool SchedulerIteration ()
+		bool SchedulerIteration (ConnectionGroup group)
 		{
-			WebConnection.Debug ($"{ME}: ITERATION");
+			Debug ($"ITERATION: group={group.ID}");
 			return false;
+		}
+
+		public void SendRequest (WebOperation operation, string groupName)
+		{
+			lock (ServicePoint) {
+				var group = GetConnectionGroup (groupName);
+				Debug ($"SEND REQUEST: Op={operation.ID} group={group.ID}");
+
+			}
+		}
+
+		ConnectionGroup GetConnectionGroup (string name)
+		{
+			lock (ServicePoint) {
+				if (string.IsNullOrEmpty (name))
+					return defaultGroup;
+
+				if (name == null)
+					name = "";
+
+				if (groups == null)
+					groups = new Dictionary<string, ConnectionGroup> (); 
+
+				if (groups.TryGetValue (name, out ConnectionGroup group))
+					return group;
+
+				group = new ConnectionGroup (this, name);
+				groups.Add (name, group);
+				return group;
+			}
+		}
+
+		class ConnectionGroup
+		{
+			public ServicePointScheduler Scheduler {
+				get;
+			}
+
+			public string Name {
+				get;
+			}
+
+			public WebConnectionGroup Group {
+				get;
+			}
+
+			public bool IsDefault => string.IsNullOrEmpty (Name);
+
+			static int nextId;
+			public readonly int ID = ++nextId;
+
+			public ConnectionGroup (ServicePointScheduler scheduler, string name)
+			{
+				Scheduler = scheduler;
+				Name = name;
+				Group = new WebConnectionGroup (scheduler.ServicePoint, name);
+			}
 		}
 	}
 }

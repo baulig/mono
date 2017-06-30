@@ -71,6 +71,12 @@ namespace System.Net
 			this.maxIdleTime = maxIdleTime;	
 			this.currentConnections = 0;
 			this.idleSince = DateTime.UtcNow;
+
+			Scheduler = new ServicePointScheduler (this);
+		}
+
+		internal ServicePointScheduler Scheduler {
+			get;
 		}
 		
 		// Properties
