@@ -61,13 +61,13 @@ namespace System.Net
 		}
 
 		[Conditional ("MARTIN_DEBUG")]
-		static void Debug (string message, params object[] args)
+		void Debug (string message, params object[] args)
 		{
 			WebConnection.Debug ($"SPS({ID}): {string.Format (message, args)}");
 		}
 
 		[Conditional ("MARTIN_DEBUG")]
-		internal static void Debug (string message)
+		void Debug (string message)
 		{
 			WebConnection.Debug ($"SPS({ID}): {message}");
 		}
@@ -87,27 +87,29 @@ namespace System.Net
 
 		public void Run ()
 		{
-			if (Interlocked.CompareExchange (ref running, 1, 0) != 0) {
-				schedulerEvent.Set ();
-				return;
-			}
+			if (Interlocked.CompareExchange (ref running, 1, 0) == 0)
+				StartScheduler ();
 
-			StartScheduler ();
+			schedulerEvent.Set ();
 		}
 
 		async void StartScheduler ()
 		{
 			while (true) {
+				Debug ($"SCHEDULER");
 				var ret = await schedulerEvent.WaitAsync (maxIdleTime);
+				Debug ($"SCHEDULER EVENT: {ret}");
 
 				lock (ServicePoint) {
+					schedulerEvent.Reset ();
+
 					bool repeat;
 					do {
 						repeat = SchedulerIteration (defaultGroup);
 
 						if (groups != null) {
 							foreach (var group in groups)
-								repeat |= SchedulerIteration (group);
+								repeat |= SchedulerIteration (group.Value);
 						}
 					} while (repeat);
 				}
@@ -117,6 +119,26 @@ namespace System.Net
 		bool SchedulerIteration (ConnectionGroup group)
 		{
 			Debug ($"ITERATION: group={group.ID}");
+
+			// First, let's clean up.
+			group.Cleanup ();
+
+			// Is there anything in the queue?
+			var next = group.GetNextOperation ();
+			if (next == null)
+				return false;
+
+			Debug ($"ITERATION - OPERATION: group={group.ID} Op={next.ID}");
+
+			var (connection, created) = group.CreateOrReuseConnection (next, false);
+			if (connection == null) {
+				// All connections are currently busy, need to keep it in the queue for now.
+				return false;
+			}
+
+			Debug ($"ITERATION - OPERATION STARTED: group={group.ID} Op={next.ID} Cnc={connection.ID}");
+
+
 			return false;
 		}
 
@@ -125,7 +147,9 @@ namespace System.Net
 			lock (ServicePoint) {
 				var group = GetConnectionGroup (groupName);
 				Debug ($"SEND REQUEST: Op={operation.ID} group={group.ID}");
-
+				group.EnqueueOperation (operation);
+				Run ();
+				Debug ($"SEND REQUEST DONE: Op={operation.ID} group={group.ID}");
 			}
 		}
 
@@ -168,12 +192,88 @@ namespace System.Net
 
 			static int nextId;
 			public readonly int ID = ++nextId;
+			LinkedList<WebConnection> connections;
+			LinkedList<WebOperation> queue;
 
 			public ConnectionGroup (ServicePointScheduler scheduler, string name)
 			{
 				Scheduler = scheduler;
 				Name = name;
 				Group = new WebConnectionGroup (scheduler.ServicePoint, name);
+
+				connections = new LinkedList<WebConnection> ();
+				queue = new LinkedList<WebOperation> (); 
+			}
+
+			public void Cleanup ()
+			{
+				var iter = connections.First;
+				while (iter != null) {
+					var connection = iter.Value;
+					var node = iter;
+					iter = iter.Next;
+
+					if (connection.Closed) {
+						Scheduler.Debug ($"REMOVING CONNECTION: group={ID} cnc={connection.ID}");
+						connections.Remove (node);
+					}
+				}
+			}
+
+			public void EnqueueOperation (WebOperation operation)
+			{
+				queue.AddLast (operation);
+			}
+
+			public WebOperation GetNextOperation ()
+			{
+				// Is there anything in the queue?
+				var iter = queue.First;
+				while (iter != null) {
+					var operation = iter.Value;
+					var node = iter;
+
+					if (operation.Aborted) {
+						queue.Remove (node);
+						continue;
+					}
+
+					return operation;
+				}
+
+				return null;
+			}
+
+			public WebConnection FindIdleConnection (WebOperation operation)
+			{
+				foreach (var connection in connections) {
+					if (!connection.StartOperation (operation, true))
+						continue;
+
+					connections.Remove (connection);
+					connections.AddFirst (connection);
+					queue.Remove (operation);
+					return connection;
+				}
+
+				return null;
+			}
+
+			public (WebConnection connection, bool created) CreateOrReuseConnection (WebOperation operation, bool force)
+			{
+				var connection = FindIdleConnection (operation);
+				if (connection != null)
+					return (connection, false);
+
+				if (force || Scheduler.ServicePoint.ConnectionLimit > connections.Count || connections.Count == 0) {
+					connection = new WebConnection (Group, Scheduler.ServicePoint);
+					connection.StartOperation (operation, false);
+					connections.AddFirst (connection);
+					queue.Remove (operation);
+					return (connection, true);
+				}
+
+				return (null, false);
 			}
 		}
 	}

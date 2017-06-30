@@ -391,6 +391,8 @@ namespace System.Net
 		internal void SendRequest (WebOperation operation, string groupName)
 		{
 			lock (this) {
+				Scheduler.SendRequest (operation, groupName);
+				return;
 				var cncGroup = GetConnectionGroup (groupName);
 				var created = cncGroup.SendRequest (operation);
 				if (created) {
