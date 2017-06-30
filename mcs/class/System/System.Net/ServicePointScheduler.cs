@@ -58,7 +58,7 @@ namespace System.Net
 			schedulerEvent = new AsyncManualResetEvent (false);
 			maxIdleTime = servicePoint.MaxIdleTime;
 			defaultGroup = new ConnectionGroup (this, string.Empty);
-			operations = new LinkedList<WebOperation> (); 
+			operations = new LinkedList<(ConnectionGroup, WebOperation)> (); 
 		}
 
 		[Conditional ("MARTIN_DEBUG")]
@@ -78,7 +78,7 @@ namespace System.Net
 		AsyncManualResetEvent schedulerEvent;
 		ConnectionGroup defaultGroup;
 		Dictionary<string, ConnectionGroup> groups;
-		LinkedList<WebOperation> operations;
+		LinkedList<(ConnectionGroup, WebOperation)> operations;
 
 		static int nextId;
 		public readonly int ID = ++nextId;
@@ -101,16 +101,16 @@ namespace System.Net
 				Debug ($"SCHEDULER");
 
 				// Gather list of currently running operations.
-				WebOperation[] operationArray;
+				(ConnectionGroup group, WebOperation operation)[] operationArray;
 				Task[] taskArray;
 				lock (ServicePoint) {
-					operationArray = new WebOperation[operations.Count];
+					operationArray = new (ConnectionGroup, WebOperation)[operations.Count];
 					operations.CopyTo (operationArray, 0);
 
 					taskArray = new Task[operationArray.Length + 1];
 					taskArray[0] = schedulerEvent.WaitAsync (maxIdleTime);
 					for (int i = 0; i < operationArray.Length; i++)
-						taskArray[i + 1] = operationArray[i].WaitForCompletion (true);
+						taskArray[i + 1] = operationArray[i].operation.WaitForCompletion (true);
 				}
 
 				Debug ($"SCHEDULER #1: {operationArray.Length}");
@@ -127,11 +127,14 @@ namespace System.Net
 							}
 						}
 
-						var operation = operationArray[idx - 1];
-						Debug ($"SCHEDULER #2: {idx} Op={operation.ID}");
-						operations.Remove (operation);
-						SchedulerIteration (operation);
-						continue;
+						var item = operationArray[idx - 1];
+						Debug ($"SCHEDULER #2: {idx} group={item.group.ID} Op={item.operation.ID}");
+						operations.Remove (item);
+
+						var opTask = (Task<bool>)ret;
+						var ok = opTask.Status == TaskStatus.RanToCompletion ? opTask.Result : false;
+
+						SchedulerIteration (item.group, item.operation, ok);
 					}
 
 					Debug ($"SCHEDULER #3");
@@ -151,11 +154,16 @@ namespace System.Net
 			}
 		}
 
-		void SchedulerIteration (WebOperation operation)
+		bool SchedulerIteration (ConnectionGroup group, WebOperation operation, bool ok)
 		{
-			Debug ($"ITERATION: Op={operation.ID}");
+			Debug ($"ITERATION: group={group.ID} Op={operation.ID} Cnc={operation.Connection.ID} {ok}");
 
+			if (!ok || operation.Connection.Closed) {
+				group.RemoveConnection (operation.Connection);
+				return true;
+			}
 
+			return false;
 		}
 
 		bool SchedulerIteration (ConnectionGroup group)
@@ -179,7 +187,7 @@ namespace System.Net
 			}
 
 			Debug ($"ITERATION - OPERATION STARTED: group={group.ID} Op={next.ID} Cnc={connection.ID}");
-			operations.AddLast (next);
+			operations.AddLast ((group, next));
 			return true;
 		}
 
@@ -244,6 +252,11 @@ namespace System.Net
 
 				connections = new LinkedList<WebConnection> ();
 				queue = new LinkedList<WebOperation> (); 
+			}
+
+			public void RemoveConnection (WebConnection connection)
+			{
+				connections.Remove (connection);
 			}
 
 			public void Cleanup ()
