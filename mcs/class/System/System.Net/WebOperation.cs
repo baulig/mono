@@ -301,7 +301,12 @@ namespace System.Net
 				Request.FinishedReading = true;
 			}
 
-			WebConnection.Debug ($"WO FINISH READING: Cnc={Connection.ID} Op={ID} ok={ok} error={error != null} stream={stream != null} next={next != null}");
+			if (error != null) {
+				finishedTask.TrySetException (error);
+				return;
+			}
+
+			WebConnection.Debug ($"WO FINISH READING: Cnc={Connection?.ID} Op={ID} ok={ok} error={error != null} stream={stream != null} next={next != null}");
 
 			try {
 				var keepAlive = await FinishReadingInner (ok, stream, next).ConfigureAwait (false);
