@@ -234,9 +234,15 @@ namespace System.Net
 			return responseTask.Task;
 		}
 
-		internal Task<bool> WaitForCompletion ()
+		internal async Task<bool> WaitForCompletion (bool ignoreErrors)
 		{
-			return finishedTask.Task;
+			try {
+				return await finishedTask.Task.ConfigureAwait (false);
+			} catch {
+				if (ignoreErrors)
+					return false;
+				throw;
+			}
 		}
 
 		internal async void Run ()
@@ -325,7 +331,7 @@ namespace System.Net
 			if (!Connection.Continue (ref keepAlive, true, next))
 				return keepAlive;
 
-			return await next.WaitForCompletion ().ConfigureAwait (false);
+			return await next.WaitForCompletion (false).ConfigureAwait (false);
 		}
 
 		internal void CompleteRequestWritten (WebRequestStream stream, Exception error = null)

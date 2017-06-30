@@ -51,7 +51,7 @@ namespace System.Net
 		Aborted
 	}
 
-	class WebConnection
+	class WebConnection : IDisposable
 	{
 		NetworkCredential ntlm_credentials;
 		bool ntlm_authenticated;
@@ -60,7 +60,7 @@ namespace System.Net
 		Socket socket;
 		MonoTlsStream monoTlsStream;
 		WebConnectionTunnel tunnel;
-		bool disposed;
+		int disposed;
 
 		public ServicePoint ServicePoint {
 			get;
@@ -166,7 +166,7 @@ namespace System.Net
 		static int nextID, nextRequestID;
 		public readonly int id = ++nextID;
 
-		public int ID => disposed ? -id : id;
+		public int ID => disposed != 0 ? -id : id;
 
 		async Task<bool> CreateStream (WebOperation operation, bool reused, CancellationToken cancellationToken)
 		{
@@ -332,12 +332,6 @@ namespace System.Net
 			}
 		}
 
-		internal void Close ()
-		{
-			Debug ($"WC CLOSE: Cnc={ID}");
-			Close (true);
-		}
-
 		void Close (bool reset)
 		{
 			lock (this) {
@@ -371,6 +365,8 @@ namespace System.Net
 		DateTime idleSince;
 		WebOperation currentOperation;
 
+		public bool Closed => disposed != 0;
+
 		public bool Busy {
 			get { return currentOperation != null; }
 		}
@@ -382,13 +378,10 @@ namespace System.Net
 		public bool StartOperation (WebOperation operation, bool reused)
 		{
 			lock (this) {
+				if (Closed)
+					return false;
 				if (Interlocked.CompareExchange (ref currentOperation, operation, null) != null)
 					return false;
-
-				if (disposed) {
-					Debug ($"WC START - DISPOSED: Cnc={ID}!\n{Environment.StackTrace}");
-					throw new NotImplementedException ("DISPOSED");
-				}
 
 				idleSince = DateTime.UtcNow + TimeSpan.FromDays (3650);
 
@@ -408,6 +401,11 @@ namespace System.Net
 		public bool Continue (ref bool keepAlive, bool priority, WebOperation next)
 		{
 			lock (this) {
+				if (Closed) {
+					keepAlive = false;
+					return false;
+				}
+
 				Debug ($"WC CONTINUE: Cnc={ID} keepAlive={keepAlive} connected={socket?.Connected} priority={priority} next={next?.ID} current={currentOperation?.ID}");
 				if (!keepAlive || socket == null || !socket.Connected) {
 					Close (true);
@@ -415,12 +413,10 @@ namespace System.Net
 				}
 
 				if (next == null) {
+					idleSince = DateTime.UtcNow;
+					currentOperation = null;
 					if (!keepAlive)
 						Dispose ();
-					else {
-						idleSince = DateTime.UtcNow;
-						currentOperation = null;
-					}
 					return false;
 				}
 
@@ -435,6 +431,8 @@ namespace System.Net
 					 * the socket, so let's cleanup and tell WebConnectionGroup
 					 * to find a better one.
 					 */
+					idleSince = DateTime.UtcNow;
+					currentOperation = null;
 					Dispose ();
 					return false;
 				}
@@ -447,10 +445,17 @@ namespace System.Net
 			return true;
 		}
 
-		void Dispose ()
+		void Dispose (bool disposing)
 		{
+			if (Interlocked.CompareExchange (ref disposed, 1, 0) != 0)
+				return;
 			Debug ($"WC DISPOSE: Cnc={ID}");
-			disposed = true;
+			Close (true);
+		}
+
+		public void Dispose ()
+		{
+			Dispose (true);
 		}
 
 		void ResetNtlm ()

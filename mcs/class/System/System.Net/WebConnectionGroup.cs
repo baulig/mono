@@ -96,7 +96,7 @@ namespace System.Net
 
 			if (connectionsToClose != null) {
 				foreach (var cnc in connectionsToClose) {
-					cnc.Close ();
+					cnc.Dispose ();
 					OnConnectionClosed ();
 				}
 			}
@@ -134,35 +134,43 @@ namespace System.Net
 		async void ScheduleWaitForCompletion (WebConnection connection, WebOperation operation)
 		{
 			while (operation != null) {
-				var (keepAlive, next) = await WaitForCompletion (connection, operation).ConfigureAwait (false);
+				var keepAlive = await operation.WaitForCompletion (true).ConfigureAwait (false);
 
 				lock (ServicePoint) {
-					var started = connection.Continue (ref keepAlive, false, next);
-
-					WebConnection.Debug ($"WCG WAIT FOR COMPLETION LOOP: Cnc={connection.ID} Op={operation.ID} started={started} keepalive={keepAlive} next={next?.ID}");
-
-					if (started) {
-						// WaitForCompletion() found another request in the queue and
-						// WebConnection.Continue() has accepted to be reused.
-						operation = next;
-						continue;
-					}
-
-					if (!keepAlive) {
-						// Get rid of the connection unless it has accepted to run another
-						// request.
+					// Get rid of the connection if we can't reuse it.
+					if (!keepAlive || connection.Closed) {
+						connection.Dispose ();
 						RemoveConnection (connection);
+						connection = null;
 					}
 
-					if (next == null) {
-						// We are done.
+					WebOperation next = null;
+					while (queue.Count > 0 && next == null) {
+						next = (WebOperation)queue.Dequeue ();
+						if (next.Aborted)
+							next = null;
+					}
+
+					if (next == null)
 						return;
+
+					if (connection != null) {
+						var started = connection.Continue (ref keepAlive, false, next);
+						if (!keepAlive) {
+							// The connection somehow did not like this new request and has been closed.
+							connection.Dispose ();
+							RemoveConnection (connection);
+							connection = null;
+						}
+
+						if (started) {
+							// The connection has accepted to run the new request.
+							operation = next;
+							continue;
+						}
 					}
 
 					/*
-					 * At this point, `keepAlive' is always false because `connection.Continue()'
-					 * would have returned true otherwise.
-					 * 
 					 * Let's try to find another idle connection or force creating a new one.
 					 */
 					var (newCnc, created) = CreateOrReuseConnection (next, true);
@@ -170,35 +178,6 @@ namespace System.Net
 					operation = next;
 				}
 			}
-		}
-
-		async Task<(bool, WebOperation)> WaitForCompletion (WebConnection connection, WebOperation operation)
-		{
-			WebConnection.Debug ($"WCG WAIT FOR COMPLETION: Cnc={connection.ID} Op={operation.ID}");
-
-			Exception throwMe = null;
-			bool keepAlive;
-			try {
-				keepAlive = await operation.WaitForCompletion ().ConfigureAwait (false);
-			} catch (Exception ex) {
-				throwMe = ex;
-				keepAlive = false;
-			}
-
-			WebConnection.Debug ($"WCG WAIT FOR COMPLETION #1: Cnc={connection.ID} Op={operation.ID} keepAlive={keepAlive} {throwMe?.GetType ()}");
-
-			WebOperation next = null;
-			lock (ServicePoint) {
-				while (queue.Count > 0 && next == null) {
-					next = (WebOperation)queue.Dequeue ();
-					if (next.Aborted)
-						next = null;
-				}
-			}
-
-			WebConnection.Debug ($"WCG WAIT FOR COMPLETION DONE: Cnc={connection.ID} Op={operation.ID} keepAlive={keepAlive} next={next?.ID}");
-
-			return (keepAlive, next);
 		}
 
 		void RemoveConnection (WebConnection connection)
@@ -306,7 +285,7 @@ namespace System.Net
 
 			// Ok, let's get rid of these!
 			foreach (var cnc in connectionsToClose)
-				cnc.Close ();
+				cnc.Dispose ();
 
 			// Re-take the lock, then remove them from the connection list.
 			goto again;
