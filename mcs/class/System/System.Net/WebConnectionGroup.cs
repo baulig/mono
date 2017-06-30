@@ -151,23 +151,19 @@ namespace System.Net
 							next = null;
 					}
 
+					if (connection != null && !connection.Continue (keepAlive, false, next)) {
+						// The connection has been closed or does not want to handle another request.
+						RemoveConnection (connection);
+						connection = null;
+					}
+
 					if (next == null)
 						return;
 
 					if (connection != null) {
-						var started = connection.Continue (ref keepAlive, false, next);
-						if (!keepAlive) {
-							// The connection somehow did not like this new request and has been closed.
-							connection.Dispose ();
-							RemoveConnection (connection);
-							connection = null;
-						}
-
-						if (started) {
-							// The connection has accepted to run the new request.
-							operation = next;
-							continue;
-						}
+						// The connection has accepted to run the new request.
+						operation = next;
+						continue;
 					}
 
 					/*

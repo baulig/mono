@@ -398,13 +398,11 @@ namespace System.Net
 			return true;
 		}
 
-		public bool Continue (ref bool keepAlive, bool priority, WebOperation next)
+		public bool Continue (bool keepAlive, bool priority, WebOperation next)
 		{
 			lock (this) {
-				if (Closed) {
-					keepAlive = false;
+				if (Closed)
 					return false;
-				}
 
 				Debug ($"WC CONTINUE: Cnc={ID} keepAlive={keepAlive} connected={socket?.Connected} priority={priority} next={next?.ID} current={currentOperation?.ID}");
 				if (!keepAlive || socket == null || !socket.Connected) {
@@ -415,9 +413,11 @@ namespace System.Net
 				if (next == null) {
 					idleSince = DateTime.UtcNow;
 					currentOperation = null;
-					if (!keepAlive)
+					if (!keepAlive) {
 						Dispose ();
-					return false;
+						return false;
+					}
+					return true;
 				}
 
 				if (keepAlive && !PrepareSharingNtlm (next)) {

@@ -328,8 +328,11 @@ namespace System.Net
 
 			WebConnection.Debug ($"WO FINISH READING #1: Cnc={Connection.ID} Op={ID} stream={stream != null} keepAlive={keepAlive} next={next?.ID}");
 
-			if (!Connection.Continue (ref keepAlive, true, next))
-				return keepAlive;
+			if (!Connection.Continue (keepAlive, true, next))
+				return false;
+
+			if (next == null)
+				return true;
 
 			return await next.WaitForCompletion (false).ConfigureAwait (false);
 		}
