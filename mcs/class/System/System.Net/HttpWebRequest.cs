@@ -1136,9 +1136,10 @@ namespace System.Net
 					webHeaders.RemoveInternal ("Transfer-Encoding");
 				}
 
-				ntlm = HandleNtlmAuth (stream, response, writeBuffer, cancellationToken);
-				WebConnection.Debug ($"HWR REDIRECT: {ntlm} {mustReadAll}");
-				if (ntlm != null)
+				bool isChallenge;
+				(ntlm, isChallenge) = HandleNtlmAuth (stream, response, writeBuffer, cancellationToken);
+				WebConnection.Debug ($"HWR REDIRECT: {ntlm} {isChallenge} {mustReadAll}");
+				if (ntlm != null && !isChallenge)
 					mustReadAll = true;
 			}
 
@@ -1459,12 +1460,12 @@ namespace System.Net
 			return Encoding.UTF8.GetBytes (reqstr);
 		}
 
-		WebOperation HandleNtlmAuth (WebResponseStream stream, HttpWebResponse response,
-		                             BufferOffsetSize writeBuffer, CancellationToken cancellationToken)
+		(WebOperation, bool) HandleNtlmAuth (WebResponseStream stream, HttpWebResponse response,
+		                                     BufferOffsetSize writeBuffer, CancellationToken cancellationToken)
 		{
 			bool isProxy = response.StatusCode == HttpStatusCode.ProxyAuthenticationRequired;
 			if ((isProxy ? proxy_auth_state : auth_state).NtlmAuthState == NtlmAuthState.None)
-				return null;
+				return (null, false);
 
 			var isChallenge = auth_state.NtlmAuthState == NtlmAuthState.Challenge || proxy_auth_state.NtlmAuthState == NtlmAuthState.Challenge;
 
@@ -1475,7 +1476,7 @@ namespace System.Net
 				stream.Connection.NtlmCredential = creds.GetCredential (requestUri, "NTLM");
 				stream.Connection.UnsafeAuthenticatedConnectionSharing = unsafe_auth_blah;
 			}
-			return operation;
+			return (operation, isChallenge);
 		}
 
 		struct AuthorizationState

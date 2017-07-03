@@ -221,7 +221,7 @@ namespace System.Net
 					Reset ();
 				try {
 					await Connect (operation, cancellationToken).ConfigureAwait (false);
-					Debug ($"WC INIT CONNECTION #2: Cnc={ID} Op={operation.ID}");
+					Debug ($"WC INIT CONNECTION #2: Cnc={ID} Op={operation.ID} {socket.LocalEndPoint}");
 				} catch (Exception ex) {
 					Debug ($"WC INIT CONNECTION #2 FAILED: Cnc={ID} Op={operation.ID} - {ex.Message}\n{ex}");
 					throw;
