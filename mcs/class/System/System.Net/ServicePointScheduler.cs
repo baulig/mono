@@ -152,6 +152,8 @@ namespace System.Net
 					do {
 						repeat = SchedulerIteration (defaultGroup);
 
+						Debug ($"SCHEDULER #4: {repeat} {groups != null}");
+
 						if (groups != null) {
 							foreach (var group in groups)
 								repeat |= SchedulerIteration (group.Value);
@@ -182,6 +184,7 @@ namespace System.Net
 
 			// Is there anything in the queue?
 			var next = group.GetNextOperation ();
+			Debug ($"ITERATION - NO OP: group={group.ID}");
 			if (next == null)
 				return false;
 
@@ -275,6 +278,7 @@ namespace System.Net
 			{
 				Scheduler.Debug ($"REMOVING CONNECTION: group={ID} cnc={connection.ID}");
 				connections.Remove (connection);
+				connection.Dispose ();
 				Scheduler.OnConnectionClosed (connection);
 			}
 
