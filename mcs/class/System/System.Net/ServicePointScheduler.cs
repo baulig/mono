@@ -245,6 +245,7 @@ namespace System.Net
 			Debug ($"{me} closing idle connection.");
 
 			group.RemoveConnection (connection);
+			RemoveIdleConnection (connection);
 		}
 
 		bool SchedulerIteration (ConnectionGroup group)
@@ -272,7 +273,20 @@ namespace System.Net
 
 			Debug ($"{me} started operation: Op={next.ID} Cnc={connection.ID}");
 			operations.AddLast ((group, next));
+			RemoveIdleConnection (connection);
 			return true;
+		}
+
+		void RemoveIdleConnection (WebConnection connection)
+		{
+			var iter = idleConnections.First;
+			while (iter != null) {
+				var node = iter;
+				iter = iter.Next;
+
+				if (node.Value.Item2 == connection)
+					idleConnections.Remove (node);
+			}
 		}
 
 		public void SendRequest (WebOperation operation, string groupName)
@@ -314,6 +328,7 @@ namespace System.Net
 
 		void OnConnectionClosed (WebConnection connection)
 		{
+			RemoveIdleConnection (connection);
 			Interlocked.Decrement (ref currentConnections);
 		}
 
