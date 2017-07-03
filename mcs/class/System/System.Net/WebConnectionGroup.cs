@@ -87,7 +87,7 @@ namespace System.Net
 
 					// Closing connections inside the lock leads to a deadlock.
 					if (connectionsToClose == null)
-						connectionsToClose = new List<WebConnection>();
+						connectionsToClose = new List<WebConnection> ();
 
 					connectionsToClose.Add (cnc);
 					connections.Remove (node);
@@ -102,6 +102,7 @@ namespace System.Net
 			}
 		}
 
+#if FIXME
 		public bool SendRequest (WebOperation operation)
 		{
 			lock (ServicePoint) {
@@ -118,6 +119,7 @@ namespace System.Net
 				return created;
 			}
 		}
+#endif
 
 #if MONOTOUCH
 		static int warned_about_queue = 0;
@@ -131,6 +133,7 @@ namespace System.Net
 #endif
 		}
 
+#if FIXME
 		async void ScheduleWaitForCompletion (WebConnection connection, WebOperation operation)
 		{
 			while (operation != null) {
@@ -175,6 +178,7 @@ namespace System.Net
 				}
 			}
 		}
+#endif
 
 		void RemoveConnection (WebConnection connection)
 		{

@@ -425,50 +425,22 @@ namespace System.Net
 			return true;
 		}
 
-		public bool Continue (bool keepAlive, bool priority, WebOperation next)
+		public bool Continue (WebOperation next)
 		{
 			lock (this) {
 				if (Closed)
 					return false;
 
-				Debug ($"WC CONTINUE: Cnc={ID} keepAlive={keepAlive} connected={socket?.Connected} priority={priority} next={next?.ID} current={currentOperation?.ID}");
-				if (!keepAlive || socket == null || !socket.Connected) {
+				Debug ($"WC CONTINUE: Cnc={ID} connected={socket?.Connected} next={next?.ID} current={currentOperation?.ID}");
+				if (socket == null || !socket.Connected || !PrepareSharingNtlm (next)) {
 					Close (true);
-					keepAlive = false;
-				}
-
-				if (next == null) {
-					idleSince = DateTime.UtcNow;
-					currentOperation = null;
-					if (!keepAlive) {
-						Dispose ();
-						return false;
-					}
-					return true;
-				}
-
-				if (keepAlive && !PrepareSharingNtlm (next)) {
-					Close (true);
-					keepAlive = false;
-				}
-
-				if (!keepAlive && !priority) {
-					/*
-					 * It's not a priority request (NTLM Challenge) and we closed
-					 * the socket, so let's cleanup and tell WebConnectionGroup
-					 * to find a better one.
-					 */
-					idleSince = DateTime.UtcNow;
-					currentOperation = null;
-					Dispose ();
 					return false;
 				}
 
 				// Ok, we got another connection.  Let's run it!
 				currentOperation = next;
 
-				if (!priority)
-					next.RegisterRequest (ServicePoint, this);
+				next.RegisterRequest (ServicePoint, this);
 			}
 
 			next.Run ();

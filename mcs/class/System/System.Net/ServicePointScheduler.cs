@@ -138,10 +138,11 @@ namespace System.Net
 						Debug ($"SCHEDULER #2: {idx} group={item.group.ID} Op={item.operation.ID}");
 						operations.Remove (item);
 
-						var opTask = (Task<bool>)ret;
-						var ok = opTask.Status == TaskStatus.RanToCompletion ? opTask.Result : false;
-
-						SchedulerIteration (item.group, item.operation, ok);
+						var opTask = (Task<(bool, WebOperation)>)ret;
+						var runLoop = OperationCompleted (item.group, item.operation, opTask);
+						Debug ($"SCHEDULER #2 DONE: {idx} {runLoop}");
+						if (!runLoop)
+							continue;
 					}
 
 					Debug ($"SCHEDULER #3");
@@ -163,15 +164,46 @@ namespace System.Net
 			}
 		}
 
-		bool SchedulerIteration (ConnectionGroup group, WebOperation operation, bool ok)
+		bool OperationCompleted (ConnectionGroup group, WebOperation operation, Task<(bool, WebOperation)> task)
 		{
-			Debug ($"ITERATION: group={group.ID} Op={operation.ID} Cnc={operation.Connection.ID} {ok}");
+			var me = $"{nameof (OperationCompleted)}(group={group.ID}, Op={operation.ID}, Cnc={operation.Connection.ID})";
+			var (ok, next) = task.Status == TaskStatus.RanToCompletion ? task.Result : (false, null);
+			Debug ($"{me}: {task.Status} {ok} {next?.ID}");
 
 			if (!ok || operation.Connection.Closed) {
 				group.RemoveConnection (operation.Connection);
+				if (next == null) {
+					Debug ($"{me}: closed connection and done.");
+					return true;
+				}
+				ok = false;
+			}
+
+			if (next == null) {
+				if (ok)
+					Debug ($"{me} keeping connection open.");
+				else
+					Debug ($"{me}: closed connection and done.");
 				return true;
 			}
 
+			Debug ($"{me} got new operation next={next.ID}.");
+			operations.AddLast ((group, next));
+
+			if (ok && !operation.Connection.Continue (next)) {
+				group.RemoveConnection (operation.Connection);
+				ok = false;
+			}
+
+			if (ok) {
+				Debug ($"{me} continuing next={next.ID} on same connection.");
+				return false;
+			}
+
+			group.Cleanup ();
+
+			var (connection, created) = group.CreateOrReuseConnection (next, true);
+			Debug ($"{me} created new connection Cnc={connection.ID} next={next.ID}.");
 			return false;
 		}
 

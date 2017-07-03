@@ -71,7 +71,7 @@ namespace System.Net
 			requestWrittenTask = new TaskCompletionSource<WebRequestStream> ();
 			completeResponseReadTask = new TaskCompletionSource<bool> ();
 			responseTask = new TaskCompletionSource<WebResponseStream> ();
-			finishedTask = new TaskCompletionSource<bool> (); 
+			finishedTask = new TaskCompletionSource<(bool, WebOperation)> (); 
 		}
 
 		CancellationTokenSource cts;
@@ -79,7 +79,7 @@ namespace System.Net
 		TaskCompletionSource<WebRequestStream> requestWrittenTask;
 		TaskCompletionSource<WebResponseStream> responseTask;
 		TaskCompletionSource<bool> completeResponseReadTask;
-		TaskCompletionSource<bool> finishedTask;
+		TaskCompletionSource<(bool, WebOperation)> finishedTask;
 		WebRequestStream writeStream;
 		WebResponseStream responseStream;
 		ExceptionDispatchInfo disposedInfo;
@@ -206,7 +206,6 @@ namespace System.Net
 			lock (this) {
 				if (requestSent != 1 || ServicePoint == null || finishedReading)
 					throw new InvalidOperationException ("Should never happen.");
-				operation.RegisterRequest (ServicePoint, Connection);
 				if (Interlocked.CompareExchange (ref priorityRequest, operation, null) != null)
 					throw new InvalidOperationException ("Invalid nested request.");
 			}
@@ -234,13 +233,13 @@ namespace System.Net
 			return responseTask.Task;
 		}
 
-		internal async Task<bool> WaitForCompletion (bool ignoreErrors)
+		internal async Task<(bool, WebOperation)> WaitForCompletion (bool ignoreErrors)
 		{
 			try {
 				return await finishedTask.Task.ConfigureAwait (false);
 			} catch {
 				if (ignoreErrors)
-					return false;
+					return (false, null);
 				throw;
 			}
 		}
@@ -302,44 +301,23 @@ namespace System.Net
 			}
 
 			if (error != null) {
+				if (next != null)
+					next.SetError (error);
 				finishedTask.TrySetException (error);
 				return;
 			}
 
 			WebConnection.Debug ($"WO FINISH READING: Cnc={Connection?.ID} Op={ID} ok={ok} error={error != null} stream={stream != null} next={next != null}");
 
-			try {
-				var keepAlive = await FinishReadingInner (ok, stream, next).ConfigureAwait (false);
-				finishedTask.TrySetResult (keepAlive);
-			} catch (Exception ex) {
-				finishedTask.TrySetException (ex);
-			}
-
-			WebConnection.Debug ($"WO FINISH READING DONE: Cnc={Connection.ID} Op={ID}");
-		}
-
-		async Task<bool> FinishReadingInner (bool ok, WebResponseStream stream, WebOperation next)
-		{
-			bool keepAlive = false;
-
-			if (ok && stream != null) {
-				keepAlive = stream.KeepAlive;
-			}
-
-			if (Aborted || (next != null && next.Aborted)) {
+			var keepAlive = !Aborted && ok && (stream?.KeepAlive ?? false);
+			if (next != null && next.Aborted) {
 				next = null;
 				keepAlive = false;
 			}
 
-			WebConnection.Debug ($"WO FINISH READING #1: Cnc={Connection.ID} Op={ID} stream={stream != null} keepAlive={keepAlive} next={next?.ID}");
+			finishedTask.TrySetResult ((keepAlive, next));
 
-			if (!Connection.Continue (keepAlive, true, next))
-				return false;
-
-			if (next == null)
-				return true;
-
-			return await next.WaitForCompletion (false).ConfigureAwait (false);
+			WebConnection.Debug ($"WO FINISH READING DONE: Cnc={Connection.ID} Op={ID} - {keepAlive} next={next?.ID}");
 		}
 
 		internal void CompleteRequestWritten (WebRequestStream stream, Exception error = null)

@@ -38,7 +38,7 @@ using System.Net.Sockets;
 using System.Security.Cryptography.X509Certificates;
 using System.Threading;
 
-namespace System.Net 
+namespace System.Net
 {
 	public class ServicePoint
 	{
@@ -51,7 +51,7 @@ namespace System.Net
 		Version protocolVersion;
 		IPHostEntry host;
 		bool usesProxy;
-		Dictionary<string,WebConnectionGroup> groups;
+		Dictionary<string, WebConnectionGroup> groups;
 		bool sendContinue = true;
 		bool useConnect;
 		object hostE = new object ();
@@ -66,9 +66,9 @@ namespace System.Net
 
 		internal ServicePoint (Uri uri, int connectionLimit, int maxIdleTime)
 		{
-			this.uri = uri;  
+			this.uri = uri;
 			this.connectionLimit = connectionLimit;
-			this.maxIdleTime = maxIdleTime;	
+			this.maxIdleTime = maxIdleTime;
 			this.currentConnections = 0;
 			this.idleSince = DateTime.UtcNow;
 
@@ -78,9 +78,9 @@ namespace System.Net
 		internal ServicePointScheduler Scheduler {
 			get;
 		}
-		
+
 		// Properties
-		
+
 		public Uri Address {
 			get { return uri; }
 		}
@@ -90,15 +90,13 @@ namespace System.Net
 			return new NotImplementedException ();
 		}
 
-		public BindIPEndPoint BindIPEndPointDelegate
-		{
+		public BindIPEndPoint BindIPEndPointDelegate {
 			get { return endPointCallback; }
 			set { endPointCallback = value; }
 		}
-		
+
 		[MonoTODO]
-		public int ConnectionLeaseTimeout
-		{
+		public int ConnectionLeaseTimeout {
 			get {
 				throw GetMustImplement ();
 			}
@@ -106,7 +104,7 @@ namespace System.Net
 				throw GetMustImplement ();
 			}
 		}
-		
+
 		public int ConnectionLimit {
 			get { return connectionLimit; }
 			set {
@@ -116,7 +114,7 @@ namespace System.Net
 				connectionLimit = value;
 			}
 		}
-		
+
 		public string ConnectionName {
 			get { return uri.Scheme; }
 		}
@@ -135,7 +133,7 @@ namespace System.Net
 
 		public int MaxIdleTime {
 			get { return maxIdleTime; }
-			set { 
+			set {
 				if (value < Timeout.Infinite || value > Int32.MaxValue)
 					throw new ArgumentOutOfRangeException ();
 
@@ -146,14 +144,13 @@ namespace System.Net
 				}
 			}
 		}
-		
+
 		public virtual Version ProtocolVersion {
 			get { return protocolVersion; }
 		}
 
 		[MonoTODO]
-		public int ReceiveBufferSize
-		{
+		public int ReceiveBufferSize {
 			get {
 				throw GetMustImplement ();
 			}
@@ -161,7 +158,7 @@ namespace System.Net
 				throw GetMustImplement ();
 			}
 		}
-		
+
 		public bool SupportsPipelining {
 			get { return HttpVersion.Version11.Equals (protocolVersion); }
 		}
@@ -178,8 +175,10 @@ namespace System.Net
 		}
 
 		internal bool SendContinue {
-			get { return sendContinue &&
-				     (protocolVersion == null || protocolVersion == HttpVersion.Version11); }
+			get {
+				return sendContinue &&
+				       (protocolVersion == null || protocolVersion == HttpVersion.Version11);
+			}
 			set { sendContinue = value; }
 		}
 		// Methods
@@ -203,25 +202,25 @@ namespace System.Net
 			if (!tcp_keepalive)
 				return;
 
-			byte [] bytes = new byte [12];
-			PutBytes (bytes, (uint) (tcp_keepalive ? 1 : 0), 0);
-			PutBytes (bytes, (uint) tcp_keepalive_time, 4);
-			PutBytes (bytes, (uint) tcp_keepalive_interval, 8);
+			byte[] bytes = new byte[12];
+			PutBytes (bytes, (uint)(tcp_keepalive ? 1 : 0), 0);
+			PutBytes (bytes, (uint)tcp_keepalive_time, 4);
+			PutBytes (bytes, (uint)tcp_keepalive_interval, 8);
 			socket.IOControl (IOControlCode.KeepAliveValues, bytes, null);
 		}
 
-		static void PutBytes (byte [] bytes, uint v, int offset)
+		static void PutBytes (byte[] bytes, uint v, int offset)
 		{
 			if (BitConverter.IsLittleEndian) {
-				bytes [offset] = (byte) (v & 0x000000ff);
-				bytes [offset + 1] = (byte) ((v & 0x0000ff00) >> 8);
-				bytes [offset + 2] = (byte) ((v & 0x00ff0000) >> 16);
-				bytes [offset + 3] = (byte) ((v & 0xff000000) >> 24);
+				bytes[offset] = (byte)(v & 0x000000ff);
+				bytes[offset + 1] = (byte)((v & 0x0000ff00) >> 8);
+				bytes[offset + 2] = (byte)((v & 0x00ff0000) >> 16);
+				bytes[offset + 3] = (byte)((v & 0xff000000) >> 24);
 			} else {
-				bytes [offset + 3] = (byte) (v & 0x000000ff);
-				bytes [offset + 2] = (byte) ((v & 0x0000ff00) >> 8);
-				bytes [offset + 1] = (byte) ((v & 0x00ff0000) >> 16);
-				bytes [offset] = (byte) ((v & 0xff000000) >> 24);
+				bytes[offset + 3] = (byte)(v & 0x000000ff);
+				bytes[offset + 2] = (byte)((v & 0x0000ff00) >> 8);
+				bytes[offset + 1] = (byte)((v & 0x00ff0000) >> 16);
+				bytes[offset] = (byte)((v & 0xff000000) >> 24);
 			}
 		}
 
@@ -336,8 +335,7 @@ namespace System.Net
 			CheckAvailableForRecycling (out dummy);
 		}
 
-		private bool HasTimedOut
-		{
+		private bool HasTimedOut {
 			get {
 				int timeout = ServicePointManager.DnsRefreshTimeout;
 				return timeout != Timeout.Infinite &&
@@ -345,8 +343,7 @@ namespace System.Net
 			}
 		}
 
-		internal IPHostEntry HostEntry
-		{
+		internal IPHostEntry HostEntry {
 			get {
 				lock (hostE) {
 					string uriHost = uri.Host;
@@ -362,7 +359,7 @@ namespace System.Net
 						}
 
 						// Creates IPHostEntry
-						host = new IPHostEntry();
+						host = new IPHostEntry ();
 						host.AddressList = new IPAddress[] { IPAddress.Parse (uriHost) };
 						return host;
 					}
@@ -392,6 +389,7 @@ namespace System.Net
 		{
 			lock (this) {
 				Scheduler.SendRequest (operation, groupName);
+#if FIXME
 				return;
 				var cncGroup = GetConnectionGroup (groupName);
 				var created = cncGroup.SendRequest (operation);
@@ -400,6 +398,7 @@ namespace System.Net
 					if (idleTimer == null)
 						idleTimer = new Timer (IdleTimerCallback, null, maxIdleTime, maxIdleTime);
 				}
+#endif
 			}
 		}
 
