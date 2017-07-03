@@ -170,7 +170,7 @@ namespace System.Net
 			var (ok, next) = task.Status == TaskStatus.RanToCompletion ? task.Result : (false, null);
 			Debug ($"{me}: {task.Status} {ok} {next?.ID}");
 
-			if (!ok || operation.Connection.Closed) {
+			if (!ok || !operation.Connection.Continue (next)) {
 				group.RemoveConnection (operation.Connection);
 				if (next == null) {
 					Debug ($"{me}: closed connection and done.");
@@ -189,11 +189,6 @@ namespace System.Net
 
 			Debug ($"{me} got new operation next={next.ID}.");
 			operations.AddLast ((group, next));
-
-			if (ok && !operation.Connection.Continue (next)) {
-				group.RemoveConnection (operation.Connection);
-				ok = false;
-			}
 
 			if (ok) {
 				Debug ($"{me} continuing next={next.ID} on same connection.");

@@ -325,7 +325,7 @@ namespace System.Net
 
 		bool PrepareSharingNtlm (WebOperation operation)
 		{
-			if (!NtlmAuthenticated)
+			if (operation == null || !NtlmAuthenticated)
 				return true;
 
 			bool needs_reset = false;
@@ -437,9 +437,12 @@ namespace System.Net
 					return false;
 				}
 
-				// Ok, we got another connection.  Let's run it!
 				currentOperation = next;
 
+				if (next == null)
+					return true;
+
+				// Ok, we got another connection.  Let's run it!
 				next.RegisterRequest (ServicePoint, this);
 			}
 
