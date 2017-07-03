@@ -46,8 +46,9 @@ namespace System.Net
 			set {
 				if (value == maxIdleTime)
 					return;
-				value = maxIdleTime;
-				Run (); 
+				maxIdleTime = value;
+				Debug ($"MAX IDLE TIME = {value}");
+				Run ();
 			}
 		}
 
@@ -58,7 +59,8 @@ namespace System.Net
 			schedulerEvent = new AsyncManualResetEvent (false);
 			maxIdleTime = servicePoint.MaxIdleTime;
 			defaultGroup = new ConnectionGroup (this, string.Empty);
-			operations = new LinkedList<(ConnectionGroup, WebOperation)> (); 
+			operations = new LinkedList<(ConnectionGroup, WebOperation)> ();
+			idleConnections = new LinkedList<(ConnectionGroup, WebConnection, Task)> ();
 		}
 
 		[Conditional ("MARTIN_DEBUG")]
@@ -79,6 +81,7 @@ namespace System.Net
 		ConnectionGroup defaultGroup;
 		Dictionary<string, ConnectionGroup> groups;
 		LinkedList<(ConnectionGroup, WebOperation)> operations;
+		LinkedList<(ConnectionGroup, WebConnection, Task)> idleConnections;
 		int currentConnections;
 
 		public int CurrentConnections {
@@ -105,63 +108,94 @@ namespace System.Net
 		async void StartScheduler ()
 		{
 			while (true) {
-				Debug ($"SCHEDULER");
+				Debug ($"MAIN LOOP");
 
 				// Gather list of currently running operations.
 				(ConnectionGroup group, WebOperation operation)[] operationArray;
-				Task[] taskArray;
+				(ConnectionGroup group, WebConnection connection, Task task)[] idleArray;
+				var taskList = new List<Task> ();
 				lock (ServicePoint) {
 					operationArray = new (ConnectionGroup, WebOperation)[operations.Count];
 					operations.CopyTo (operationArray, 0);
+					idleArray = new(ConnectionGroup, WebConnection, Task)[idleConnections.Count];
+					idleConnections.CopyTo (idleArray, 0);
 
-					taskArray = new Task[operationArray.Length + 1];
-					taskArray[0] = schedulerEvent.WaitAsync (maxIdleTime);
-					for (int i = 0; i < operationArray.Length; i++)
-						taskArray[i + 1] = operationArray[i].operation.WaitForCompletion (true);
+					taskList.Add (schedulerEvent.WaitAsync (maxIdleTime));
+					foreach (var item in operationArray)
+						taskList.Add (item.operation.WaitForCompletion (true));
+					foreach (var item in idleArray)
+						taskList.Add (item.task);
 				}
 
-				Debug ($"SCHEDULER #1: {operationArray.Length}");
+				Debug ($"MAIN LOOP #1: operations={operationArray.Length} idle={idleArray.Length}");
 
-				var ret = await Task.WhenAny (taskArray).ConfigureAwait (false);
+				var ret = await Task.WhenAny (taskList).ConfigureAwait (false);
 
 				lock (ServicePoint) {
-					if (ret != taskArray[0]) {
-						int idx = -1;
-						for (int i = 1; i < taskArray.Length; i++) {
-							if (ret == taskArray[i]) {
-								idx = i;
-								break;
-							}
-						}
+					if (ret == taskList[0]) {
+						RunSchedulerIteration ();
+						continue;
+					}
 
-						var item = operationArray[idx - 1];
-						Debug ($"SCHEDULER #2: {idx} group={item.group.ID} Op={item.operation.ID}");
+					int idx = -1;
+					for (int i = 0; i < operationArray.Length; i++) {
+						if (ret == taskList[i+1]) {
+							idx = i;
+							break;
+						}
+					}
+
+					if (idx >= 0) {
+						var item = operationArray[idx];
+						Debug ($"MAIN LOOP #2: {idx} group={item.group.ID} Op={item.operation.ID}");
 						operations.Remove (item);
 
 						var opTask = (Task<(bool, WebOperation)>)ret;
 						var runLoop = OperationCompleted (item.group, item.operation, opTask);
-						Debug ($"SCHEDULER #2 DONE: {idx} {runLoop}");
-						if (!runLoop)
-							continue;
+						Debug ($"MAIN LOOP #2 DONE: {idx} {runLoop}");
+						if (runLoop)
+							RunSchedulerIteration ();
+						continue;
 					}
 
-					Debug ($"SCHEDULER #3");
-
-					schedulerEvent.Reset ();
-
-					bool repeat;
-					do {
-						repeat = SchedulerIteration (defaultGroup);
-
-						Debug ($"SCHEDULER #4: {repeat} {groups != null}");
-
-						if (groups != null) {
-							foreach (var group in groups)
-								repeat |= SchedulerIteration (group.Value);
+					for (int i = 0; i < idleArray.Length; i++) {
+						if (ret == taskList[i+1+operationArray.Length]) {
+							idx = i;
+							break;
 						}
-					} while (repeat);
+					}
+
+					if (idx >= 0) {
+						var item = idleArray[idx];
+						Debug ($"MAIN LOOP #3: {idx} group={item.group.ID} Cnc={item.connection.ID}");
+						idleConnections.Remove (item);
+						CloseIdleConnection (item.group, item.connection);
+					}
 				}
 			}
+		}
+
+		void RunSchedulerIteration ()
+		{
+			schedulerEvent.Reset ();
+
+			bool repeat;
+			do {
+				Debug ($"ITERATION");
+
+				repeat = SchedulerIteration (defaultGroup);
+
+				Debug ($"ITERATION #1: {repeat} {groups != null}");
+
+				if (groups != null) {
+					foreach (var group in groups) {
+						Debug ($"ITERATION #2: group={group.Value.ID}");
+						repeat |= SchedulerIteration (group.Value);
+					}
+				}
+
+				Debug ($"ITERATION #3: {repeat}");
+			} while (repeat);
 		}
 
 		bool OperationCompleted (ConnectionGroup group, WebOperation operation, Task<(bool, WebOperation)> task)
@@ -180,10 +214,13 @@ namespace System.Net
 			}
 
 			if (next == null) {
-				if (ok)
-					Debug ($"{me} keeping connection open.");
-				else
+				if (ok) {
+					var idleTask = Task.Delay (MaxIdleTime);
+					idleConnections.AddLast ((group, operation.Connection, idleTask));
+					Debug ($"{me} keeping connection open for {MaxIdleTime} milliseconds.");
+				} else {
 					Debug ($"{me}: closed connection and done.");
+				}
 				return true;
 			}
 
@@ -202,28 +239,38 @@ namespace System.Net
 			return false;
 		}
 
+		void CloseIdleConnection (ConnectionGroup group, WebConnection connection)
+		{
+			var me = $"{nameof (CloseIdleConnection)}(group={group.ID}, Cnc={connection.ID})";
+			Debug ($"{me} closing idle connection.");
+
+			group.RemoveConnection (connection);
+		}
+
 		bool SchedulerIteration (ConnectionGroup group)
 		{
-			Debug ($"ITERATION: group={group.ID}");
+			var me = $"{nameof (SchedulerIteration)}(group={group.ID})";
+			Debug ($"{me}");
 
 			// First, let's clean up.
 			group.Cleanup ();
 
 			// Is there anything in the queue?
 			var next = group.GetNextOperation ();
-			Debug ($"ITERATION - NO OP: group={group.ID}");
+			Debug ($"{me} no pending operations.");
 			if (next == null)
 				return false;
 
-			Debug ($"ITERATION - OPERATION: group={group.ID} Op={next.ID}");
+			Debug ($"{me} found pending operation Op={next.ID}");
 
 			var (connection, created) = group.CreateOrReuseConnection (next, false);
 			if (connection == null) {
 				// All connections are currently busy, need to keep it in the queue for now.
+				Debug ($"{me} all connections busy, keeping operation in queue.");
 				return false;
 			}
 
-			Debug ($"ITERATION - OPERATION STARTED: group={group.ID} Op={next.ID} Cnc={connection.ID}");
+			Debug ($"{me} started operation: Op={next.ID} Cnc={connection.ID}");
 			operations.AddLast ((group, next));
 			return true;
 		}

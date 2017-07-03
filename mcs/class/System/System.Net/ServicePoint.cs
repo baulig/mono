@@ -138,6 +138,7 @@ namespace System.Net
 					throw new ArgumentOutOfRangeException ();
 
 				lock (this) {
+					Scheduler.MaxIdleTime = value;
 					maxIdleTime = value;
 					if (idleTimer != null)
 						idleTimer.Change (maxIdleTime, maxIdleTime);
