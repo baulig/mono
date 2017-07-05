@@ -3,9 +3,11 @@
 //
 // Authors:
 //	Gonzalo Paniagua Javier (gonzalo@ximian.com)
+//      Martin Baulig <mabaul@microsoft.com>
 //
 // (C) 2003 Ximian, Inc (http://www.ximian.com)
 // (C) 2004 Novell, Inc (http://www.novell.com)
+// Copyright (c) 2017 Xamarin Inc. (http://www.xamarin.com)
 //
 
 //
