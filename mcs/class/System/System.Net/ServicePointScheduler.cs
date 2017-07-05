@@ -404,10 +404,6 @@ namespace System.Net
 				get;
 			}
 
-			public WebConnectionGroup Group {
-				get;
-			}
-
 			public bool IsDefault => string.IsNullOrEmpty (Name);
 
 			static int nextId;
@@ -419,7 +415,6 @@ namespace System.Net
 			{
 				Scheduler = scheduler;
 				Name = name;
-				Group = new WebConnectionGroup (scheduler.ServicePoint, name);
 
 				connections = new LinkedList<WebConnection> ();
 				queue = new LinkedList<WebOperation> (); 
@@ -530,7 +525,7 @@ namespace System.Net
 					return (connection, false);
 
 				if (force || Scheduler.ServicePoint.ConnectionLimit > connections.Count || connections.Count == 0) {
-					connection = new WebConnection (Group, Scheduler.ServicePoint);
+					connection = new WebConnection (Scheduler.ServicePoint);
 					connection.StartOperation (operation, false);
 					connections.AddFirst (connection);
 					Scheduler.OnConnectionCreated (connection);

@@ -71,7 +71,7 @@ namespace System.Net
 		static extern void xamarin_start_wwan (string uri);
 #endif
 
-		public WebConnection (WebConnectionGroup group, ServicePoint sPoint)
+		public WebConnection (ServicePoint sPoint)
 		{
 			ServicePoint = sPoint;
 		}

@@ -51,7 +51,6 @@ namespace System.Net
 		Version protocolVersion;
 		IPHostEntry host;
 		bool usesProxy;
-		Dictionary<string, WebConnectionGroup> groups;
 		bool sendContinue = true;
 		bool useConnect;
 		object hostE = new object ();
@@ -237,105 +236,6 @@ namespace System.Net
 			set { useConnect = value; }
 		}
 
-		WebConnectionGroup GetConnectionGroup (string name)
-		{
-			if (name == null)
-				name = "";
-
-			/*
-			 * Optimization:
-			 * 
-			 * In the vast majority of cases, we only have one single WebConnectionGroup per ServicePoint, so we
-			 * don't need to allocate a dictionary.
-			 * 
-			 */
-
-			WebConnectionGroup group;
-			if (groups != null && groups.TryGetValue (name, out group))
-				return group;
-
-			group = new WebConnectionGroup (this, name);
-			group.ConnectionClosed += (s, e) => currentConnections--;
-
-			if (groups == null)
-				groups = new Dictionary<string, WebConnectionGroup> ();
-			groups.Add (name, group);
-
-			return group;
-		}
-
-		void RemoveConnectionGroup (WebConnectionGroup group)
-		{
-			if (groups == null || groups.Count == 0)
-				throw new InvalidOperationException ();
-
-			groups.Remove (group.Name);
-		}
-
-		bool CheckAvailableForRecycling (out DateTime outIdleSince)
-		{
-			outIdleSince = DateTime.MinValue;
-
-			TimeSpan idleTimeSpan;
-			List<WebConnectionGroup> groupList = null, removeList = null;
-			lock (this) {
-				if (groups == null || groups.Count == 0) {
-					idleSince = DateTime.MinValue;
-					return true;
-				}
-
-				idleTimeSpan = TimeSpan.FromMilliseconds (maxIdleTime);
-
-				/*
-				 * WebConnectionGroup.TryRecycle() must run outside the lock, so we need to
-				 * copy the group dictionary if it exists.
-				 * 
-				 * In most cases, we only have a single connection group, so we can simply store
-				 * that in a local variable instead of copying a collection.
-				 * 
-				 */
-
-				groupList = new List<WebConnectionGroup> (groups.Values);
-			}
-
-			foreach (var group in groupList) {
-				if (!group.TryRecycle (idleTimeSpan, ref outIdleSince))
-					continue;
-				if (removeList == null)
-					removeList = new List<WebConnectionGroup> ();
-				removeList.Add (group);
-			}
-
-			lock (this) {
-				idleSince = outIdleSince;
-
-				if (removeList != null && groups != null) {
-					foreach (var group in removeList)
-						if (groups.ContainsKey (group.Name))
-							RemoveConnectionGroup (group);
-				}
-
-				if (groups != null && groups.Count == 0)
-					groups = null;
-
-				if (groups == null) {
-					if (idleTimer != null) {
-						idleTimer.Dispose ();
-						idleTimer = null;
-					}
-					return true;
-				}
-
-				return false;
-			}
-		}
-
-		void IdleTimerCallback (object obj)
-		{
-			DateTime dummy;
-			CheckAvailableForRecycling (out dummy);
-		}
-
 		private bool HasTimedOut {
 			get {
 				int timeout = ServicePointManager.DnsRefreshTimeout;
@@ -390,16 +290,6 @@ namespace System.Net
 		{
 			lock (this) {
 				Scheduler.SendRequest (operation, groupName);
-#if FIXME
-				return;
-				var cncGroup = GetConnectionGroup (groupName);
-				var created = cncGroup.SendRequest (operation);
-				if (created) {
-					++currentConnections;
-					if (idleTimer == null)
-						idleTimer = new Timer (IdleTimerCallback, null, maxIdleTime, maxIdleTime);
-				}
-#endif
 			}
 		}
 
@@ -408,25 +298,6 @@ namespace System.Net
 			lock (this) {
 				return Scheduler.CloseConnectionGroup (connectionGroupName);
 			}
-
-#if FIXME
-			WebConnectionGroup cncGroup = null;
-
-			lock (this) {
-				cncGroup = GetConnectionGroup (connectionGroupName);
-				if (cncGroup != null) {
-					RemoveConnectionGroup (cncGroup);
-				}
-			}
-
-			// WebConnectionGroup.Close() must *not* be called inside the lock
-			if (cncGroup != null) {
-				cncGroup.Close ();
-				return true;
-			}
-
-			return false;
-#endif
 		}
 
 		//
