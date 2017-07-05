@@ -1,4 +1,3 @@
-#define MARTIN_DEBUG
 using System.IO;
 using System.Text;
 using System.Collections;

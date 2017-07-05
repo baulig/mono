@@ -23,7 +23,6 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
-#define MARTIN_DEBUG
 using System.IO;
 using System.Collections;
 using System.Collections.Generic;
@@ -63,13 +62,13 @@ namespace System.Net
 			idleConnections = new LinkedList<(ConnectionGroup, WebConnection, Task)> ();
 		}
 
-		[Conditional ("MARTIN_DEBUG")]
+		[Conditional ("MARTIN_WEB_DEBUG")]
 		void Debug (string message, params object[] args)
 		{
 			WebConnection.Debug ($"SPS({ID}): {string.Format (message, args)}");
 		}
 
-		[Conditional ("MARTIN_DEBUG")]
+		[Conditional ("MARTIN_WEB_DEBUG")]
 		void Debug (string message)
 		{
 			WebConnection.Debug ($"SPS({ID}): {message}");

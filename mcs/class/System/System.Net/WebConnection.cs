@@ -28,7 +28,6 @@
 // OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 // WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //
-#define MARTIN_DEBUG
 using System.IO;
 using System.Collections;
 using System.Net.Sockets;
@@ -76,13 +75,13 @@ namespace System.Net
 			ServicePoint = sPoint;
 		}
 
-		[Conditional ("MARTIN_DEBUG")]
+		[Conditional ("MARTIN_WEB_DEBUG")]
 		internal static void Debug (string message, params object[] args)
 		{
 			Console.Error.WriteLine (string.Format (message, args));
 		}
 
-		[Conditional ("MARTIN_DEBUG")]
+		[Conditional ("MARTIN_WEB_DEBUG")]
 		internal static void Debug (string message)
 		{
 			Console.Error.WriteLine (message);
