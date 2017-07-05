@@ -99,10 +99,12 @@ namespace System.Net
 
 		public void Run ()
 		{
-			if (Interlocked.CompareExchange (ref running, 1, 0) == 0)
-				StartScheduler ();
+			lock (ServicePoint) {
+				if (Interlocked.CompareExchange (ref running, 1, 0) == 0)
+					StartScheduler ();
 
-			schedulerEvent.Set ();
+				schedulerEvent.Set ();
+			}
 		}
 
 		async void StartScheduler ()
@@ -115,6 +117,14 @@ namespace System.Net
 				(ConnectionGroup group, WebConnection connection, Task task)[] idleArray;
 				var taskList = new List<Task> ();
 				lock (ServicePoint) {
+					Cleanup ();
+					if (groups == null && defaultGroup.IsEmpty () && operations.Count == 0 && idleConnections.Count == 0) {
+						Debug ($"MAIN LOOP DONE");
+						running = 0;
+						schedulerEvent.Reset ();
+						return;
+					}
+
 					operationArray = new (ConnectionGroup, WebOperation)[operations.Count];
 					operations.CopyTo (operationArray, 0);
 					idleArray = new(ConnectionGroup, WebConnection, Task)[idleConnections.Count];
@@ -172,6 +182,25 @@ namespace System.Net
 						CloseIdleConnection (item.group, item.connection);
 					}
 				}
+			}
+		}
+
+		void Cleanup ()
+		{
+			if (groups != null) {
+				var keys = new string[groups.Count];
+				groups.Keys.CopyTo (keys, 0);
+				foreach (var groupName in keys) {
+					if (!groups.ContainsKey (groupName))
+						continue;
+					var group = groups[groupName];
+					if (group.IsEmpty ()) {
+						Debug ($"CLEANUP - REMOVING group={group.ID}");
+						groups.Remove (groupName);
+					}
+				}
+				if (groups.Count == 0)
+					groups = null;
 			}
 		}
 
@@ -278,6 +307,18 @@ namespace System.Net
 			return true;
 		}
 
+		void RemoveOperation (WebOperation operation)
+		{
+			var iter = operations.First;
+			while (iter != null) {
+				var node = iter;
+				iter = iter.Next;
+
+				if (node.Value.Item2 == operation)
+					operations.Remove (node);
+			}
+		}
+
 		void RemoveIdleConnection (WebConnection connection)
 		{
 			var iter = idleConnections.First;
@@ -301,14 +342,34 @@ namespace System.Net
 			}
 		}
 
+		public bool CloseConnectionGroup (string groupName)
+		{
+			lock (ServicePoint) {
+				ConnectionGroup group;
+				if (string.IsNullOrEmpty (groupName))
+					group = defaultGroup;
+				else if (!groups.TryGetValue (groupName, out group))
+					return false;
+
+				Debug ($"CLOSE CONNECTION GROUP: group={group.ID}");
+
+				if (group != defaultGroup) {
+					groups.Remove (groupName);
+					if (groups.Count == 0)
+						groups = null;
+				}
+
+				group.Close ();
+				Run ();
+				return true;
+			}
+		}
+
 		ConnectionGroup GetConnectionGroup (string name)
 		{
 			lock (ServicePoint) {
 				if (string.IsNullOrEmpty (name))
 					return defaultGroup;
-
-				if (name == null)
-					name = "";
 
 				if (groups == null)
 					groups = new Dictionary<string, ConnectionGroup> (); 
@@ -364,6 +425,11 @@ namespace System.Net
 				queue = new LinkedList<WebOperation> (); 
 			}
 
+			public bool IsEmpty ()
+			{
+				return connections.Count == 0 && queue.Count == 0;
+			}
+
 			public void RemoveConnection (WebConnection connection)
 			{
 				Scheduler.Debug ($"REMOVING CONNECTION: group={ID} cnc={connection.ID}");
@@ -388,6 +454,21 @@ namespace System.Net
 				}
 			}
 
+			public void Close ()
+			{
+				foreach (var operation in queue) {
+					operation.Abort ();
+					Scheduler.RemoveOperation (operation);
+				}
+				queue.Clear ();
+
+				foreach (var connection in connections) {
+					connection.Dispose ();
+					Scheduler.OnConnectionClosed (connection);
+				}
+				connections.Clear ();
+			}
+
 			public void EnqueueOperation (WebOperation operation)
 			{
 				queue.AddLast (operation);
@@ -404,6 +485,7 @@ namespace System.Net
 
 					if (operation.Aborted) {
 						queue.Remove (node);
+						Scheduler.RemoveOperation (operation);
 						continue;
 					}
 

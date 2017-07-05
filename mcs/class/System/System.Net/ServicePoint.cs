@@ -405,6 +405,11 @@ namespace System.Net
 
 		public bool CloseConnectionGroup (string connectionGroupName)
 		{
+			lock (this) {
+				return Scheduler.CloseConnectionGroup (connectionGroupName);
+			}
+
+#if FIXME
 			WebConnectionGroup cncGroup = null;
 
 			lock (this) {
@@ -421,6 +426,7 @@ namespace System.Net
 			}
 
 			return false;
+#endif
 		}
 
 		//
