@@ -533,11 +533,12 @@ namespace System.Net
 
 				int est = nread * 2;
 				if (est > buffer.Size) {
-					var newBuffer = new byte[est];
+					var newBuffer = new byte [buffer.Buffer.Length + est];
 					Buffer.BlockCopy (buffer.Buffer, 0, newBuffer, 0, buffer.Offset);
 					buffer = new BufferOffsetSize (newBuffer, buffer.Offset, newBuffer.Length - buffer.Offset, false);
 				}
 				state = ReadState.None;
+				position = 0;
 			}
 
 			WebConnection.Debug ($"{ME} INIT READ ASYNC LOOP DONE: {buffer.Offset} {buffer.Size}");
