@@ -229,6 +229,7 @@ namespace System.Net
 
 			if (ok) {
 				Debug ($"{me} continuing next={next.ID} on same connection.");
+				RemoveIdleConnection (operation.Connection);
 				return false;
 			}
 

@@ -123,6 +123,8 @@ namespace System.Net
 				throwMe = HttpWebRequest.FlattenException (e);
 			}
 
+			WebConnection.Debug ($"{ME} READ ASYNC #3: {totalRead} {contentLength} - {oldBytes} {nbytes} {throwMe?.Message}");
+
 			if (throwMe != null) {
 				lock (locker) {
 					myReadTcs.TrySetException (throwMe);
@@ -134,15 +136,6 @@ namespace System.Net
 				Operation.CompleteResponseRead (this, false, throwMe);
 				throw throwMe;
 			}
-
-			if (nbytes < 0) {
-				nbytes = 0;
-				read_eof = true;
-			}
-
-			totalRead += nbytes;
-			if (nbytes == 0)
-				contentLength = totalRead;
 
 			lock (locker) {
 				readTcs.TrySetResult (oldBytes + nbytes);
@@ -164,8 +157,11 @@ namespace System.Net
 			WebConnection.Debug ($"{ME} PROCESS READ: {totalRead} {contentLength}");
 
 			cancellationToken.ThrowIfCancellationRequested ();
-			if (totalRead >= contentLength || cancellationToken.IsCancellationRequested)
-				return (0, -1);
+			if (totalRead >= contentLength) {
+				read_eof = true;
+				contentLength = totalRead;
+				return (0, 0);
+			}
 
 			int oldBytes = 0;
 			int remaining = readBuffer?.Size ?? 0;
@@ -177,6 +173,10 @@ namespace System.Net
 				offset += copy;
 				size -= copy;
 				totalRead += copy;
+				if (totalRead >= contentLength) {
+					contentLength = totalRead;
+					read_eof = true;
+				}
 				if (size == 0 || totalRead >= contentLength)
 					return (0, copy);
 				oldBytes = copy;
@@ -187,10 +187,20 @@ namespace System.Net
 
 			WebConnection.Debug ($"{ME} PROCESS READ #1: {oldBytes} {size} {read_eof}");
 
-			if (read_eof)
+			if (read_eof) {
+				contentLength = totalRead;
 				return (oldBytes, 0);
+			}
 
 			var ret = await InnerReadAsync (buffer, offset, size, cancellationToken).ConfigureAwait (false);
+
+			if (ret <= 0) {
+				read_eof = true;
+				contentLength = totalRead;
+				return (oldBytes, 0);
+			}
+
+			totalRead += ret;
 			return (oldBytes, ret);
 		}
 
@@ -327,7 +337,7 @@ namespace System.Net
 				}
 			} else if (ChunkStream == null) {
 				try {
-					ChunkStream = new MonoChunkStream (buffer.Buffer, buffer.Offset, buffer.Size, Headers);
+					ChunkStream = new MonoChunkStream (buffer.Buffer, buffer.Offset, buffer.Offset + buffer.Size, Headers);
 				} catch (Exception e) {
 					throw GetReadException (WebExceptionStatus.ServerProtocolViolation, e, me);
 				}
