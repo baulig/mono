@@ -483,8 +483,14 @@ namespace System.Net
 			Operation.CompleteResponseRead (this, true);
 		}
 
+		public override Task WriteAsync (byte[] buffer, int offset, int size, CancellationToken cancellationToken)
+		{
+			return Task.FromException (new NotSupportedException (SR.net_readonlystream));
+		}
+
 		protected override void Close_internal (ref bool disposed)
 		{
+			WebConnection.Debug ($"{ME} CLOSE: {disposed} {closed} {nextReadCalled}");
 			if (!closed && !nextReadCalled) {
 				nextReadCalled = true;
 				if (totalRead >= contentLength) {

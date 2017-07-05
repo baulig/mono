@@ -107,6 +107,9 @@ namespace System.Net
 
 		public override int Read (byte[] buffer, int offset, int size)
 		{
+			if (!CanRead)
+				throw new NotSupportedException (SR.net_writeonlystream);
+
 			try {
 				return ReadAsync (buffer, offset, size, CancellationToken.None).Result;
 			} catch (Exception e) {
@@ -117,6 +120,9 @@ namespace System.Net
 		public override IAsyncResult BeginRead (byte[] buffer, int offset, int size,
 							AsyncCallback cb, object state)
 		{
+			if (!CanRead)
+				throw new NotSupportedException (SR.net_writeonlystream);
+
 			var task = ReadAsync (buffer, offset, size, CancellationToken.None);
 			return TaskToApm.Begin (task, cb, state);
 		}
@@ -133,6 +139,9 @@ namespace System.Net
 		public override IAsyncResult BeginWrite (byte[] buffer, int offset, int size,
 							 AsyncCallback cb, object state)
 		{
+			if (!CanWrite)
+				throw new NotSupportedException (SR.net_readonlystream);
+
 			var task = WriteAsync (buffer, offset, size, CancellationToken.None);
 			return TaskToApm.Begin (task, cb, state);
 		}
@@ -151,6 +160,9 @@ namespace System.Net
 
 		public override void Write (byte[] buffer, int offset, int size)
 		{
+			if (!CanWrite)
+				throw new NotSupportedException (SR.net_readonlystream);
+
 			try {
 				WriteAsync (buffer, offset, size).Wait ();
 			} catch (Exception e) {

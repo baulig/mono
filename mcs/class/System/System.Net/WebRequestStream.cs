@@ -353,6 +353,11 @@ namespace System.Net
 			writeBuffer = null;
 		}
 
+		public override Task<int> ReadAsync (byte[] buffer, int offset, int size, CancellationToken cancellationToken)
+		{
+			return Task.FromException<int> (new NotSupportedException (SR.net_writeonlystream));
+		}
+
 		protected override void Close_internal (ref bool disposed)
 		{
 			if (sendChunked) {
