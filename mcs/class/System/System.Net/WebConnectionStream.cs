@@ -109,6 +109,7 @@ namespace System.Net
 		{
 			if (!CanRead)
 				throw new NotSupportedException (SR.net_writeonlystream);
+			Operation.ThrowIfClosedOrDisposed ();
 
 			try {
 				return ReadAsync (buffer, offset, size, CancellationToken.None).Result;
@@ -122,6 +123,7 @@ namespace System.Net
 		{
 			if (!CanRead)
 				throw new NotSupportedException (SR.net_writeonlystream);
+			Operation.ThrowIfClosedOrDisposed ();
 
 			var task = ReadAsync (buffer, offset, size, CancellationToken.None);
 			return TaskToApm.Begin (task, cb, state);
@@ -141,6 +143,7 @@ namespace System.Net
 		{
 			if (!CanWrite)
 				throw new NotSupportedException (SR.net_readonlystream);
+			Operation.ThrowIfClosedOrDisposed ();
 
 			var task = WriteAsync (buffer, offset, size, CancellationToken.None);
 			return TaskToApm.Begin (task, cb, state);
@@ -162,6 +165,7 @@ namespace System.Net
 		{
 			if (!CanWrite)
 				throw new NotSupportedException (SR.net_readonlystream);
+			Operation.ThrowIfClosedOrDisposed ();
 
 			try {
 				WriteAsync (buffer, offset, size).Wait ();
