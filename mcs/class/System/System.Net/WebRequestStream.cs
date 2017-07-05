@@ -20,6 +20,10 @@ namespace System.Net
 		byte[] headers;
 		bool headersSent;
 
+		internal string ME {
+			get;
+		}
+
 		public WebRequestStream (WebConnection connection, WebOperation operation,
 		                         Stream stream, WebConnectionTunnel tunnel)
 			: base (connection, operation, stream)
@@ -32,6 +36,8 @@ namespace System.Net
 			KeepAlive = Request.KeepAlive;
 			if (tunnel?.ProxyVersion != null && tunnel?.ProxyVersion != HttpVersion.Version11)
 				KeepAlive = false;
+
+			ME = $"WRQ(Cnc={Connection.ID}, Op={Operation.ID})";
 		}
 
 		public bool KeepAlive {
@@ -81,7 +87,7 @@ namespace System.Net
 
 		public override async Task WriteAsync (byte[] buffer, int offset, int size, CancellationToken cancellationToken)
 		{
-			WebConnection.Debug ($"WRS WRITE ASYNC: Cnc={Connection.ID}");
+			WebConnection.Debug ($"{ME} WRITE ASYNC");
 
 			Operation.ThrowIfClosedOrDisposed (cancellationToken);
 
@@ -199,7 +205,7 @@ namespace System.Net
 		{
 			Operation.ThrowIfClosedOrDisposed (cancellationToken);
 
-			WebConnection.Debug ($"WRQ INIT: Op={Operation.ID} {Operation.WriteBuffer != null}");
+			WebConnection.Debug ($"{ME} INIT: {Operation.WriteBuffer != null}");
 
 			if (Operation.WriteBuffer != null) {
 				if (Operation.IsNtlmChallenge)
@@ -245,7 +251,7 @@ namespace System.Net
 			headersSent = true;
 			headers = Request.GetRequestHeaders ();
 
-			WebConnection.Debug ($"WRQ SET HEADERS: Op={Operation.ID} {Request.ContentLength}");
+			WebConnection.Debug ($"{ME} SET HEADERS: {Request.ContentLength}");
 
 			try {
 				await InnerStream.WriteAsync (headers, 0, headers.Length, cancellationToken).ConfigureAwait (false);
@@ -263,7 +269,7 @@ namespace System.Net
 		{
 			Operation.ThrowIfClosedOrDisposed (cancellationToken);
 
-			WebConnection.Debug ($"WRQ WRITE REQUEST: Op={Operation.ID} {requestWritten} {sendChunked} {allowBuffering} {HasWriteBuffer}");
+			WebConnection.Debug ($"{ME} WRITE REQUEST: {requestWritten} {sendChunked} {allowBuffering} {HasWriteBuffer}");
 
 			if (requestWritten)
 				return;
@@ -283,7 +289,7 @@ namespace System.Net
 
 			await SetHeadersAsync (true, cancellationToken).ConfigureAwait (false);
 
-			WebConnection.Debug ($"WRQ WRITE REQUEST #1: Op={Operation.ID} {buffer != null}");
+			WebConnection.Debug ($"{ME} WRITE REQUEST #1: {buffer != null}");
 
 			if (buffer != null && buffer.Size > 0)
 				await InnerStream.WriteAsync (buffer.Buffer, 0, buffer.Size, cancellationToken).ConfigureAwait (false);

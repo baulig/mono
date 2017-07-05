@@ -53,10 +53,15 @@ namespace System.Net
 			private set;
 		}
 
+		internal string ME {
+			get;
+		}
+
 		public WebResponseStream (WebRequestStream request)
 			: base (request.Connection, request.Operation, request.InnerStream)
 		{
 			RequestStream = request;
+			ME = $"WRP(Cnc={Connection.ID}, Op={Operation.ID})";
 		}
 
 		public override long Length {
@@ -81,7 +86,7 @@ namespace System.Net
 
 		public override async Task<int> ReadAsync (byte[] buffer, int offset, int size, CancellationToken cancellationToken)
 		{
-			WebConnection.Debug ($"WRP READ ASYNC: Cnc={Connection.ID}");
+			WebConnection.Debug ($"{ME} READ ASYNC");
 
 			cancellationToken.ThrowIfCancellationRequested ();
 
@@ -103,13 +108,13 @@ namespace System.Net
 				 * 'readTcs' is set by ReadAllAsync().
 				 */
 				var oldReadTcs = Interlocked.CompareExchange (ref readTcs, myReadTcs, null);
-				WebConnection.Debug ($"WRP READ ASYNC #1: Cnc={Connection.ID} {oldReadTcs != null}");
+				WebConnection.Debug ($"{ME} READ ASYNC #1: {oldReadTcs != null}");
 				if (oldReadTcs == null)
 					break;
 				await oldReadTcs.Task.ConfigureAwait (false);
 			}
 
-			WebConnection.Debug ($"WRP READ ASYNC #2: Cnc={Connection.ID} {totalRead} {contentLength}");
+			WebConnection.Debug ($"{ME} READ ASYNC #2: {totalRead} {contentLength}");
 
 			int oldBytes = 0, nbytes = 0;
 			Exception throwMe = null;
@@ -148,9 +153,9 @@ namespace System.Net
 			}
 
 			if (totalRead >= contentLength && !nextReadCalled) {
-				WebConnection.Debug ($"WRP READ ASYNC - READ ALL: Cnc={Connection.ID} {oldBytes} {nbytes}");
+				WebConnection.Debug ($"{ME} READ ASYNC - READ ALL: {oldBytes} {nbytes}");
 				await ReadAllAsync (cancellationToken).ConfigureAwait (false);
-				WebConnection.Debug ($"WRP READ ASYNC - READ ALL DONE: Cnc={Connection.ID} {oldBytes} {nbytes}");
+				WebConnection.Debug ($"{ME} READ ASYNC - READ ALL DONE: {oldBytes} {nbytes}");
 			}
 
 			return oldBytes + nbytes;
@@ -158,7 +163,7 @@ namespace System.Net
 
 		async Task<(int, int)> ProcessRead (byte[] buffer, int offset, int size, CancellationToken cancellationToken)
 		{
-			WebConnection.Debug ($"WRP PROCESS READ: Cnc={Connection.ID} {totalRead} {contentLength}");
+			WebConnection.Debug ($"{ME} PROCESS READ: {totalRead} {contentLength}");
 
 			cancellationToken.ThrowIfCancellationRequested ();
 			if (totalRead >= contentLength || cancellationToken.IsCancellationRequested)
@@ -181,7 +186,7 @@ namespace System.Net
 			if (contentLength != Int64.MaxValue && contentLength - totalRead < size)
 				size = (int)(contentLength - totalRead);
 
-			WebConnection.Debug ($"WRP READ ASYNC #1: Cnc={Connection.ID} {oldBytes} {size} {read_eof}");
+			WebConnection.Debug ($"{ME} PROCESS READ #1: {oldBytes} {size} {read_eof}");
 
 			if (read_eof)
 				return (oldBytes, 0);
@@ -192,7 +197,7 @@ namespace System.Net
 
 		internal async Task<int> InnerReadAsync (byte[] buffer, int offset, int size, CancellationToken cancellationToken)
 		{
-			WebConnection.Debug ($"WRP READ ASYNC: Cnc={Connection.ID}");
+			WebConnection.Debug ($"{ME} INNER READ ASYNC");
 
 			if (Connection.ID < 0)
 				throw new NotImplementedException ("DISPOSED!");
@@ -204,7 +209,7 @@ namespace System.Net
 
 			if (!ChunkedRead || (!ChunkStream.DataAvailable && ChunkStream.WantMore)) {
 				nbytes = await InnerStream.ReadAsync (buffer, offset, size, cancellationToken).ConfigureAwait (false);
-				WebConnection.Debug ($"WRP READ ASYNC #1: Cnc={Connection.ID} {nbytes} {ChunkedRead}");
+				WebConnection.Debug ($"{ME} INNER READ ASYNC #1: {nbytes} {ChunkedRead}");
 				if (!ChunkedRead)
 					return nbytes;
 				done = nbytes == 0;
@@ -212,7 +217,7 @@ namespace System.Net
 
 			try {
 				ChunkStream.WriteAndReadBack (buffer, offset, size, ref nbytes);
-				WebConnection.Debug ($"WRP READ ASYNC #1: Cnc={Connection.ID} {done} {nbytes} {ChunkStream.WantMore}");
+				WebConnection.Debug ($"{ME} INNER READ ASYNC #1: {done} {nbytes} {ChunkStream.WantMore}");
 				if (!done && nbytes == 0 && ChunkStream.WantMore)
 					nbytes = await EnsureReadAsync (buffer, offset, size, cancellationToken).ConfigureAwait (false);
 			} catch (Exception e) {
@@ -286,7 +291,7 @@ namespace System.Net
 
 		async Task Initialize (BufferOffsetSize buffer, CancellationToken cancellationToken)
 		{
-			WebConnection.Debug ($"WRP INIT: Cnc={Connection.ID} status={(int)StatusCode} bos={buffer.Offset}/{buffer.Size}");
+			WebConnection.Debug ($"{ME} INIT: status={(int)StatusCode} bos={buffer.Offset}/{buffer.Size}");
 
 			string contentType = Headers["Transfer-Encoding"];
 			bool chunkedRead = (contentType != null && contentType.IndexOf ("chunked", StringComparison.OrdinalIgnoreCase) != -1);
@@ -346,7 +351,7 @@ namespace System.Net
 				}
 			}
 
-			WebConnection.Debug ($"WRP INIT #1: Cnc={Connection.ID} - {ExpectContent} {closed} {nextReadCalled}");
+			WebConnection.Debug ($"{ME} INIT #1: - {ExpectContent} {closed} {nextReadCalled}");
 
 			if (!ExpectContent) {
 				if (!closed && !nextReadCalled) {
@@ -360,7 +365,7 @@ namespace System.Net
 
 		internal async Task ReadAllAsync (CancellationToken cancellationToken)
 		{
-			WebConnection.Debug ($"WRP READ ALL ASYNC: Cnc={Connection.ID} - {read_eof} {totalRead} {contentLength} {nextReadCalled}");
+			WebConnection.Debug ($"{ME} READ ALL ASYNC: {read_eof} {totalRead} {contentLength} {nextReadCalled}");
 			if (read_eof || totalRead >= contentLength || nextReadCalled) {
 				if (!nextReadCalled) {
 					nextReadCalled = true;
@@ -386,7 +391,7 @@ namespace System.Net
 					throw new WebException ("The operation has timed out.", WebExceptionStatus.Timeout);
 			}
 
-			WebConnection.Debug ($"WRP READ ALL ASYNC #1: Cnc={Connection.ID}");
+			WebConnection.Debug ($"{ME} READ ALL ASYNC #1");
 
 			cancellationToken.ThrowIfCancellationRequested ();
 
@@ -443,11 +448,11 @@ namespace System.Net
 				nextReadCalled = true;
 				myReadTcs.TrySetResult (new_size);
 			} catch (Exception ex) {
-				WebConnection.Debug ($"WRP READ ALL ASYNC EX: Cnc={Connection.ID} {ex.Message}");
+				WebConnection.Debug ($"{ME} READ ALL ASYNC EX: {ex.Message}");
 				myReadTcs.TrySetException (ex);
 				throw;
 			} finally {
-				WebConnection.Debug ($"WRP READ ALL ASYNC #2: Cnc={Connection.ID}");
+				WebConnection.Debug ($"{ME} READ ALL ASYNC #2");
 				readTcs = null;
 			}
 
@@ -481,7 +486,7 @@ namespace System.Net
 
 		internal async Task InitReadAsync (CancellationToken cancellationToken)
 		{
-			WebConnection.Debug ($"WRP INIT READ ASYNC: Cnc={Connection.ID} Op={Operation.ID}");
+			WebConnection.Debug ($"{ME} INIT READ ASYNC");
 
 			var buffer = new BufferOffsetSize (new byte[4096], false);
 			var state = ReadState.None;
@@ -490,12 +495,12 @@ namespace System.Net
 			while (true) {
 				Operation.ThrowIfClosedOrDisposed (cancellationToken);
 
-				WebConnection.Debug ($"WRP INIT READ ASYNC LOOP: Cnc={Connection.ID} Op={Operation.ID} {state} - {buffer.Offset}/{buffer.Size}");
+				WebConnection.Debug ($"{ME} INIT READ ASYNC LOOP: {state} {position} - {buffer.Offset}/{buffer.Size}");
 
 				var nread = await InnerStream.ReadAsync (
 					buffer.Buffer, buffer.Offset, buffer.Size, cancellationToken).ConfigureAwait (false);
 
-				WebConnection.Debug ($"WRP INIT READ ASYNC LOOP #1: Cnc={Connection.ID} Op={Operation.ID} {state} - {buffer.Offset}/{buffer.Size} - {nread}");
+				WebConnection.Debug ($"{ME} INIT READ ASYNC LOOP #1: {state} {position} - {buffer.Offset}/{buffer.Size} - {nread}");
 
 				if (nread == 0)
 					throw GetReadException (WebExceptionStatus.ReceiveFailure, null, "ReadDoneAsync2");
@@ -512,6 +517,7 @@ namespace System.Net
 						if (!GetResponse (buffer, ref position, ref state))
 							position = oldPos;
 					} catch (Exception e) {
+						WebConnection.Debug ($"{ME} INIT READ ASYNC FAILED: {e.Message}\n{e}");
 						throw GetReadException (WebExceptionStatus.ServerProtocolViolation, e, "ReadDoneAsync4");
 					}
 				}
@@ -534,7 +540,7 @@ namespace System.Net
 				state = ReadState.None;
 			}
 
-			WebConnection.Debug ($"WRP INIT READ ASYNC LOOP DONE: Cnc={Connection.ID} Op={Operation.ID} - {buffer.Offset} {buffer.Size}");
+			WebConnection.Debug ($"{ME} INIT READ ASYNC LOOP DONE: {buffer.Offset} {buffer.Size}");
 
 			try {
 				Operation.ThrowIfDisposed (cancellationToken);
