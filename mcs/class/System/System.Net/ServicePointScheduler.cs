@@ -535,5 +535,50 @@ namespace System.Net
 				return (null, false);
 			}
 		}
+
+		// https://blogs.msdn.microsoft.com/pfxteam/2012/02/11/building-async-coordination-primitives-part-1-asyncmanualresetevent/
+		class AsyncManualResetEvent
+		{
+			volatile TaskCompletionSource<bool> m_tcs = new TaskCompletionSource<bool> ();
+
+			public Task WaitAsync () { return m_tcs.Task; }
+
+			public bool WaitOne (int millisecondTimeout)
+			{
+				WebConnection.Debug ($"AMRE WAIT ONE: {millisecondTimeout}");
+				return m_tcs.Task.Wait (millisecondTimeout);
+			}
+
+			public async Task<bool> WaitAsync (int millisecondTimeout)
+			{
+				var timeoutTask = Task.Delay (millisecondTimeout);
+				var ret = await Task.WhenAny (m_tcs.Task, timeoutTask).ConfigureAwait (false);
+				return ret != timeoutTask;
+			}
+
+			public void Set ()
+			{
+				var tcs = m_tcs;
+				Task.Factory.StartNew (s => ((TaskCompletionSource<bool>)s).TrySetResult (true),
+				    tcs, CancellationToken.None, TaskCreationOptions.PreferFairness, TaskScheduler.Default);
+				tcs.Task.Wait ();
+			}
+
+			public void Reset ()
+			{
+				while (true) {
+					var tcs = m_tcs;
+					if (!tcs.Task.IsCompleted ||
+					    Interlocked.CompareExchange (ref m_tcs, new TaskCompletionSource<bool> (), tcs) == tcs)
+						return;
+				}
+			}
+
+			public AsyncManualResetEvent (bool state)
+			{
+				if (state)
+					Set ();
+			}
+		}
 	}
 }
