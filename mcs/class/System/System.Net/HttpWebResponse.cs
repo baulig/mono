@@ -313,12 +313,12 @@ namespace System.Net
 
 		public override void Close ()
 		{
-			if (stream != null) {
-				Stream st = stream;
-				stream = null;
-				if (st != null)
-					st.Close ();
-			}
+			if (disposed)
+				return;
+			disposed = true;
+			var st = Interlocked.Exchange (ref stream, null);
+			if (st != null)
+				st.Close ();
 		}
 		
 		void IDisposable.Dispose ()

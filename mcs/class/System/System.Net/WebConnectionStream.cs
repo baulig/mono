@@ -171,9 +171,11 @@ namespace System.Net
 
 		public override void Close ()
 		{
-			Close_internal (ref disposed);
-
+			if (disposed)
+				return;
 			disposed = true;
+
+			Close_internal (ref disposed);
 		}
 
 		public override long Seek (long a, SeekOrigin b)
