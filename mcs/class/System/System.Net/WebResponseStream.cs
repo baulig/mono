@@ -12,9 +12,7 @@ namespace System.Net
 {
 	class WebResponseStream : WebConnectionStream
 	{
-		byte[] readBuffer;
-		int readBufferOffset;
-		int readBufferSize;
+		BufferOffsetSize readBuffer;
 		long contentLength;
 		long totalRead;
 		bool nextReadCalled;
@@ -170,11 +168,12 @@ namespace System.Net
 				return (0, -1);
 
 			int oldBytes = 0;
-			int remaining = readBufferSize - readBufferOffset;
+			int remaining = readBuffer?.Size ?? 0;
 			if (remaining > 0) {
 				int copy = (remaining > size) ? size : remaining;
-				Buffer.BlockCopy (readBuffer, readBufferOffset, buffer, offset, copy);
-				readBufferOffset += copy;
+				Buffer.BlockCopy (readBuffer.Buffer, readBuffer.Offset, buffer, offset, copy);
+				readBuffer.Offset += copy;
+				readBuffer.Size -= copy;
 				offset += copy;
 				size -= copy;
 				totalRead += copy;
@@ -273,14 +272,6 @@ namespace System.Net
 			return CheckAuthHeader ("WWW-Authenticate");
 		}
 
-		async Task CheckResponseInBuffer (CancellationToken cancellationToken)
-		{
-			if (contentLength > 0 && (readBufferSize - readBufferOffset) >= contentLength) {
-				if (!IsNtlmAuth ())
-					await ReadAllAsync (cancellationToken).ConfigureAwait (false);
-			}
-		}
-
 		bool ExpectContent {
 			get {
 				if (Request.Method == "HEAD")
@@ -325,11 +316,9 @@ namespace System.Net
 
 			ChunkedRead = (tencoding != null && tencoding.IndexOf ("chunked", StringComparison.OrdinalIgnoreCase) != -1);
 			if (!ChunkedRead) {
-				readBuffer = buffer.Buffer;
-				readBufferOffset = buffer.Offset;
-				readBufferSize = buffer.Size;
+				readBuffer = buffer;
 				try {
-					if (contentLength > 0 && (readBufferSize - readBufferOffset) >= contentLength) {
+					if (contentLength > 0 && readBuffer.Size >= contentLength) {
 						if (!IsNtlmAuth ())
 							await ReadAllAsync (cancellationToken).ConfigureAwait (false);
 					}
@@ -400,50 +389,51 @@ namespace System.Net
 					return;
 
 				byte[] b = null;
-				int diff = readBufferSize - readBufferOffset;
 				int new_size;
 
 				if (contentLength == Int64.MaxValue) {
 					MemoryStream ms = new MemoryStream ();
-					byte[] buffer = null;
-					if (readBuffer != null && diff > 0) {
-						ms.Write (readBuffer, readBufferOffset, diff);
-						if (readBufferSize >= 8192)
+					BufferOffsetSize buffer = null;
+					if (readBuffer != null && readBuffer.Size > 0) {
+						ms.Write (readBuffer.Buffer, readBuffer.Offset, readBuffer.Size);
+						readBuffer.Offset = 0;
+						readBuffer.Size = readBuffer.Buffer.Length;
+						if (readBuffer.Buffer.Length >= 8192)
 							buffer = readBuffer;
 					}
 
 					if (buffer == null)
-						buffer = new byte[8192];
+						buffer = new BufferOffsetSize (new byte[8192], false);
 
 					int read;
-					while ((read = await InnerReadAsync (buffer, 0, buffer.Length, cancellationToken)) != 0)
-						ms.Write (buffer, 0, read);
+					while ((read = await InnerReadAsync (buffer.Buffer, buffer.Offset, buffer.Size, cancellationToken)) != 0)
+						ms.Write (buffer.Buffer, buffer.Offset, read);
 
-					b = ms.GetBuffer ();
 					new_size = (int)ms.Length;
 					contentLength = new_size;
+					readBuffer = new BufferOffsetSize (ms.GetBuffer (), 0, new_size, false);
 				} else {
 					new_size = (int)(contentLength - totalRead);
 					b = new byte[new_size];
-					if (readBuffer != null && diff > 0) {
-						if (diff > new_size)
-							diff = new_size;
+					int readSize = 0;
+					if (readBuffer != null && readBuffer.Size > 0) {
+						readSize = readBuffer.Size;
+						if (readSize > new_size)
+							readSize = new_size;
 
-						Buffer.BlockCopy (readBuffer, readBufferOffset, b, 0, diff);
+						Buffer.BlockCopy (readBuffer.Buffer, readBuffer.Offset, b, 0, readSize);
 					}
 
-					int remaining = new_size - diff;
+					int remaining = new_size - readSize;
 					int r = -1;
 					while (remaining > 0 && r != 0) {
-						r = await InnerReadAsync (b, diff, remaining, cancellationToken);
+						r = await InnerReadAsync (b, readSize, remaining, cancellationToken);
 						remaining -= r;
-						diff += r;
+						readSize += r;
 					}
 				}
 
-				readBuffer = b;
-				readBufferOffset = 0;
-				readBufferSize = new_size;
+				readBuffer = new BufferOffsetSize (b, 0, new_size, false);
 				totalRead = 0;
 				nextReadCalled = true;
 				myReadTcs.TrySetResult (new_size);
@@ -463,7 +453,7 @@ namespace System.Net
 		{
 			if (!closed && !nextReadCalled) {
 				nextReadCalled = true;
-				if (readBufferSize - readBufferOffset == contentLength) {
+				if (totalRead >= contentLength) {
 					Operation.CompleteResponseRead (this, true);
 				} else {
 					// If we have not read all the contents
@@ -526,7 +516,7 @@ namespace System.Net
 					throw GetReadException (WebExceptionStatus.RequestCanceled, null, "ReadDoneAsync5");
 
 				if (state == ReadState.Content) {
-					buffer.Size = buffer.Offset;
+					buffer.Size = buffer.Offset - position;
 					buffer.Offset = position;
 					break;
 				}
