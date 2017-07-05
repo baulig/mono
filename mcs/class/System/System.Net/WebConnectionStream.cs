@@ -131,6 +131,9 @@ namespace System.Net
 
 		public override int EndRead (IAsyncResult r)
 		{
+			if (r == null)
+				throw new ArgumentNullException (nameof (r));
+
 			try {
 				return TaskToApm.End<int> (r);
 			} catch (Exception e) {
@@ -152,7 +155,7 @@ namespace System.Net
 		public override void EndWrite (IAsyncResult r)
 		{
 			if (r == null)
-				throw new ArgumentNullException ("r");
+				throw new ArgumentNullException (nameof (r));
 
 			try {
 				TaskToApm.End (r);
