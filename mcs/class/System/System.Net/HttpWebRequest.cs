@@ -1233,9 +1233,6 @@ namespace System.Net
 
 			WebConnection.Debug ($"HWR ABORT: Req={ID}");
 
-			if (haveResponse && finished_reading)
-				return;
-
 			haveResponse = true;
 			var operation = currentOperation;
 			if (operation != null)
