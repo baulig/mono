@@ -1045,7 +1045,7 @@ namespace System.Net
 					throwMe = GetWebException (e);
 				}
 
-				WebConnection.Debug ($"HWR GET RESPONSE LOOP #1: Req={ID} - {redirect} {mustReadAll} {writeBuffer != null} {ntlm != null} - {throwMe != null}");
+				WebConnection.Debug ($"HWR GET RESPONSE LOOP #1: Req={ID} - redirect={redirect} mustReadAll={mustReadAll} writeBuffer={writeBuffer != null} ntlm={ntlm != null} - {throwMe != null}");
 
 				lock (locker) {
 					if (throwMe != null) {
@@ -1072,6 +1072,7 @@ namespace System.Net
 				try {
 					if (mustReadAll)
 						await stream.ReadAllAsync (cancellationToken).ConfigureAwait (false);
+					operation.CompleteResponseRead (stream, true);
 					response.Close ();
 				} catch (Exception e) {
 					throwMe = GetWebException (e);
@@ -1145,7 +1146,7 @@ namespace System.Net
 				bool isChallenge;
 				(ntlm, isChallenge) = HandleNtlmAuth (stream, response, writeBuffer, cancellationToken);
 				WebConnection.Debug ($"HWR REDIRECT: {ntlm} {isChallenge} {mustReadAll}");
-				if (ntlm != null && !isChallenge)
+				if (false && ntlm != null && !isChallenge)
 					mustReadAll = true;
 			}
 
@@ -1173,7 +1174,7 @@ namespace System.Net
 			return new WebException (e.Message, e, WebExceptionStatus.ProtocolError, null);
 		}
 
-		static WebException CreateRequestAbortedException ()
+		internal static WebException CreateRequestAbortedException ()
 		{
 			return new WebException (SR.Format (SR.net_reqaborted, WebExceptionStatus.RequestCanceled), WebExceptionStatus.RequestCanceled);
 		}

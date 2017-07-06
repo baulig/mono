@@ -105,6 +105,14 @@ namespace System.Net
 			}
 		}
 
+		protected Exception GetException (Exception e)
+		{
+			e = HttpWebRequest.FlattenException (e);
+			if (Operation.Aborted || e is OperationCanceledException || e is ObjectDisposedException)
+				return HttpWebRequest.CreateRequestAbortedException ();
+			return e;
+		}
+
 		public override int Read (byte[] buffer, int offset, int size)
 		{
 			if (!CanRead)
@@ -123,7 +131,7 @@ namespace System.Net
 			try {
 				return ReadAsync (buffer, offset, size, CancellationToken.None).Result;
 			} catch (Exception e) {
-				throw HttpWebRequest.FlattenException (e);
+				throw GetException (e);
 			}
 		}
 
@@ -155,7 +163,7 @@ namespace System.Net
 			try {
 				return TaskToApm.End<int> (r);
 			} catch (Exception e) {
-				throw HttpWebRequest.FlattenException (e);
+				throw GetException (e);
 			}
 		}
 
@@ -187,7 +195,7 @@ namespace System.Net
 			try {
 				TaskToApm.End (r);
 			} catch (Exception e) {
-				throw HttpWebRequest.FlattenException (e);
+				throw GetException (e);
 			}
 		}
 
@@ -209,7 +217,7 @@ namespace System.Net
 			try {
 				WriteAsync (buffer, offset, size).Wait ();
 			} catch (Exception e) {
-				throw HttpWebRequest.FlattenException (e);
+				throw GetException (e);
 			}
 		}
 

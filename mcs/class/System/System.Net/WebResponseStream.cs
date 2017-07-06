@@ -152,7 +152,7 @@ namespace System.Net
 				(oldBytes, nbytes) = await RunWithTimeout (
 					(timeout, ct) => ProcessRead (buffer, offset, size, ct)).ConfigureAwait (false);
 			} catch (Exception e) {
-				throwMe = HttpWebRequest.FlattenException (e);
+				throwMe = GetReadException (WebExceptionStatus.ReceiveFailure, e, "ReadAsync");
 			}
 
 			WebConnection.Debug ($"{ME} READ ASYNC #3: {totalRead} {contentLength} - {oldBytes} {nbytes} {throwMe?.Message}");
@@ -513,8 +513,9 @@ namespace System.Net
 			}
 		}
 
-		internal static WebException GetReadException (WebExceptionStatus status, Exception error, string where)
+		WebException GetReadException (WebExceptionStatus status, Exception error, string where)
 		{
+			error = GetException (error);
 			string msg = $"Error getting response stream ({where}): {status}";
 			if (error == null)
 				return new WebException ($"Error getting response stream ({where}): {status}", status);
