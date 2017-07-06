@@ -3079,7 +3079,8 @@ namespace MonoTests.System.Net
 				try {
 					Assert.IsTrue (rs.CanWrite, "#1");
 					rs.Close ();
-					Assert.IsFalse (rs.CanWrite, "#2");
+					// CanRead and CanWrite do not change status after closing.
+					Assert.IsTrue (rs.CanWrite, "#2");
 				} finally {
 					rs.Close ();
 					req.Abort ();
