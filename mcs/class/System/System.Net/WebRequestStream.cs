@@ -119,13 +119,13 @@ namespace System.Net
 				throw new InvalidOperationException ();
 
 			if (buffer == null)
-				throw new ArgumentNullException ("buffer");
+				throw new ArgumentNullException (nameof (buffer));
 
 			int length = buffer.Length;
 			if (offset < 0 || length < offset)
-				throw new ArgumentOutOfRangeException ("offset");
+				throw new ArgumentOutOfRangeException (nameof (offset));
 			if (size < 0 || (length - offset) < size)
-				throw new ArgumentOutOfRangeException ("size");
+				throw new ArgumentOutOfRangeException (nameof (size));
 
 			var myWriteTcs = new TaskCompletionSource<int> ();
 			if (Interlocked.CompareExchange (ref pendingWrite, myWriteTcs, null) != null)

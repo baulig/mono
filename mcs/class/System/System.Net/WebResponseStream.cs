@@ -113,13 +113,13 @@ namespace System.Net
 			cancellationToken.ThrowIfCancellationRequested ();
 
 			if (buffer == null)
-				throw new ArgumentNullException ("buffer");
+				throw new ArgumentNullException (nameof (buffer));
 
 			int length = buffer.Length;
 			if (offset < 0 || length < offset)
-				throw new ArgumentOutOfRangeException ("offset");
+				throw new ArgumentOutOfRangeException (nameof (offset));
 			if (size < 0 || (length - offset) < size)
-				throw new ArgumentOutOfRangeException ("size");
+				throw new ArgumentOutOfRangeException (nameof (size));
 
 			if (Interlocked.CompareExchange (ref nestedRead, 1, 0) != 0)
 				throw new InvalidOperationException ("Invalid nested call.");
