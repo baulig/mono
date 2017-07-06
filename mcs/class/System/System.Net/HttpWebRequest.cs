@@ -861,7 +861,7 @@ namespace System.Net
 
 		Task<Stream> MyGetRequestStreamAsync ()
 		{
-			return RunWithTimeout (MyGetRequestStreamAsync, "The request timed out");
+			return RunWithTimeout (MyGetRequestStreamAsync);
 		}
 
 		async Task<Stream> MyGetRequestStreamAsync (Task timeoutTask, CancellationToken cancellationToken)
@@ -944,23 +944,28 @@ namespace System.Net
 			throw new NotImplementedException ();
 		}
 
-		async Task<T> RunWithTimeout<T> (Func<Task, CancellationToken, Task<T>> func, string message)
+		internal static async Task<T> RunWithTimeout<T> (Func<Task, CancellationToken, Task<T>> func, int timeout, Action abort)
 		{
 			using (var cts = new CancellationTokenSource ()) {
 				cts.CancelAfter (timeout);
-				cts.Token.Register (() => Abort ());
+				cts.Token.Register (() => abort ());
 				var timeoutTask = Task.Delay (timeout);
 				var workerTask = func (timeoutTask, cts.Token);
 				var ret = await Task.WhenAny (workerTask, timeoutTask).ConfigureAwait (false);
 				if (ret == timeoutTask)
-					throw new WebException (message, WebExceptionStatus.Timeout);
+					throw new WebException (SR.net_timeout, WebExceptionStatus.Timeout);
 				return workerTask.Result;
 			}
 		}
 
+		Task<T> RunWithTimeout<T> (Func<Task, CancellationToken, Task<T>> func)
+		{
+			return RunWithTimeout (func, timeout, Abort);
+		}
+
 		Task<HttpWebResponse> MyGetResponseAsync ()
 		{
-			return RunWithTimeout (MyGetResponseAsync, "The request timed out");
+			return RunWithTimeout (MyGetResponseAsync);
 		}
 
 		async Task<HttpWebResponse> MyGetResponseAsync (Task timeoutTask, CancellationToken cancellationToken)

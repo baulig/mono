@@ -84,6 +84,7 @@ namespace System.Net
 		{
 			RequestStream = request;
 			ME = $"WRP(Cnc={Connection.ID}, Op={Operation.ID})";
+			request.InnerStream.ReadTimeout = ReadTimeout;
 		}
 
 		public override long Length {
@@ -104,6 +105,11 @@ namespace System.Net
 		protected MonoChunkStream ChunkStream {
 			get;
 			private set;
+		}
+
+		Task<T> RunWithTimeout<T> (Func<Task, CancellationToken, Task<T>> func)
+		{
+			return HttpWebRequest.RunWithTimeout (func, ReadTimeout, () => InnerStream.Close ());
 		}
 
 		public override async Task<int> ReadAsync (byte[] buffer, int offset, int size, CancellationToken cancellationToken)
@@ -142,7 +148,9 @@ namespace System.Net
 			Exception throwMe = null;
 
 			try {
-				(oldBytes, nbytes) = await ProcessRead (buffer, offset, size, cancellationToken).ConfigureAwait (false);
+				// FIXME: NetworkStream.ReadAsync() does not support cancellation.
+				(oldBytes, nbytes) = await RunWithTimeout (
+					(timeout, ct) => ProcessRead (buffer, offset, size, ct)).ConfigureAwait (false);
 			} catch (Exception e) {
 				throwMe = HttpWebRequest.FlattenException (e);
 			}
