@@ -360,19 +360,18 @@ namespace System.Net
 
 		protected override void Close_internal (ref bool disposed)
 		{
-			if (disposed || requestWritten)
+			WebConnection.Debug ($"{ME} CLOSE: {disposed} {requestWritten} {allowBuffering}");
+
+			if (disposed)
 				return;
+			disposed = true;
 
 			if (sendChunked) {
-				if (disposed)
-					return;
-				disposed = true;
 				WriteChunkTrailer ().Wait ();
 				return;
 			}
 
-			if (!allowBuffering) {
-				disposed = true;
+			if (!allowBuffering || requestWritten) {
 				Operation.CompleteRequestWritten (this);
 				return;
 			}
