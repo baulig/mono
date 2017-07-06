@@ -1146,8 +1146,6 @@ namespace System.Net
 				bool isChallenge;
 				(ntlm, isChallenge) = HandleNtlmAuth (stream, response, writeBuffer, cancellationToken);
 				WebConnection.Debug ($"HWR REDIRECT: {ntlm} {isChallenge} {mustReadAll}");
-				if (false && ntlm != null && !isChallenge)
-					mustReadAll = true;
 			}
 
 			return (response, true, mustReadAll, writeBuffer, ntlm);
