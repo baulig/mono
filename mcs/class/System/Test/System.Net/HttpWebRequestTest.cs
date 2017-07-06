@@ -317,7 +317,8 @@ namespace MonoTests.System.Net
 				request.Method = "HEAD";
 
 				try {
-					request.BeginGetRequestStream (null, null);
+					var res = request.BeginGetRequestStream (null, null);
+					request.EndGetRequestStream (res);
 					Assert.Fail ("#B1");
 				} catch (ProtocolViolationException ex) {
 					// Cannot send a content-body with this

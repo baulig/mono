@@ -360,6 +360,9 @@ namespace System.Net
 
 		protected override void Close_internal (ref bool disposed)
 		{
+			if (disposed || requestWritten)
+				return;
+
 			if (sendChunked) {
 				if (disposed)
 					return;
@@ -369,18 +372,17 @@ namespace System.Net
 			}
 
 			if (!allowBuffering) {
+				disposed = true;
 				Operation.CompleteRequestWritten (this);
 				return;
 			}
-
-			if (disposed || requestWritten)
-				return;
 
 			long length = Request.ContentLength;
 
 			if (!sendChunked && !Operation.IsNtlmChallenge && length != -1 && totalWritten != length) {
 				IOException io = new IOException ("Cannot close the stream until all bytes are written");
 				closed = true;
+				disposed = true;
 				var throwMe = new WebException ("Request was cancelled.", WebExceptionStatus.RequestCanceled, WebExceptionInternalStatus.RequestFatal, io);
 				Operation.CompleteRequestWritten (this, throwMe);
 				throw throwMe;

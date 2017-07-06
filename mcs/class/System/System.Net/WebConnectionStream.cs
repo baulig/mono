@@ -226,10 +226,6 @@ namespace System.Net
 
 		public override void Close ()
 		{
-			if (disposed)
-				return;
-			disposed = true;
-
 			Close_internal (ref disposed);
 		}
 

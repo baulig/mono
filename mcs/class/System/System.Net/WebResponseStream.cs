@@ -494,10 +494,12 @@ namespace System.Net
 			if (!closed && !nextReadCalled) {
 				nextReadCalled = true;
 				if (totalRead >= contentLength) {
+					disposed = true;
 					Operation.CompleteResponseRead (this, true);
 				} else {
 					// If we have not read all the contents
 					closed = true;
+					disposed = true;
 					Operation.CompleteResponseRead (this, false);
 				}
 			}
