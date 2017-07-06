@@ -109,7 +109,13 @@ namespace System.Net
 
 		Task<T> RunWithTimeout<T> (Func<Task, CancellationToken, Task<T>> func)
 		{
-			return HttpWebRequest.RunWithTimeout (func, ReadTimeout, () => InnerStream.Close ());
+			return HttpWebRequest.RunWithTimeout (func, ReadTimeout, () => Abort ());
+		}
+
+		void Abort ()
+		{
+			Operation.Abort ();
+			InnerStream.Dispose ();
 		}
 
 		public override async Task<int> ReadAsync (byte[] buffer, int offset, int size, CancellationToken cancellationToken)
@@ -519,8 +525,10 @@ namespace System.Net
 			string msg = $"Error getting response stream ({where}): {status}";
 			if (error == null)
 				return new WebException ($"Error getting response stream ({where}): {status}", status);
-			if (error is WebException wex)
-				return wex;
+			if (error is WebException wexc)
+				return wexc;
+			if (Operation.Aborted || error is OperationCanceledException || error is ObjectDisposedException)
+				return HttpWebRequest.CreateRequestAbortedException ();
 			return new WebException ($"Error getting response stream ({where}): {status} {error.Message}", status,
 						 WebExceptionInternalStatus.RequestFatal, error);
 		}

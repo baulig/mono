@@ -1167,10 +1167,12 @@ namespace System.Net
 		WebException GetWebException (Exception e)
 		{
 			e = FlattenException (e);
+			if (e is WebException wexc) {
+				if (!Aborted || wexc.Status == WebExceptionStatus.RequestCanceled || wexc.Status == WebExceptionStatus.Timeout)
+					return wexc;
+			}
 			if (Aborted || e is OperationCanceledException || e is ObjectDisposedException)
 				return CreateRequestAbortedException ();
-			if (e is WebException wexc)
-				return wexc;
 			return new WebException (e.Message, e, WebExceptionStatus.ProtocolError, null);
 		}
 
