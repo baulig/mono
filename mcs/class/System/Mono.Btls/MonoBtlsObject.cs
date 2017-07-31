@@ -26,6 +26,7 @@
 #if SECURITY_DEP && MONO_FEATURE_BTLS
 using System;
 using System.Threading;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Runtime.CompilerServices;
 
@@ -35,6 +36,11 @@ namespace Mono.Btls
 	{
 		internal const string BTLS_DYLIB = "libmono-btls-shared";
 
+		static long countHandles;
+		static object syncRoot = new object ();
+		static Dictionary<long,string> handleHash = new Dictionary<long,string> ();
+		static long nextID;
+
 		internal MonoBtlsObject (MonoBtlsHandle handle)
 		{
 			this.handle = handle;
@@ -43,14 +49,37 @@ namespace Mono.Btls
 		protected internal abstract class MonoBtlsHandle : SafeHandle
 		{
 			internal MonoBtlsHandle ()
-				: base (IntPtr.Zero, true)
+				: this (IntPtr.Zero, true)
 			{
 			}
+
+			long ID;
 
 			internal MonoBtlsHandle (IntPtr handle, bool ownsHandle)
 				: base (handle, ownsHandle)
 			{
+				if (!ownsHandle)
+					return;
+				lock (syncRoot) {
+					ID = ++nextID;
+					var name = GetType ().Name;
+					handleHash.Add (ID, name);
+					Interlocked.Increment (ref countHandles);
+					// Console.WriteLine ($"CREATE HANDLE: {name} {ID} {handle.ToInt64 ()}");
+				}
 			}
+
+			protected override bool ReleaseHandle ()
+			{
+				lock (syncRoot) {
+					handleHash.Remove (ID);
+					// Console.WriteLine ($"RELEASE HANDLE: {GetType ().Name} {ID}");
+					Interlocked.Decrement (ref countHandles);
+				}
+				return DoReleaseHandle ();
+			}
+
+			protected abstract bool DoReleaseHandle ();
 
 			public override bool IsInvalid {
 				get { return handle == IntPtr.Zero; }
@@ -140,6 +169,23 @@ namespace Mono.Btls
 				} finally {
 					var disposedExc = new ObjectDisposedException (GetType ().Name);
 					Interlocked.CompareExchange (ref lastError, disposedExc, null);
+				}
+			}
+		}
+
+		internal static void MartinTest ()
+		{
+			lock (syncRoot) {
+				Console.WriteLine ($"MonoBtlsObject: {countHandles}");
+				var byType = new Dictionary<string,int> ();
+				foreach (var entry in handleHash) {
+					if (byType.ContainsKey (entry.Value))
+						byType [entry.Value]++;
+					else
+						byType.Add (entry.Value, 1);
+				}
+				foreach (var entry in byType) {
+					Console.WriteLine ($"  {entry.Key} {entry.Value}");
 				}
 			}
 		}

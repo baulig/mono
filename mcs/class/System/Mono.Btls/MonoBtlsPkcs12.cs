@@ -41,7 +41,7 @@ namespace Mono.Btls
 			{
 			}
 
-			protected override bool ReleaseHandle ()
+			protected override bool DoReleaseHandle ()
 			{
 				mono_btls_pkcs12_free (handle);
 				return true;

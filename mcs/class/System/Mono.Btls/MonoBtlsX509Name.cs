@@ -44,7 +44,7 @@ namespace Mono.Btls
 				this.dontFree = !ownsHandle;
 			}
 
-			protected override bool ReleaseHandle ()
+			protected override bool DoReleaseHandle ()
 			{
 				if (!dontFree)
 					mono_btls_x509_name_free (handle);

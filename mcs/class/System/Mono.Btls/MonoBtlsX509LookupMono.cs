@@ -40,7 +40,7 @@ namespace Mono.Btls
 			{
 			}
 
-			protected override bool ReleaseHandle ()
+			protected override bool DoReleaseHandle ()
 			{
 				mono_btls_x509_lookup_mono_free (handle);
 				return true;

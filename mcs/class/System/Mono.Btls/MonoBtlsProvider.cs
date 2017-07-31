@@ -379,6 +379,11 @@ namespace Mono.Btls
 				throw;
 			}
 		}
+
+		internal static void MartinTest ()
+		{
+			MonoBtlsObject.MartinTest ();
+		}
 	}
 }
 #endif

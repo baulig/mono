@@ -41,7 +41,7 @@ namespace Mono.Btls
 			{
 			}
 
-			protected override bool ReleaseHandle ()
+			protected override bool DoReleaseHandle ()
 			{
 				mono_btls_x509_chain_free (handle);
 				return true;

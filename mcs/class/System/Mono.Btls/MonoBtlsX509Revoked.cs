@@ -44,7 +44,7 @@ namespace Mono.Btls
 			{
 			}
 
-			protected override bool ReleaseHandle ()
+			protected override bool DoReleaseHandle ()
 			{
 				if (handle != IntPtr.Zero)
 					mono_btls_x509_revoked_free (handle);
