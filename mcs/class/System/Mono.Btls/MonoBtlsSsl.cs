@@ -27,7 +27,6 @@
 using System;
 using System.IO;
 using System.Text;
-using System.Threading;
 using System.Runtime.InteropServices;
 using System.Runtime.CompilerServices;
 
@@ -45,7 +44,7 @@ namespace Mono.Btls
 			{
 			}
 
-			protected override bool DoReleaseHandle ()
+			protected override bool ReleaseHandle ()
 			{
 				mono_btls_ssl_destroy (handle);
 				handle = IntPtr.Zero;

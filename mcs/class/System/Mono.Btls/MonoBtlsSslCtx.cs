@@ -25,7 +25,6 @@
 // THE SOFTWARE.
 #if SECURITY_DEP && MONO_FEATURE_BTLS
 using System;
-using System.Threading;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
@@ -40,7 +39,7 @@ namespace Mono.Btls
 			{
 			}
 
-			protected override bool DoReleaseHandle ()
+			protected override bool ReleaseHandle ()
 			{
 				mono_btls_ssl_ctx_free (handle);
 				return true;

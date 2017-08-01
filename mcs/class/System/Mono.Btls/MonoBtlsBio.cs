@@ -50,7 +50,7 @@ namespace Mono.Btls
 			{
 			}
 
-			protected override bool DoReleaseHandle ()
+			protected override bool ReleaseHandle ()
 			{
 				if (handle != IntPtr.Zero) {
 					mono_btls_bio_free (handle);

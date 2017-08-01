@@ -52,7 +52,7 @@ namespace Mono.Btls
 			}
 			#endif
 
-			protected override bool DoReleaseHandle ()
+			protected override bool ReleaseHandle ()
 			{
 				if (!dontFree)
 					mono_btls_x509_store_ctx_free (handle);
