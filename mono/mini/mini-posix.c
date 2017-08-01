@@ -640,14 +640,18 @@ init:
 	mono_profiler_get_sample_mode (NULL, &mode, NULL);
 
 	if (mode == MONO_PROFILER_SAMPLE_MODE_NONE) {
-		mono_profiler_sampling_thread_sleep ();
+		mono_profiler_sampling_thread_wait ();
+
+		if (!InterlockedRead (&sampling_thread_running))
+			goto done;
+
 		goto init;
 	}
 
 	clock_init (mode);
 
 	for (guint64 sleep = clock_get_time_ns (); InterlockedRead (&sampling_thread_running); clock_sleep_ns_abs (sleep)) {
-		uint64_t freq;
+		uint32_t freq;
 		MonoProfilerSampleMode new_mode;
 
 		mono_profiler_get_sample_mode (NULL, &new_mode, &freq);
@@ -676,9 +680,10 @@ init:
 		} FOREACH_THREAD_SAFE_END
 	}
 
-	InterlockedWrite (&sampling_thread_exiting, 1);
-
 	clock_cleanup ();
+
+done:
+	InterlockedWrite (&sampling_thread_exiting, 1);
 
 	pthread_setschedparam (pthread_self (), old_policy, &old_sched);
 
@@ -691,6 +696,8 @@ void
 mono_runtime_shutdown_stat_profiler (void)
 {
 	InterlockedWrite (&sampling_thread_running, 0);
+
+	mono_profiler_sampling_thread_post ();
 
 #ifndef PLATFORM_MACOSX
 	/*

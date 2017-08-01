@@ -383,25 +383,21 @@ sgen_client_binary_protocol_block_set_state (gpointer addr, size_t size, int old
 static void G_GNUC_UNUSED
 sgen_client_binary_protocol_mark_start (int generation)
 {
-	MONO_PROFILER_RAISE (gc_event, (MONO_GC_EVENT_MARK_START, generation));
 }
 
 static void G_GNUC_UNUSED
 sgen_client_binary_protocol_mark_end (int generation)
 {
-	MONO_PROFILER_RAISE (gc_event, (MONO_GC_EVENT_MARK_END, generation));
 }
 
 static void G_GNUC_UNUSED
 sgen_client_binary_protocol_reclaim_start (int generation)
 {
-	MONO_PROFILER_RAISE (gc_event, (MONO_GC_EVENT_RECLAIM_START, generation));
 }
 
 static void G_GNUC_UNUSED
 sgen_client_binary_protocol_reclaim_end (int generation)
 {
-	MONO_PROFILER_RAISE (gc_event, (MONO_GC_EVENT_RECLAIM_END, generation));
 }
 
 static void
@@ -687,6 +683,16 @@ sgen_client_binary_protocol_header (long long check, int version, int ptr_size, 
 
 static void G_GNUC_UNUSED
 sgen_client_binary_protocol_pin_stats (int objects_pinned_in_nursery, size_t bytes_pinned_in_nursery, int objects_pinned_in_major, size_t bytes_pinned_in_major)
+{
+}
+
+static void G_GNUC_UNUSED
+sgen_client_binary_protocol_worker_finish_stats (int worker_index, int generation, gboolean forced, long long major_scan, long long los_scan, long long work_time)
+{
+}
+
+static void G_GNUC_UNUSED
+sgen_client_binary_protocol_collection_end_stats (long long major_scan, long long los_scan, long long finish_stack)
 {
 }
 
