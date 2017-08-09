@@ -223,7 +223,6 @@ common_sources = \
 	w32process.h		\
 	w32process-internals.h		\
 	profiler.c		\
-	profiler-events.h	\
 	profiler-private.h	\
 	rand.h			\
 	rand.c			\
@@ -282,7 +281,9 @@ common_sources = \
 	sre.c	\
 	sre-encode.c	\
 	sre-save.c	\
-	custom-attrs.c
+	custom-attrs.c	\
+	fdhandle.h	\
+	fdhandle.c
 
 # These source files have compile time dependencies on GC code
 gc_dependent_sources = \
@@ -349,6 +350,7 @@ libmonoruntimeinclude_HEADERS = \
 	object.h		\
 	opcodes.h		\
 	profiler.h		\
+	profiler-events.h	\
 	reflection.h		\
 	row-indexes.h		\
 	tokentype.h		\
