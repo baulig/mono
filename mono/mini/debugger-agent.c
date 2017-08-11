@@ -3126,7 +3126,10 @@ process_frame (StackFrameInfo *info, MonoContext *ctx, gpointer user_data)
 			info->il_offset = mono_debug_il_offset_from_address (method, info->domain, info->native_offset);
 	}
 
-	DEBUG_PRINTF (1, "\tFrame: %s:[il=0x%x, native=0x%x] %d\n", mono_method_full_name (method, TRUE), info->il_offset, info->native_offset, info->managed);
+    if (ctx)
+        DEBUG_PRINTF (1, "\tFrame: %s:[il=0x%x, native=0x%x] %d - %p / %p\n", mono_method_full_name (method, TRUE), info->il_offset, info->native_offset, info->managed, MONO_CONTEXT_GET_IP (ctx), (MONO_CONTEXT_GET_IP (ctx) - info->native_offset));
+    else
+        DEBUG_PRINTF (1, "\tFrame: %s:[il=0x%x, native=0x%x] %d\n", mono_method_full_name (method, TRUE), info->il_offset, info->native_offset, info->managed);
 
 	if (method->wrapper_type == MONO_WRAPPER_MANAGED_TO_NATIVE) {
 		if (!CHECK_PROTOCOL_VERSION (2, 17))
@@ -4891,6 +4894,9 @@ process_breakpoint (DebuggerTlsData *tls, gboolean from_signal)
 	g_assert (found_sp);
 
 	DEBUG_PRINTF (1, "[%p] Breakpoint hit, method=%s, ip=%p, [il=0x%x,native=0x%x].\n", (gpointer) (gsize) mono_native_thread_id_get (), method->name, ip, sp.il_offset, native_offset);
+    DEBUG_PRINTF (1, "BREAK EVENT: %p,%p - rdx=%llx rbx=%llx rsi=%llx rdi=%llx r14=%llx\n", MONO_CONTEXT_GET_IP (ctx), MONO_CONTEXT_GET_SP (ctx),
+                  ctx->gregs [2], ctx->gregs [3], ctx->gregs [6], ctx->gregs[7], ctx->gregs [14]);
+    
 
 	bp = NULL;
 	for (i = 0; i < breakpoints->len; ++i) {
@@ -5150,7 +5156,8 @@ process_single_step_inner (DebuggerTlsData *tls, gboolean from_signal)
 	SeqPoint sp;
 	MonoSeqPointInfo *info;
     
-    DEBUG_PRINTF (1, "SS EVENT: %p,%p - %llx\n", MONO_CONTEXT_GET_IP (ctx), MONO_CONTEXT_GET_SP (ctx), ctx->gregs [14]);
+    DEBUG_PRINTF (1, "SS EVENT: %p,%p - rdx=%llx rbx=%llx rsi=%llx rdi=%llx r14=%llx\n", MONO_CONTEXT_GET_IP (ctx), MONO_CONTEXT_GET_SP (ctx),
+                  ctx->gregs [2], ctx->gregs [3], ctx->gregs [6], ctx->gregs[7], ctx->gregs [14]);
 
 	/* Skip the instruction causing the single step */
 	if (from_signal)
