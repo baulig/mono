@@ -2667,7 +2667,7 @@ mono_handle_native_crash (const char *signal, void *ctx, MONO_SIG_HANDLER_INFO_T
 		}
 #endif
 	}
-
+    
 	/* prevent infinite loops in crash handling */
 	handle_crash_loop = TRUE;
 

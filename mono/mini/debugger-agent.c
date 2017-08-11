@@ -901,7 +901,7 @@ mono_debugger_agent_parse_options (char *options)
 	agent_config.defer = FALSE;
 	agent_config.address = NULL;
 
-	//agent_config.log_level = 10;
+	agent_config.log_level = 10;
 
 	args = g_strsplit (options, ",", -1);
 	for (ptr = args; ptr && *ptr; ptr ++) {
@@ -5040,6 +5040,9 @@ resume_from_signal_handler (void *sigctx, void *func)
 	// clob:c could be added to op_seq_point.
 
 	mono_sigctx_to_monoctx (sigctx, &ctx);
+    
+    DEBUG_PRINTF (2, "SIGNAL HANDLER: %p - %p,%p - %llx\n", func, MONO_CONTEXT_GET_IP (&ctx), MONO_CONTEXT_GET_SP (&ctx), ctx.gregs [14]);
+    
 	memcpy (&tls->handler_ctx, &ctx, sizeof (MonoContext));
 #ifdef MONO_ARCH_HAVE_SETUP_RESUME_FROM_SIGNAL_HANDLER_CTX
 	mono_arch_setup_resume_sighandler_ctx (&ctx, func);
@@ -5146,6 +5149,8 @@ process_single_step_inner (DebuggerTlsData *tls, gboolean from_signal)
 	MonoMethod *method;
 	SeqPoint sp;
 	MonoSeqPointInfo *info;
+    
+    DEBUG_PRINTF (1, "SS EVENT: %p,%p - %llx\n", MONO_CONTEXT_GET_IP (ctx), MONO_CONTEXT_GET_SP (ctx), ctx->gregs [14]);
 
 	/* Skip the instruction causing the single step */
 	if (from_signal)
@@ -6150,6 +6155,8 @@ buffer_add_value_full (Buffer *buf, MonoType *t, void *addr, MonoDomain *domain,
 {
 	MonoObject *obj;
 	gboolean boxed_vtype = FALSE;
+    
+    fprintf (stderr, "ADD VALUE: %p/%x - %p\n", t, t->type, addr);
 
 	if (t->byref) {
 		if (!(*(void**)addr)) {
@@ -6231,11 +6238,16 @@ buffer_add_value_full (Buffer *buf, MonoType *t, void *addr, MonoDomain *domain,
 	case MONO_TYPE_OBJECT:
 	case MONO_TYPE_CLASS:
 	case MONO_TYPE_ARRAY:
+		fprintf (stderr, "TEST: %p\n", addr);
+
 		obj = *(MonoObject**)addr;
+            fprintf (stderr, "TEST #1: %p\n", addr);
 
 		if (!obj) {
 			buffer_add_byte (buf, VALUE_TYPE_ID_NULL);
 		} else {
+            fprintf (stderr, "TEST #2: %p\n", obj->vtable);
+            fprintf (stderr, "TEST #3: %p - %p\n", obj->vtable, obj->vtable->klass);
 			if (obj->vtable->klass->valuetype) {
 				t = &obj->vtable->klass->byval_arg;
 				addr = mono_object_unbox (obj);
