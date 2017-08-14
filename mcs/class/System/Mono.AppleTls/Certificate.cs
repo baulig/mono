@@ -55,7 +55,7 @@ namespace Mono.AppleTls {
 			}
 
 			Interlocked.Increment (ref retainCount);
-			Console.Error.WriteLine ($"MARTIN DEBUG ALLOC #1: {retainCount}");
+			Console.Error.WriteLine ($"MARTIN DEBUG ALLOC #1: {retainCount} {owns} {handle.ToInt64 ():x}");
 			Console.Error.WriteLine (Environment.StackTrace);
 		}
 
@@ -76,7 +76,7 @@ namespace Mono.AppleTls {
 			handle = certificate.Impl.GetNativeAppleCertificate ();
 			if (handle != IntPtr.Zero) {
 				Interlocked.Increment (ref retainCount);
-				Console.Error.WriteLine ($"MARTIN DEBUG ALLOC #2: {retainCount}");
+				Console.Error.WriteLine ($"MARTIN DEBUG ALLOC #2: {retainCount} {handle.ToInt64 ():x}");
 				Console.Error.WriteLine (Environment.StackTrace);
 				CFObject.CFRetain (handle);
 				return;
@@ -92,7 +92,7 @@ namespace Mono.AppleTls {
 			handle = impl.GetNativeAppleCertificate ();
 			if (handle != IntPtr.Zero) {
 				Interlocked.Increment (ref retainCount);
-				Console.Error.WriteLine ($"MARTIN DEBUG ALLOC #3: {retainCount}");
+				Console.Error.WriteLine ($"MARTIN DEBUG ALLOC #3: {retainCount} {handle.ToInt64 ():x}");
 				CFObject.CFRetain (handle);
 				return;
 			}
@@ -108,7 +108,7 @@ namespace Mono.AppleTls {
 			if (handle == IntPtr.Zero)
 				throw new ArgumentException ("Not a valid DER-encoded X.509 certificate");
 			Interlocked.Increment (ref retainCount);
-			Console.Error.WriteLine ($"MARTIN DEBUG ALLOC #4: {retainCount}");
+			Console.Error.WriteLine ($"MARTIN DEBUG ALLOC #4: {retainCount} {handle.ToInt64 ():x}");
 		}
 
 		[DllImport (AppleTlsContext.SecurityLibrary)]
@@ -207,7 +207,7 @@ namespace Mono.AppleTls {
 			if (handle != IntPtr.Zero){
 				Interlocked.Decrement (ref retainCount);
 				var count = Interlocked.Increment (ref disposeCount);
-				Console.Error.WriteLine ($"MARTIN DEBUG DISPOSE: {count} {retainCount}");
+				Console.Error.WriteLine ($"MARTIN DEBUG DISPOSE: {count} {retainCount} {handle.ToInt64 ():x}");
 				CFObject.CFRelease (handle);
 				handle = IntPtr.Zero;
 			}
