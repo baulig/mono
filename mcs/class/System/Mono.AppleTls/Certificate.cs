@@ -31,6 +31,7 @@
 #if SECURITY_DEP && MONO_FEATURE_APPLETLS
 
 using System;
+using System.Threading;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography.X509Certificates;
@@ -49,9 +50,15 @@ namespace Mono.AppleTls {
 				throw new Exception ("Invalid handle");
 
 			this.handle = handle;
-			if (!owns)
+			if (!owns) {
+				Interlocked.Increment (ref retainCount);
+				Console.Error.WriteLine ($"MARTIN DEBUG ALLOC #1: {retainCount}");
 				CFObject.CFRetain (handle);
+			}
 		}
+
+		static int retainCount;
+		static int disposeCount;
 		
 		[DllImport (AppleTlsContext.SecurityLibrary, EntryPoint="SecCertificateGetTypeID")]
 		public extern static IntPtr GetTypeID ();
@@ -66,6 +73,8 @@ namespace Mono.AppleTls {
 
 			handle = certificate.Impl.GetNativeAppleCertificate ();
 			if (handle != IntPtr.Zero) {
+				Interlocked.Increment (ref retainCount);
+				Console.Error.WriteLine ($"MARTIN DEBUG ALLOC #2: {retainCount}");
 				CFObject.CFRetain (handle);
 				return;
 			}
@@ -79,6 +88,8 @@ namespace Mono.AppleTls {
 		{
 			handle = impl.GetNativeAppleCertificate ();
 			if (handle != IntPtr.Zero) {
+				Interlocked.Increment (ref retainCount);
+				Console.Error.WriteLine ($"MARTIN DEBUG ALLOC #3: {retainCount}");
 				CFObject.CFRetain (handle);
 				return;
 			}
@@ -93,6 +104,8 @@ namespace Mono.AppleTls {
 			handle = SecCertificateCreateWithData (IntPtr.Zero, data.Handle);
 			if (handle == IntPtr.Zero)
 				throw new ArgumentException ("Not a valid DER-encoded X.509 certificate");
+			Interlocked.Increment (ref retainCount);
+			Console.Error.WriteLine ($"MARTIN DEBUG ALLOC #4: {retainCount}");
 		}
 
 		[DllImport (AppleTlsContext.SecurityLibrary)]
@@ -189,6 +202,9 @@ namespace Mono.AppleTls {
 		protected virtual void Dispose (bool disposing)
 		{
 			if (handle != IntPtr.Zero){
+				Interlocked.Decrement (ref retainCount);
+				var count = Interlocked.Increment (ref disposeCount);
+				Console.Error.WriteLine ($"MARTIN DEBUG DISPOSE: {count} {retainCount}");
 				CFObject.CFRelease (handle);
 				handle = IntPtr.Zero;
 			}
