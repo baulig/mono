@@ -53,6 +53,7 @@ namespace Mono.AppleTls {
 			if (!owns) {
 				Interlocked.Increment (ref retainCount);
 				Console.Error.WriteLine ($"MARTIN DEBUG ALLOC #1: {retainCount}");
+				Console.Error.WriteLine (Environment.StackTrace);
 				CFObject.CFRetain (handle);
 			}
 		}
@@ -75,6 +76,7 @@ namespace Mono.AppleTls {
 			if (handle != IntPtr.Zero) {
 				Interlocked.Increment (ref retainCount);
 				Console.Error.WriteLine ($"MARTIN DEBUG ALLOC #2: {retainCount}");
+				Console.Error.WriteLine (Environment.StackTrace);
 				CFObject.CFRetain (handle);
 				return;
 			}
