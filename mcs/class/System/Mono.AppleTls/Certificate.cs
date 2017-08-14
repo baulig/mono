@@ -51,11 +51,12 @@ namespace Mono.AppleTls {
 
 			this.handle = handle;
 			if (!owns) {
-				Interlocked.Increment (ref retainCount);
-				Console.Error.WriteLine ($"MARTIN DEBUG ALLOC #1: {retainCount}");
-				Console.Error.WriteLine (Environment.StackTrace);
 				CFObject.CFRetain (handle);
 			}
+
+			Interlocked.Increment (ref retainCount);
+			Console.Error.WriteLine ($"MARTIN DEBUG ALLOC #1: {retainCount}");
+			Console.Error.WriteLine (Environment.StackTrace);
 		}
 
 		static int retainCount;
