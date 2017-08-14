@@ -252,7 +252,7 @@ namespace Mono.AppleTls
 
 					certificates = new X509CertificateCollection ();
 					for (int i = 0; i < trust.Count; i++)
-						certificates.Add (trust [(IntPtr)i].ToX509Certificate ());
+						certificates.Add (trust.GetCertificate (i));
 
 					remoteCertificate = new X509Certificate (certificates [0]);
 					Debug ("Got peer trust: {0}", remoteCertificate);
