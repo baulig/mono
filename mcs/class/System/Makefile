@@ -38,6 +38,8 @@ else
 LIB_MCS_FLAGS += -d:INSIDE_SYSTEM
 endif
 
+LIB_MCS_FLAGS += -d:APPLE_TLS_DEBUG -d:MARTIN_DEBUG -d:MARTIN_WEB_DEBUG
+
 ifndef MOBILE_PROFILE
 LIB_MCS_FLAGS += -d:CODEDOM
 TEST_LIB_REFS = $(MONO_SECURITY) System.Data System.Xml System.Core System.Configuration

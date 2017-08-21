@@ -1,3 +1,4 @@
+#define APPLE_TLS_DEBUG
 #if SECURITY_DEP && MONO_FEATURE_APPLETLS
 //
 // AppleTlsContext.cs
@@ -135,7 +136,7 @@ namespace Mono.AppleTls
 			}
 		}
 
-		#region Handshake
+#region Handshake
 
 		public override bool IsAuthenticated {
 			get { return isAuthenticated; }
@@ -153,6 +154,7 @@ namespace Mono.AppleTls
 			SetSessionOption (SslSessionOption.BreakOnCertRequested, true);
 			SetSessionOption (SslSessionOption.BreakOnClientAuth, true);
 			SetSessionOption (SslSessionOption.BreakOnServerAuth, true);
+			SetSessionOption (SslSessionOption.AllowRenegotiation, true);
 
 			if (IsServer) {
 				SecCertificate[] intermediateCerts;
@@ -248,9 +250,6 @@ namespace Mono.AppleTls
 						throw new TlsException (AlertDescription.CertificateUnknown);
 					certificates = null;
 				} else {
-					if (trust.Count > 1)
-						Debug ("WARNING: Got multiple certificates in SecTrust!");
-
 					certificates = new X509CertificateCollection ();
 					for (int i = 0; i < trust.Count; i++)
 						certificates.Add (trust.GetCertificate (i));
@@ -372,9 +371,9 @@ namespace Mono.AppleTls
 			get { return connectionInfo.ProtocolVersion; }
 		}
 
-		#endregion
+#endregion
 
-		#region General P/Invokes
+#region General P/Invokes
 
 		[DllImport (SecurityLibrary )]
 		extern static /* OSStatus */ SslStatus SSLGetProtocolVersionMax (/* SSLContextRef */ IntPtr context, out SslProtocol maxVersion);
@@ -467,6 +466,13 @@ namespace Mono.AppleTls
 				CheckStatusAndThrow (result);
 				return value;
 			}
+		}
+
+		SslSessionState GetSessionState ()
+		{
+			var value = SslSessionState.Invalid;
+			var result = SSLGetSessionState (Handle, ref value);
+			return result == SslStatus.Success ? value : SslSessionState.Invalid;
 		}
 
 		[DllImport (SecurityLibrary)]
@@ -677,9 +683,9 @@ namespace Mono.AppleTls
 			return (value == IntPtr.Zero) ? null : new SecTrust (value, true);
 		}
 
-		#endregion
+#endregion
 
-		#region IO Functions
+#region IO Functions
 
 		[DllImport (SecurityLibrary)]
 		extern static /* SSLContextRef */ IntPtr SSLCreateContext (/* CFAllocatorRef */ IntPtr alloc, SslProtocolSide protocolSide, SslConnectionType connectionType);
@@ -801,7 +807,13 @@ namespace Mono.AppleTls
 				fixed (byte *d = &buffer [offset])
 					status = SSLRead (Handle, d, (IntPtr)count, out processed);
 
-				Debug ("Read done: {0} {1} {2}", status, count, processed);
+				var state = GetSessionState ();
+
+				Debug ("Read done: {0} {1} {2} {3}", status, count, processed, state);
+
+				if (status == SslStatus.WouldBlock && state == SslSessionState.Handshake) {
+					Console.Error.WriteLine ("RENEGOTIATION REQUESTED!");
+				}
 
 				if (closedGraceful && (status == SslStatus.ClosedAbort || status == SslStatus.ClosedGraceful)) {
 					/*
@@ -879,7 +891,7 @@ namespace Mono.AppleTls
 			}
 		}
 
-		#endregion
+#endregion
 
 		protected override void Dispose (bool disposing)
 		{

@@ -94,7 +94,7 @@ namespace Mono.AppleTls {
 
 		// BreakOnClientHello = 7,
 
-		// AllowRenegotiation = 8,
+		AllowRenegotiation = 8,
 	}
 
 	// Security.framework/Headers/SecureTransport.h
@@ -123,11 +123,11 @@ namespace Mono.AppleTls {
 	// untyped enum
 	enum SslSessionState {
 		Invalid = -1,
-		// Idle,
-		// Handshake,
-		// Connected,
-		// Closed,
-		// Aborted
+		Idle,
+		Handshake,
+		Connected,
+		Closed,
+		Aborted
 	}
 
 	// Security.framework/Headers/SecureTransport.h
