@@ -229,3 +229,10 @@ mono_btls_ssl_set_renegotiate_mode (MonoBtlsSsl *ptr, MonoBtlsSslRenegotiateMode
 {
     SSL_set_renegotiate_mode (ptr->ssl, (enum ssl_renegotiate_mode_t)mode);
 }
+
+MONO_API int
+mono_btls_ssl_renegotiate_pending (MonoBtlsSsl *ptr)
+{
+    return SSL_renegotiate_pending (ptr->ssl);
+}
+

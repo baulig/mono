@@ -96,6 +96,9 @@ typedef enum {
 void
 mono_btls_ssl_set_renegotiate_mode (MonoBtlsSsl *ptr, MonoBtlsSslRenegotiateMode mode);
 
+int
+mono_btls_ssl_renegotiate_pending (MonoBtlsSsl *ptr);
+
 void
 mono_btls_ssl_destroy (MonoBtlsSsl *ptr);
 

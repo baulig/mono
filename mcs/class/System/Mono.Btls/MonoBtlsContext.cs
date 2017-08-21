@@ -315,6 +315,10 @@ namespace Mono.Btls
 				var status = ssl.Read (data, ref size);
 				Debug ("Read done: {0} {1}", status, size);
 
+				if (ssl.RenegotiatePending ()) {
+					Console.Error.WriteLine ("RENEGOTIATION REQUESTED!");
+				}
+
 				if (status == MonoBtlsSslError.WantRead) {
 					wantMore = true;
 					return 0;
