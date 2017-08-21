@@ -50,10 +50,6 @@ namespace Mono.AppleTls {
 			this.handle = handle;
 			if (!owns)
 				CFObject.CFRetain (handle);
-
-			Interlocked.Increment (ref retainCount);
-			Console.Error.WriteLine ($"MARTIN DEBUG TRUST ALLOC #1: {retainCount} {owns} {handle.ToInt64 ():x}");
-			Console.Error.WriteLine (Environment.StackTrace);
 		}
 
 		[DllImport (AppleTlsContext.SecurityLibrary)]
@@ -89,10 +85,6 @@ namespace Mono.AppleTls {
 			SecStatusCode result = SecTrustCreateWithCertificates (certHandle, policy == null ? IntPtr.Zero : policy.Handle, out handle);
 			if (result != SecStatusCode.Success)
 				throw new ArgumentException (result.ToString ());
-
-			Interlocked.Increment (ref retainCount);
-			Console.Error.WriteLine ($"MARTIN DEBUG TRUST ALLOC #2: {retainCount} {handle.ToInt64 ():x}");
-			Console.Error.WriteLine (Environment.StackTrace);
 		}
 
 		[DllImport (AppleTlsContext.SecurityLibrary)]
@@ -191,9 +183,6 @@ namespace Mono.AppleTls {
 		protected virtual void Dispose (bool disposing)
 		{
 			if (handle != IntPtr.Zero) {
-				Interlocked.Decrement (ref retainCount);
-				var count = Interlocked.Increment (ref disposeCount);
-				Console.Error.WriteLine ($"MARTIN DEBUG TRUST DISPOSE: {count} {retainCount} {handle.ToInt64 ():x}");
 				CFObject.CFRelease (handle);
 				handle = IntPtr.Zero;
 			}
