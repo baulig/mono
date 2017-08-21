@@ -137,6 +137,8 @@ namespace Mono.Btls
 			} else {
 				ssl.SetServerName (ServerName);
 			}
+
+			ssl.SetRenegotiateMode (MonoBtlsSslRenegotiateMode.ONCE);
 		}
 
 		void SetPrivateCertificate (X509CertificateImplBtls privateCert)
