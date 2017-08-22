@@ -154,7 +154,7 @@ namespace Mono.AppleTls
 			SetSessionOption (SslSessionOption.BreakOnCertRequested, true);
 			SetSessionOption (SslSessionOption.BreakOnClientAuth, true);
 			SetSessionOption (SslSessionOption.BreakOnServerAuth, true);
-			SetSessionOption (SslSessionOption.AllowRenegotiation, true);
+			SetSessionOption (SslSessionOption.AllowRenegotiation, AllowRenegotiation);
 
 			if (IsServer) {
 				SecCertificate[] intermediateCerts;

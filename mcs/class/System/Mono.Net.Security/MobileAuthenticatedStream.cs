@@ -507,7 +507,8 @@ namespace Mono.Net.Security
 					asyncRequest = asyncWriteRequest;
 					break;
 				case Operation.Read:
-					Console.WriteLine ("RENEGOTIATION REQUESTED!");
+					if (!xobileTlsContext.AllowRenegotiation)
+						throw new MSI.TlsException (MSI.AlertDescription.NoRenegotiation);
 					asyncRequest = asyncReadRequest;
 					renegotiate = xobileTlsContext.PendingRenegotiation ();
 					if (!renegotiate)
@@ -521,7 +522,6 @@ namespace Mono.Net.Security
 					throw GetInternalError ();
 
 				if (asyncWriteRequest is AsyncRenegotiateRequest) {
-					Console.WriteLine ("RENEGOTIATE WRITE");
 					asyncRequest = asyncReadRequest;
 				} else if (renegotiate) {
 					/*

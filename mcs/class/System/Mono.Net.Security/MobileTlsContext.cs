@@ -116,6 +116,10 @@ namespace Mono.Net.Security
 			get { return clientCertificates; }
 		}
 
+		internal bool AllowRenegotiation {
+			get { return !IsServer && Settings != null && Settings.AllowRenegotiation; }
+		}
+
 		protected void GetProtocolVersions (out TlsProtocolCode min, out TlsProtocolCode max)
 		{
 			if ((enabledProtocols & SslProtocols.Tls) != 0)

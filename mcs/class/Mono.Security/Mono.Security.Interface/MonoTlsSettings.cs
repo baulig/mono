@@ -87,6 +87,16 @@ namespace Mono.Security.Interface
 		}
 
 		/*
+		 * We only allow renegotiation on the client-side.
+		 * 
+		 * This property will become public once client certificates have been
+		 * fully implemented.
+		 */
+		internal bool AllowRenegotiation {
+			get; set;
+		}
+
+		/*
 		 * If you set this here, then it will override 'ServicePointManager.SecurityProtocol'.
 		 */
 		public TlsProtocols? EnabledProtocols {
@@ -179,6 +189,7 @@ namespace Mono.Security.Interface
 				CertificateSearchPaths = new string [other.CertificateSearchPaths.Length];
 				other.CertificateSearchPaths.CopyTo (CertificateSearchPaths, 0);
 			}
+			AllowRenegotiation = other.AllowRenegotiation;
 
 			cloned = true;
 		}
