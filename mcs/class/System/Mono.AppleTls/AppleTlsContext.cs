@@ -892,7 +892,7 @@ namespace Mono.AppleTls
 
 		public override bool PendingRenegotiation ()
 		{
-			return false;
+			return GetSessionState () == SslSessionState.Handshake;
 		}
 
 #endregion
