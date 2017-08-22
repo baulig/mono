@@ -338,7 +338,7 @@ namespace Mono.Btls
 
 				var renegotiate = ssl.RenegotiatePending ();
 				if (renegotiate) {
-					Console.Error.WriteLine ("RENEGOTIATION REQUESTED!");
+					Console.Error.WriteLine ("PENDING RENEGOTIATION!");
 				}
 
 				if (status == MonoBtlsSslError.WantRead)

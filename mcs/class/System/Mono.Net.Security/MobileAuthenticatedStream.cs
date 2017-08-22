@@ -465,11 +465,27 @@ namespace Mono.Net.Security
 			try {
 				Debug ("InternalWrite: {0} {1} {2}", offset, size, renegotiate);
 				var asyncRequest = asyncHandshakeRequest ?? asyncWriteRequest;
-				if (renegotiate) {
+				if (asyncWriteRequest is AsyncRenegotiateRequest) {
+					Console.WriteLine ("RENEGOTIATE WRITE");
+					asyncRequest = asyncReadRequest;
+					if (asyncRequest == null)
+						throw new NotSupportedException ();
+				} else if (renegotiate) {
 					if (asyncRequest != null)
 						throw new NotSupportedException ();
 					if (asyncReadRequest == null)
 						throw new NotSupportedException ();
+
+					/*
+					 * Renegotiation has been requested by the server.
+					 * 
+					 * Make sure we do not have any pending write.
+					 * 
+					 */
+					var renegotiateRequest = ((AsyncReadRequest)asyncReadRequest).Renegotiate ();
+					if (Interlocked.CompareExchange (ref asyncWriteRequest, renegotiateRequest, null) != null)
+						throw new NotSupportedException ();
+					writeBuffer.Reset ();
 					asyncRequest = asyncReadRequest;
 				}
 				return InternalWrite (asyncRequest, writeBuffer, buffer, offset, size);

@@ -231,6 +231,7 @@ namespace Mono.Net.Security
 
 				if (Interlocked.Exchange (ref WriteRequested, 0) != 0) {
 					// Flush the write queue.
+					Debug ("ProcessOperation - write requested");
 					await Parent.InnerWrite (RunSynchronously, cancellationToken);
 				}
 
@@ -317,6 +318,25 @@ namespace Mono.Net.Security
 		{
 		}
 
+		AsyncRenegotiateRequest renegotiateRequest;
+
+		public AsyncRenegotiateRequest RenegotiateRequest => renegotiateRequest;
+
+		public AsyncRenegotiateRequest Renegotiate ()
+		{
+			var renegotiate = new AsyncRenegotiateRequest (this);
+			if (Interlocked.CompareExchange (ref renegotiateRequest, renegotiate, null) != null)
+				throw new InvalidOperationException ();
+
+			/*
+			 * We only allow it if we have not already read anything.
+			*/
+			if (UserBuffer.Offset != 0 || CurrentSize != 0)
+				throw new InvalidOperationException ();
+
+			return renegotiate;
+		}
+
 		protected override AsyncOperationStatus Run (AsyncOperationStatus status)
 		{
 			Debug ("ProcessRead - read user: {0} {1}", this, status);
@@ -400,5 +420,22 @@ namespace Mono.Net.Security
 		}
 	}
 
+	class AsyncRenegotiateRequest : AsyncProtocolRequest
+	{
+		public AsyncProtocolRequest AsyncRead {
+			get;
+		}
+
+		public AsyncRenegotiateRequest (AsyncProtocolRequest read)
+			: base (read.Parent, false)
+		{
+			AsyncRead = read;
+		}
+
+		protected override AsyncOperationStatus Run (AsyncOperationStatus status)
+		{
+			throw new InvalidOperationException ();
+		}
+	}
 }
 #endif
