@@ -339,7 +339,7 @@ namespace Mono.Net.Security
 			if (renegotiate) {
 				if (CurrentSize != 0)
 					throw new NotSupportedException ();
-				return AsyncOperationStatus.Renegotiate;
+				// return AsyncOperationStatus.Renegotiate;
 			}
 
 			if (wantMore && CurrentSize == 0)

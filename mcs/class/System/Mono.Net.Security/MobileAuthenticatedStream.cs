@@ -455,13 +455,23 @@ namespace Mono.Net.Security
 		}
 
 		/*
-		 * We may get called from SSLWrite(), SSLHandshake() or SSLClose().
+		 * We may get called from SSLWrite(), SSLHandshake() or SSLClose(), so we own the 'ioLock'.
+		 * 
+		 * When 'renegotiate' is set, then we're called from SSLRead().
+		 *
 		 */
-		internal bool InternalWrite (byte[] buffer, int offset, int size)
+		internal bool InternalWrite (byte[] buffer, int offset, int size, bool renegotiate)
 		{
 			try {
-				Debug ("InternalWrite: {0} {1}", offset, size);
+				Debug ("InternalWrite: {0} {1} {2}", offset, size, renegotiate);
 				var asyncRequest = asyncHandshakeRequest ?? asyncWriteRequest;
+				if (renegotiate) {
+					if (asyncRequest != null)
+						throw new NotSupportedException ();
+					if (asyncReadRequest == null)
+						throw new NotSupportedException ();
+					asyncRequest = asyncReadRequest;
+				}
 				return InternalWrite (asyncRequest, writeBuffer, buffer, offset, size);
 			} catch (Exception ex) {
 				Debug ("InternalWrite failed: {0}", ex);
@@ -599,12 +609,18 @@ namespace Mono.Net.Security
 				 * The first time we're called (AsyncOperationStatus.Initialize), we need to setup the SslContext and
 				 * start the handshake.
 				*/
-				if (status == AsyncOperationStatus.Initialize || status == AsyncOperationStatus.Renegotiate) {
+				switch (status) {
+				case AsyncOperationStatus.Initialize:
 					xobileTlsContext.StartHandshake ();
 					return AsyncOperationStatus.Continue;
-				} else if (status == AsyncOperationStatus.ReadDone) {
+				case AsyncOperationStatus.ReadDone:
 					throw new IOException (SR.net_auth_eof);
-				} else if (status != AsyncOperationStatus.Continue) {
+				case AsyncOperationStatus.Renegotiate:
+					Debug ("Renegotiate");
+					break;
+				case AsyncOperationStatus.Continue:
+					break;
+				default:
 					throw new InvalidOperationException ();
 				}
 
