@@ -326,13 +326,13 @@ namespace Mono.Net.Security
 		{
 			var renegotiate = new AsyncRenegotiateRequest (this);
 			if (Interlocked.CompareExchange (ref renegotiateRequest, renegotiate, null) != null)
-				throw new InvalidOperationException ();
+				throw MobileAuthenticatedStream.GetInternalError ();
 
 			/*
 			 * We only allow it if we have not already read anything.
 			*/
 			if (UserBuffer.Offset != 0 || CurrentSize != 0)
-				throw new InvalidOperationException ();
+				throw MobileAuthenticatedStream.GetRenegotiationException ("Server requested renegotiation after we're already read data.");
 
 			return renegotiate;
 		}

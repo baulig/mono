@@ -109,6 +109,16 @@ namespace Mono.Net.Security
 			return new IOException (message, e);
 		}
 
+		internal static Exception GetRenegotiationException (string message)
+		{
+			return new MSI.TlsException (MSI.AlertDescription.UnexpectedMessage, message);
+		}
+
+		internal static Exception GetInternalError ()
+		{
+			throw new InvalidOperationException ("Internal error.");
+		}
+
 		internal ExceptionDispatchInfo SetException (Exception e)
 		{
 			var info = ExceptionDispatchInfo.Capture (e);
@@ -464,27 +474,25 @@ namespace Mono.Net.Security
 		{
 			try {
 				Debug ("InternalWrite: {0} {1} {2}", offset, size, renegotiate);
+				if (renegotiate && asyncReadRequest == null)
+					throw GetInternalError ();
+
 				var asyncRequest = asyncHandshakeRequest ?? asyncWriteRequest;
 				if (asyncWriteRequest is AsyncRenegotiateRequest) {
 					Console.WriteLine ("RENEGOTIATE WRITE");
 					asyncRequest = asyncReadRequest;
-					if (asyncRequest == null)
-						throw new NotSupportedException ();
 				} else if (renegotiate) {
-					if (asyncRequest != null)
-						throw new NotSupportedException ();
-					if (asyncReadRequest == null)
-						throw new NotSupportedException ();
-
 					/*
 					 * Renegotiation has been requested by the server.
 					 * 
-					 * Make sure we do not have any pending write.
+					 * We disallow this if we either have a pending user write or already received
+					 * any data from the server during this read operation.
 					 * 
 					 */
-					var renegotiateRequest = ((AsyncReadRequest)asyncReadRequest).Renegotiate ();
-					if (Interlocked.CompareExchange (ref asyncWriteRequest, renegotiateRequest, null) != null)
-						throw new NotSupportedException ();
+					if (asyncRequest != null)
+						throw GetRenegotiationException ("Server requested renegotiation while user write is active.");
+
+					asyncWriteRequest = ((AsyncReadRequest)asyncReadRequest).Renegotiate ();
 					writeBuffer.Reset ();
 					asyncRequest = asyncReadRequest;
 				}
