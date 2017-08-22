@@ -319,7 +319,7 @@ namespace Mono.Btls
 			throw new NotImplementedException ();
 		}
 
-		public override (int ret, bool wantMore, bool renegotiate) Read (byte[] buffer, int offset, int size)
+		public override (int ret, bool wantMore) Read (byte[] buffer, int offset, int size)
 		{
 			Debug ("Read: {0} {1} {2}", buffer.Length, offset, size);
 
@@ -336,25 +336,17 @@ namespace Mono.Btls
 				var status = ssl.Read (data, ref size);
 				Debug ("Read done: {0} {1}", status, size);
 
-				var renegotiate = ssl.RenegotiatePending ();
-				if (renegotiate) {
-					Console.Error.WriteLine ("PENDING RENEGOTIATION!");
-				}
-
 				if (status == MonoBtlsSslError.WantRead)
-					return (0, true, renegotiate);
-				if (renegotiate)
-					throw new NotSupportedException ();
-
+					return (0, true);
 				if (status == MonoBtlsSslError.ZeroReturn)
-					return (size, false, false);
+					return (size, false);
 				if (status != MonoBtlsSslError.None)
 					throw GetException (status);
 
 				if (size > 0)
 					Marshal.Copy (data, buffer, offset, size);
 
-				return (size, false, false);
+				return (size, false);
 			} finally {
 				Marshal.FreeHGlobal (data);
 				operation = MonoBtlsOperation.Authenticated;

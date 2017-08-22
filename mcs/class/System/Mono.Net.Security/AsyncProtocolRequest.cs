@@ -336,7 +336,7 @@ namespace Mono.Net.Security
 		{
 			Debug ("ProcessRead - read user: {0} {1}", this, status);
 
-			var (ret, wantMore, _) = Parent.ProcessRead (UserBuffer);
+			var (ret, wantMore) = Parent.ProcessRead (UserBuffer);
 
 			Debug ("ProcessRead - read user done: {0} - {1} {2}", this, ret, wantMore);
 

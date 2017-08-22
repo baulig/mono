@@ -791,7 +791,7 @@ namespace Mono.AppleTls
 		[DllImport (SecurityLibrary)]
 		extern unsafe static /* OSStatus */ SslStatus SSLRead (/* SSLContextRef */ IntPtr context, /* const void* */ byte* data, /* size_t */ IntPtr dataLength, /* size_t* */ out IntPtr processed);
 
-		public override unsafe (int ret, bool wantMore, bool renegotiate) Read (byte[] buffer, int offset, int count)
+		public override unsafe (int ret, bool wantMore) Read (byte[] buffer, int offset, int count)
 		{
 			if (Interlocked.Exchange (ref pendingIO, 1) == 1)
 				throw new InvalidOperationException ();
@@ -821,12 +821,12 @@ namespace Mono.AppleTls
 					 * when the first inner Read() returns 0.  MobileAuthenticatedStream.InnerRead() attempts
 					 * to distinguish between a graceful close and abnormal termination of connection.
 					 */
-					return (0, false, false);
+					return (0, false);
 				}
 
 				CheckStatusAndThrow (status, SslStatus.WouldBlock, SslStatus.ClosedGraceful);
 				var wantMore = status == SslStatus.WouldBlock;
-				return ((int)processed, wantMore, false);
+				return ((int)processed, wantMore);
 			} catch (Exception ex) {
 				Debug ("Read error: {0}", ex);
 				throw;

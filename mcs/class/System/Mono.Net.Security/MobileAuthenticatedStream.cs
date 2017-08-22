@@ -665,7 +665,7 @@ namespace Mono.Net.Security
 			}
 		}
 
-		internal (int ret, bool wantMore, bool renegotiate) ProcessRead (BufferOffsetSize userBuffer)
+		internal (int ret, bool wantMore) ProcessRead (BufferOffsetSize userBuffer)
 		{
 			lock (ioLock) {
 				// This operates on the internal buffer and will never block.
