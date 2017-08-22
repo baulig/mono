@@ -46,16 +46,6 @@ using MNS = Mono.Net.Security;
 
 namespace Mono.Btls
 {
-	enum MonoBtlsOperation {
-		None,
-		Handshake,
-		Connected,
-		Authenticated,
-		Read,
-		Write,
-		Close
-	}
-
 	class MonoBtlsContext : MNS.MobileTlsContext, IMonoBtlsBioMono
 	{
 		X509Certificate remoteCertificate;
@@ -67,10 +57,10 @@ namespace Mono.Btls
 		MonoBtlsBio bio;
 		MonoBtlsBio errbio;
 
-		MonoBtlsOperation operation;
 		MonoTlsConnectionInfo connectionInfo;
 		bool certificateValidated;
 		bool isAuthenticated;
+		bool connected;
 
 		public MonoBtlsContext (
 			MNS.MobileAuthenticatedStream parent,
@@ -149,7 +139,6 @@ namespace Mono.Btls
 			}
 
 			ssl.SetRenegotiateMode (MonoBtlsSslRenegotiateMode.ONCE);
-			operation = MonoBtlsOperation.Handshake;
 		}
 
 		void SetPrivateCertificate (X509CertificateImplBtls privateCert)
@@ -196,12 +185,10 @@ namespace Mono.Btls
 
 				switch (status) {
 				case MonoBtlsSslError.None:
-					if (operation == MonoBtlsOperation.Connected)
+					if (connected)
 						done = true;
-					else if (operation == MonoBtlsOperation.Handshake)
-						operation = MonoBtlsOperation.Connected;
 					else
-						throw new InvalidOperationException ();
+						connected = true;
 					break;
 				case MonoBtlsSslError.WantRead:
 				case MonoBtlsSslError.WantWrite:
@@ -218,10 +205,8 @@ namespace Mono.Btls
 
 		MonoBtlsSslError DoProcessHandshake ()
 		{
-			if (operation == MonoBtlsOperation.Connected)
+			if (connected)
 				return ssl.Handshake ();
-			else if (operation != MonoBtlsOperation.Handshake)
-				throw new InvalidOperationException ();
 
 			if (IsServer)
 				return ssl.Accept ();
@@ -234,7 +219,6 @@ namespace Mono.Btls
 			InitializeSession ();
 
 			isAuthenticated = true;
-			operation = MonoBtlsOperation.Authenticated;
 		}
 
 		void InitializeConnection ()
@@ -323,10 +307,6 @@ namespace Mono.Btls
 		{
 			Debug ("Read: {0} {1} {2}", buffer.Length, offset, size);
 
-			if (operation != MonoBtlsOperation.Authenticated)
-				throw new InvalidOperationException ();
-			operation = MonoBtlsOperation.Read;
-
 			var data = Marshal.AllocHGlobal (size);
 			if (data == IntPtr.Zero)
 				throw new OutOfMemoryException ();
@@ -349,17 +329,12 @@ namespace Mono.Btls
 				return (size, false);
 			} finally {
 				Marshal.FreeHGlobal (data);
-				operation = MonoBtlsOperation.Authenticated;
 			}
 		}
 
 		public override (int ret, bool wantMore) Write (byte[] buffer, int offset, int size)
 		{
 			Debug ("Write: {0} {1} {2}", buffer.Length, offset, size);
-
-			if (operation != MonoBtlsOperation.Authenticated)
-				throw new InvalidOperationException ();
-			operation = MonoBtlsOperation.Write;
 
 			var data = Marshal.AllocHGlobal (size);
 			if (data == IntPtr.Zero)
@@ -379,14 +354,12 @@ namespace Mono.Btls
 				return (size, false);
 			} finally {
 				Marshal.FreeHGlobal (data);
-				operation = MonoBtlsOperation.Authenticated;
 			}
 		}
 
 		public override void Shutdown ()
 		{
 			Debug ("Shutdown!");
-			operation = MonoBtlsOperation.Close;
 //			ssl.SetQuietShutdown ();
 			ssl.Shutdown ();
 		}
