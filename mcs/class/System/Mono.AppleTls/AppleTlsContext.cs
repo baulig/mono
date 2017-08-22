@@ -890,6 +890,11 @@ namespace Mono.AppleTls
 			}
 		}
 
+		public override bool PendingRenegotiation ()
+		{
+			return false;
+		}
+
 #endregion
 
 		protected override void Dispose (bool disposing)
