@@ -194,16 +194,7 @@ namespace Mono.AppleTls
 				if (status == SslStatus.PeerAuthCompleted) {
 					RequirePeerTrust ();
 				} else if (status == SslStatus.PeerClientCertRequested) {
-					RequirePeerTrust ();
-					if (remoteCertificate == null)
-						throw new TlsException (AlertDescription.InternalError, "Cannot request client certificate before receiving one from the server.");
-					localClientCertificate = SelectClientCertificate (remoteCertificate, null);
-					if (localClientCertificate == null)
-						continue;
-					clientIdentity = AppleCertificateHelper.GetIdentity (localClientCertificate);
-					if (clientIdentity == null)
-						throw new TlsException (AlertDescription.CertificateUnknown);
-					SetCertificate (clientIdentity, new SecCertificate [0]);
+					PeerClientCertRequested ();
 				} else if (status == SslStatus.WouldBlock) {
 					return false;
 				} else if (status == SslStatus.Success) {
@@ -211,6 +202,20 @@ namespace Mono.AppleTls
 					return true;
 				}
 			}
+		}
+
+		void PeerClientCertRequested ()
+		{
+			RequirePeerTrust ();
+			if (remoteCertificate == null)
+				throw new TlsException (AlertDescription.InternalError, "Cannot request client certificate before receiving one from the server.");
+			localClientCertificate = SelectClientCertificate (remoteCertificate, null);
+			if (localClientCertificate == null)
+				return;
+			clientIdentity = AppleCertificateHelper.GetIdentity (localClientCertificate);
+			if (clientIdentity == null)
+				throw new TlsException (AlertDescription.CertificateUnknown);
+			SetCertificate (clientIdentity, new SecCertificate [0]);
 		}
 
 		void RequirePeerTrust ()
@@ -822,6 +827,14 @@ namespace Mono.AppleTls
 					 * to distinguish between a graceful close and abnormal termination of connection.
 					 */
 					return (0, false);
+				}
+
+				if (status == SslStatus.PeerClientCertRequested) {
+					PeerClientCertRequested ();
+					return (0, true);
+				} else if (status == SslStatus.PeerAuthCompleted) {
+					RequirePeerTrust ();
+					return (0, true);
 				}
 
 				CheckStatusAndThrow (status, SslStatus.WouldBlock, SslStatus.ClosedGraceful);
