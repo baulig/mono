@@ -748,6 +748,7 @@ namespace Mono.Net.Security
 				operation = Operation.Close;
 				xobileTlsContext.Shutdown ();
 				shutdown = true;
+				operation = Operation.Authenticated;
 				return AsyncOperationStatus.Complete;
 			}
 		}
