@@ -781,7 +781,7 @@ namespace Mono.AppleTls
 
 			Debug ("NativeWriteCallback: {0}", len);
 
-			var ok = Parent.InternalWrite (writeBuffer, 0, len, false);
+			var ok = Parent.InternalWrite (writeBuffer, 0, len);
 
 			Debug ("NativeWriteCallback done: {0} {1}", len, ok);
 

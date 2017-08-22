@@ -490,13 +490,13 @@ namespace Mono.Net.Security
 		 * When 'renegotiate' is set, then we're called from SSLRead().
 		 *
 		 */
-		internal bool InternalWrite (byte[] buffer, int offset, int size, bool renegotiate)
+		internal bool InternalWrite (byte[] buffer, int offset, int size)
 		{
 			try {
-				Debug ("InternalWrite: {0} {1} {2} {3}", offset, size, operation, renegotiate);
+				Debug ("InternalWrite: {0} {1} {2}", offset, size, operation);
 
+				bool renegotiate = false;
 				AsyncProtocolRequest asyncRequest;
-				renegotiate = false;
 
 				switch (operation) {
 				case Operation.Handshake:
@@ -510,6 +510,8 @@ namespace Mono.Net.Security
 					Console.WriteLine ("RENEGOTIATION REQUESTED!");
 					asyncRequest = asyncReadRequest;
 					renegotiate = xobileTlsContext.PendingRenegotiation ();
+					if (!renegotiate)
+						throw GetInternalError ();
 					break;
 				default:
 					throw GetInternalError ();
@@ -518,10 +520,6 @@ namespace Mono.Net.Security
 				if (asyncRequest == null && operation != Operation.Close)
 					throw GetInternalError ();
 
-				if (renegotiate && asyncReadRequest == null)
-					throw GetInternalError ();
-
-				// asyncRequest = asyncHandshakeRequest ?? asyncWriteRequest;
 				if (asyncWriteRequest is AsyncRenegotiateRequest) {
 					Console.WriteLine ("RENEGOTIATE WRITE");
 					asyncRequest = asyncReadRequest;

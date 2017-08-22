@@ -430,16 +430,6 @@ namespace Mono.Btls
 		int IMonoBtlsBioMono.Read (byte[] buffer, int offset, int size, out bool wantMore)
 		{
 			Debug ("InternalRead: {0} {1}", offset, size);
-
-			switch (operation) {
-			case MonoBtlsOperation.Handshake:
-			case MonoBtlsOperation.Connected:
-			case MonoBtlsOperation.Read:
-				break;
-			default:
-				throw new InvalidOperationException ();
-			}
-
 			var ret = Parent.InternalRead (buffer, offset, size, out wantMore);
 			Debug ("InternalReadDone: {0} {1}", ret, wantMore);
 			return ret;
@@ -448,27 +438,7 @@ namespace Mono.Btls
 		bool IMonoBtlsBioMono.Write (byte[] buffer, int offset, int size)
 		{
 			Debug ("InternalWrite: {0} {1}", offset, size);
-
-			bool renegotiate;
-
-			switch (operation) {
-			case MonoBtlsOperation.Write:
-			case MonoBtlsOperation.Handshake:
-			case MonoBtlsOperation.Connected:
-				renegotiate = false;
-				break;
-			case MonoBtlsOperation.Read:
-				renegotiate = ssl.RenegotiatePending ();
-				break;
-			default:
-				throw new InvalidOperationException ();
-			}
-
-			if (renegotiate) {
-				Console.Error.WriteLine ("RENEGOTIATION REQUESTED!");
-			}
-
-			var ret = Parent.InternalWrite (buffer, offset, size, renegotiate);
+			var ret = Parent.InternalWrite (buffer, offset, size);
 			Debug ("InternalWrite done: {0}", ret);
 			return ret;
 		}
