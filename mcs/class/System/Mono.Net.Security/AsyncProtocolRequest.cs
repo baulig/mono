@@ -103,8 +103,7 @@ namespace Mono.Net.Security
 		Initialize,
 		Continue,
 		ReadDone,
-		Complete,
-		Renegotiate
+		Complete
 	}
 
 	class AsyncProtocolResult
@@ -200,19 +199,15 @@ namespace Mono.Net.Security
 				cancellationToken.ThrowIfCancellationRequested ();
 				Debug ("ProcessOperation: {0}", status);
 
-				if (status == AsyncOperationStatus.Renegotiate) {
-					status = Parent.ProcessHandshake (status);
-				} else {
-					var ret = await InnerRead (cancellationToken).ConfigureAwait (false);
-					if (ret != null) {
-						if (ret == 0) {
-							// End-of-stream
-							Debug ("END OF STREAM!");
-							status = AsyncOperationStatus.ReadDone;
-						} else if (ret < 0) {
-							// remote prematurely closed connection.
-							throw new IOException ("Remote prematurely closed connection.");
-						}
+				var ret = await InnerRead (cancellationToken).ConfigureAwait (false);
+				if (ret != null) {
+					if (ret == 0) {
+						// End-of-stream
+						Debug ("END OF STREAM!");
+						status = AsyncOperationStatus.ReadDone;
+					} else if (ret < 0) {
+						// remote prematurely closed connection.
+						throw new IOException ("Remote prematurely closed connection.");
 					}
 				}
 
@@ -341,9 +336,9 @@ namespace Mono.Net.Security
 		{
 			Debug ("ProcessRead - read user: {0} {1}", this, status);
 
-			var (ret, wantMore, renegotiate) = Parent.ProcessRead (UserBuffer);
+			var (ret, wantMore, _) = Parent.ProcessRead (UserBuffer);
 
-			Debug ("ProcessRead - read user done: {0} - {1} {2} {3}", this, ret, wantMore, renegotiate);
+			Debug ("ProcessRead - read user done: {0} - {1} {2}", this, ret, wantMore);
 
 			if (ret < 0) {
 				UserResult = -1;
@@ -355,12 +350,6 @@ namespace Mono.Net.Security
 			UserBuffer.Size -= ret;
 
 			Debug ("Process Read - read user done #1: {0} - {1} {2}", this, CurrentSize, wantMore);
-
-			if (renegotiate) {
-				if (CurrentSize != 0)
-					throw new NotSupportedException ();
-				// return AsyncOperationStatus.Renegotiate;
-			}
 
 			if (wantMore && CurrentSize == 0)
 				return AsyncOperationStatus.Continue;

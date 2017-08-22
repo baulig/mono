@@ -377,6 +377,14 @@ namespace Mono.Net.Security
 			} finally {
 				lock (ioLock) {
 					if (type == OperationType.Read) {
+						if (asyncWriteRequest is AsyncRenegotiateRequest renegotiateRequest) {
+							if (((AsyncReadRequest)asyncReadRequest).RenegotiateRequest != renegotiateRequest)
+								throw GetInternalError ();
+							if (renegotiateRequest.AsyncRead != asyncReadRequest)
+								throw GetInternalError ();
+							writeBuffer.Reset ();
+							asyncWriteRequest = null;
+						}
 						readBuffer.Reset ();
 						asyncReadRequest = null;
 					} else {
@@ -639,9 +647,6 @@ namespace Mono.Net.Security
 					return AsyncOperationStatus.Continue;
 				case AsyncOperationStatus.ReadDone:
 					throw new IOException (SR.net_auth_eof);
-				case AsyncOperationStatus.Renegotiate:
-					Debug ("Renegotiate");
-					break;
 				case AsyncOperationStatus.Continue:
 					break;
 				default:
