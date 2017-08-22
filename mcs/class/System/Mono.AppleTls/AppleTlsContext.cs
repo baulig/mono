@@ -100,7 +100,7 @@ namespace Mono.AppleTls
 		[System.Diagnostics.Conditional ("APPLE_TLS_DEBUG")]
 		protected new void Debug (string message, params object[] args)
 		{
-			Console.Error.WriteLine ("MobileTlsStream({0}): {1}", Parent.ID, string.Format (message, args));
+			Console.Error.WriteLine ("AppleTlsContext({0}): {1}", Parent.ID, string.Format (message, args));
 		}
 
 		void CheckStatusAndThrow (SslStatus status, params SslStatus[] acceptable)
@@ -791,7 +791,7 @@ namespace Mono.AppleTls
 		[DllImport (SecurityLibrary)]
 		extern unsafe static /* OSStatus */ SslStatus SSLRead (/* SSLContextRef */ IntPtr context, /* const void* */ byte* data, /* size_t */ IntPtr dataLength, /* size_t* */ out IntPtr processed);
 
-		public override unsafe int Read (byte[] buffer, int offset, int count, out bool wantMore)
+		public override unsafe (int ret, bool wantMore, bool renegotiate) Read (byte[] buffer, int offset, int count)
 		{
 			if (Interlocked.Exchange (ref pendingIO, 1) == 1)
 				throw new InvalidOperationException ();
@@ -821,13 +821,12 @@ namespace Mono.AppleTls
 					 * when the first inner Read() returns 0.  MobileAuthenticatedStream.InnerRead() attempts
 					 * to distinguish between a graceful close and abnormal termination of connection.
 					 */
-					wantMore = false;
-					return 0;
+					return (0, false, false);
 				}
 
 				CheckStatusAndThrow (status, SslStatus.WouldBlock, SslStatus.ClosedGraceful);
-				wantMore = status == SslStatus.WouldBlock;
-				return (int)processed;
+				var wantMore = status == SslStatus.WouldBlock;
+				return ((int)processed, wantMore, false);
 			} catch (Exception ex) {
 				Debug ("Read error: {0}", ex);
 				throw;
@@ -839,7 +838,7 @@ namespace Mono.AppleTls
 		[DllImport (SecurityLibrary)]
 		extern unsafe static /* OSStatus */ SslStatus SSLWrite (/* SSLContextRef */ IntPtr context, /* const void* */ byte* data, /* size_t */ IntPtr dataLength, /* size_t* */ out IntPtr processed);
 
-		public override unsafe int Write (byte[] buffer, int offset, int count, out bool wantMore)
+		public override unsafe (int ret, bool wantMore) Write (byte[] buffer, int offset, int count)
 		{
 			if (Interlocked.Exchange (ref pendingIO, 1) == 1)
 				throw new InvalidOperationException ();
@@ -859,8 +858,8 @@ namespace Mono.AppleTls
 
 				CheckStatusAndThrow (status, SslStatus.WouldBlock);
 
-				wantMore = status == SslStatus.WouldBlock;
-				return (int)processed;
+				var wantMore = status == SslStatus.WouldBlock;
+				return ((int)processed, wantMore);
 			} finally {
 				pendingIO = 0;
 			}

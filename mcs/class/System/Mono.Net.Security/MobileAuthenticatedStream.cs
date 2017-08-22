@@ -599,7 +599,7 @@ namespace Mono.Net.Security
 				 * The first time we're called (AsyncOperationStatus.Initialize), we need to setup the SslContext and
 				 * start the handshake.
 				*/
-				if (status == AsyncOperationStatus.Initialize) {
+				if (status == AsyncOperationStatus.Initialize || status == AsyncOperationStatus.Renegotiate) {
 					xobileTlsContext.StartHandshake ();
 					return AsyncOperationStatus.Continue;
 				} else if (status == AsyncOperationStatus.ReadDone) {
@@ -620,21 +620,19 @@ namespace Mono.Net.Security
 			}
 		}
 
-		internal (int, bool) ProcessRead (BufferOffsetSize userBuffer)
+		internal (int ret, bool wantMore, bool renegotiate) ProcessRead (BufferOffsetSize userBuffer)
 		{
 			lock (ioLock) {
 				// This operates on the internal buffer and will never block.
-				var ret = xobileTlsContext.Read (userBuffer.Buffer, userBuffer.Offset, userBuffer.Size, out bool wantMore);
-				return (ret, wantMore);
+				return xobileTlsContext.Read (userBuffer.Buffer, userBuffer.Offset, userBuffer.Size);
 			}
 		}
 
-		internal (int, bool) ProcessWrite (BufferOffsetSize userBuffer)
+		internal (int ret, bool wantMore) ProcessWrite (BufferOffsetSize userBuffer)
 		{
 			lock (ioLock) {
 				// This operates on the internal buffer and will never block.
-				var ret = xobileTlsContext.Write (userBuffer.Buffer, userBuffer.Offset, userBuffer.Size, out bool wantMore);
-				return (ret, wantMore);
+				return xobileTlsContext.Write (userBuffer.Buffer, userBuffer.Offset, userBuffer.Size);
 			}
 		}
 
