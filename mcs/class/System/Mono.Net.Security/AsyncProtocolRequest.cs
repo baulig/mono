@@ -158,7 +158,7 @@ namespace Mono.Net.Security
 			RunSynchronously = sync;
 		}
 
-		[SD.Conditional ("MARTIN_DEBUG")]
+		[SD.Conditional ("MARTIN_TLS_DEBUG")]
 		protected void Debug (string message, params object[] args)
 		{
 			Parent.Debug ("{0}({1}:{2}): {3}", Name, Parent.ID, ID, string.Format (message, args));

@@ -438,10 +438,10 @@ namespace Mono.Net.Security
 		static int nextId;
 		internal readonly int ID = ++nextId;
 
-		[SD.Conditional ("MARTIN_DEBUG")]
+		[SD.Conditional ("MARTIN_TLS_DEBUG")]
 		protected internal void Debug (string message, params object[] args)
 		{
-			Console.Error.WriteLine ("MobileAuthenticatedStream({0}): {1}", ID, string.Format (message, args));
+			MonoTlsProviderFactory.Debug ("MobileAuthenticatedStream({0}): {1}", ID, string.Format (message, args));
 		}
 
 #region Called back from native code via SslConnection

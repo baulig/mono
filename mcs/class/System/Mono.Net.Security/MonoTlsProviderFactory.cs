@@ -38,6 +38,7 @@ using System.Security.Cryptography.X509Certificates;
 
 using System;
 using System.Net;
+using System.Diagnostics;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 
@@ -82,6 +83,10 @@ namespace Mono.Net.Security
 			lock (locker) {
 				if (initialized)
 					return;
+
+#if MARTIN_TLS_DEBUG
+				InitializeDebug ();
+#endif
 
 				InitializeProviderRegistration ();
 
@@ -190,6 +195,25 @@ namespace Mono.Net.Security
 				providerCache.Add (entry.Item1, provider);
 				return provider;
 			}
+		}
+
+#if MARTIN_TLS_DEBUG
+		static bool enableDebug;
+
+		static void InitializeDebug ()
+		{
+			if (Environment.GetEnvironmentVariable ("MARTIN_TLS_DEBUG") != null)
+				enableDebug = true;
+		}
+#endif
+
+		[Conditional ("MARTIN_TLS_DEBUG")]
+		internal static void Debug (string message, params object[] args)
+		{
+#if MARTIN_TLS_DEBUG
+			if (enableDebug)
+				Console.Error.WriteLine (message, args);
+#endif
 		}
 
 #endregion
