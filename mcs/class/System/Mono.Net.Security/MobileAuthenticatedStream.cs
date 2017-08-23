@@ -124,7 +124,8 @@ namespace Mono.Net.Security
 
 		internal static Exception GetRenegotiationException (string message)
 		{
-			return new MSI.TlsException (MSI.AlertDescription.UnexpectedMessage, message);
+			var tlsExc = new MSI.TlsException (MSI.AlertDescription.NoRenegotiation, message);
+			return new AuthenticationException (SR.net_auth_SSPI, tlsExc);
 		}
 
 		internal static Exception GetInternalError ()
@@ -532,7 +533,7 @@ namespace Mono.Net.Security
 					break;
 				case Operation.Read:
 					// We don't support renegotiation yet.
-					throw new MSI.TlsException (MSI.AlertDescription.NoRenegotiation);
+					throw GetRenegotiationException ("Renegotiation is not yet supported.");
 				default:
 					throw GetInternalError ();
 				}
