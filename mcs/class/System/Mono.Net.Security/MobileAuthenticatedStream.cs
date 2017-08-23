@@ -668,14 +668,28 @@ namespace Mono.Net.Security
 
 #region Main async I/O loop
 
-		internal AsyncOperationStatus ProcessHandshake (AsyncOperationStatus status)
+		internal AsyncOperationStatus ProcessHandshake (AsyncOperationStatus status, bool renegotiate)
 		{
-			Debug ("ProcessHandshake: {0}", status);
+			Debug ($"ProcessHandshake: {status} {renegotiate}");
 
 			lock (ioLock) {
-				if (operation != Operation.None && operation != Operation.Handshake)
+				switch (operation) {
+				case Operation.None:
+					if (renegotiate)
+						throw GetInternalError ();
+					operation = Operation.Handshake;
+					break;
+				case Operation.Authenticated:
+					if (!renegotiate)
+						throw GetInternalError ();
+					operation = Operation.Renegotiate;
+					break;
+				case Operation.Handshake:
+				case Operation.Renegotiate:
+					break;
+				default:
 					throw GetInternalError ();
-				operation = Operation.Handshake;
+				}
 
 				/*
 				 * The first time we're called (AsyncOperationStatus.Initialize), we need to setup the SslContext and
@@ -683,7 +697,10 @@ namespace Mono.Net.Security
 				*/
 				switch (status) {
 				case AsyncOperationStatus.Initialize:
-					xobileTlsContext.StartHandshake ();
+					if (renegotiate)
+						xobileTlsContext.Renegotiate ();
+					else
+						xobileTlsContext.StartHandshake ();
 					return AsyncOperationStatus.Continue;
 				case AsyncOperationStatus.ReadDone:
 					throw new IOException (SR.net_auth_eof);
@@ -753,49 +770,6 @@ namespace Mono.Net.Security
 				shutdown = true;
 				operation = Operation.Authenticated;
 				return AsyncOperationStatus.Complete;
-			}
-		}
-
-		internal AsyncOperationStatus ProcessRenegotiate (AsyncOperationStatus status)
-		{
-			Debug ("ProcessRenegotiate: {0}", status);
-
-			lock (ioLock) {
-				if (operation != Operation.Authenticated && operation != Operation.Renegotiate)
-					throw GetInternalError ();
-				operation = Operation.Renegotiate;
-
-				/*
-				 * The first time we're called (AsyncOperationStatus.Initialize), we need to
-				 * call SSLReHandshake() to request renegotiation.
-				*/
-				switch (status) {
-				case AsyncOperationStatus.Initialize:
-					xobileTlsContext.Renegotiate ();
-					return AsyncOperationStatus.Continue;
-				case AsyncOperationStatus.ReadDone:
-					throw new IOException (SR.net_auth_eof);
-				case AsyncOperationStatus.Continue:
-					break;
-				default:
-					throw new InvalidOperationException ();
-				}
-
-				/*
-				 * SSLHandshake() will return repeatedly with 'SslStatus.WouldBlock', we then need
-				 * to take care of I/O and call it again.
-				*/
-				var newStatus = AsyncOperationStatus.Continue;
-				if (xobileTlsContext.ProcessHandshake ()) {
-					xobileTlsContext.FinishHandshake ();
-					operation = Operation.Authenticated;
-					newStatus = AsyncOperationStatus.Complete;
-				}
-
-				if (lastException != null)
-					lastException.Throw ();
-
-				return newStatus;
 			}
 		}
 
