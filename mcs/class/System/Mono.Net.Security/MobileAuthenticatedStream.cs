@@ -755,11 +755,18 @@ namespace Mono.Net.Security
 			}
 		}
 
-		public bool CanRenegotiate => false;
+		public bool CanRenegotiate {
+			get {
+				CheckThrow (true);
+				return xobileTlsContext != null && xobileTlsContext.CanRenegotiate;
+			}
+		}
 
 		public void Renegotiate ()
 		{
-			throw new NotSupportedException ();
+			lock (ioLock) {
+				xobileTlsContext.Renegotiate ();
+			}
 		}
 
 		protected override void Dispose (bool disposing)
