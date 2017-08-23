@@ -124,6 +124,9 @@ namespace Mono.AppleTls
 			case SslStatus.Protocol:
 				throw new TlsException (AlertDescription.ProtocolVersion);
 
+			case SslStatus.PeerNoRenegotiation:
+				throw new TlsException (AlertDescription.NoRenegotiation);
+
 			default:
 				throw new TlsException (AlertDescription.InternalError, "Unknown Secure Transport error `{0}'.", status);
 			}
@@ -457,6 +460,13 @@ namespace Mono.AppleTls
 				CheckStatusAndThrow (result);
 				return value;
 			}
+		}
+
+		SslSessionState GetSessionState ()
+		{
+			var value = SslSessionState.Invalid;
+			var result = SSLGetSessionState (Handle, ref value);
+			return result == SslStatus.Success ? value : SslSessionState.Invalid;
 		}
 
 		[DllImport (SecurityLibrary)]
@@ -902,6 +912,11 @@ namespace Mono.AppleTls
 				closed = true;
 				pendingIO = 0;
 			}
+		}
+
+		public override bool PendingRenegotiation ()
+		{
+			return GetSessionState () == SslSessionState.Handshake;
 		}
 
 		#endregion

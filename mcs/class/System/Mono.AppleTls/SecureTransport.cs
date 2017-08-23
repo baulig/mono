@@ -123,11 +123,11 @@ namespace Mono.AppleTls {
 	// untyped enum
 	enum SslSessionState {
 		Invalid = -1,
-		// Idle,
-		// Handshake,
-		// Connected,
-		// Closed,
-		// Aborted
+		Idle,
+		Handshake,
+		Connected,
+		Closed,
+		Aborted
 	}
 
 	// Security.framework/Headers/SecureTransport.h

@@ -511,8 +511,9 @@ namespace Mono.Net.Security
 		/*
 		 * We may get called from SSLWrite(), SSLHandshake() or SSLClose(), so we own the 'ioLock'.
 		 *
-		 * When the server sends a renegotiation request during SSLRead(), the native code will send
-		 * the ClientHello, so we can also get called during SSLRead().
+		 * We may also get called from SSLRead() in two situations:
+		 * a) The remote send a CloseNotify and we're trying to reply by sending a CloseNotify back.
+		 * b) We received a renegotiation request and started a new handshake.
 		 *
 		 */
 		internal bool InternalWrite (byte[] buffer, int offset, int size)
@@ -532,8 +533,11 @@ namespace Mono.Net.Security
 					asyncRequest = asyncWriteRequest;
 					break;
 				case Operation.Read:
-					// We don't support renegotiation yet.
-					throw GetRenegotiationException ("Renegotiation is not yet supported.");
+					asyncRequest = asyncReadRequest;
+					Debug ("Got Out-Of-Band write during read!");
+					if (xobileTlsContext.PendingRenegotiation ())
+						throw GetRenegotiationException ("Renegotiation is not yet supported.");
+					break;
 				default:
 					throw GetInternalError ();
 				}

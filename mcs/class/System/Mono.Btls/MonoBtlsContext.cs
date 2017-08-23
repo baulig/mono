@@ -372,6 +372,11 @@ namespace Mono.Btls
 			ssl.Shutdown ();
 		}
 
+		public override bool PendingRenegotiation ()
+		{
+			return ssl.RenegotiatePending ();
+		}
+
 		void Dispose<T> (ref T disposable)
 			where T : class, IDisposable
 		{

@@ -175,6 +175,8 @@ namespace Mono.Net.Security
 
 		public abstract void Shutdown ();
 
+		public abstract bool PendingRenegotiation ();
+
 		protected bool ValidateCertificate (X509Certificate leaf, X509Chain chain)
 		{
 			var result = certificateValidator.ValidateCertificate (TargetHost, IsServer, leaf, chain);
