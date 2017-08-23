@@ -127,6 +127,9 @@ namespace Mono.AppleTls
 			case SslStatus.PeerNoRenegotiation:
 				throw new TlsException (AlertDescription.NoRenegotiation);
 
+			case SslStatus.PeerUnexpectedMsg:
+				throw new TlsException (AlertDescription.UnexpectedMessage);
+
 			default:
 				throw new TlsException (AlertDescription.InternalError, "Unknown Secure Transport error `{0}'.", status);
 			}
