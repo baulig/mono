@@ -398,7 +398,7 @@ namespace Mono.Net.Security
 
 		protected override AsyncOperationStatus Run (AsyncOperationStatus status)
 		{
-			throw new NotImplementedException ();
+			return Parent.ProcessRenegotiate (status);
 		}
 	}
 }
