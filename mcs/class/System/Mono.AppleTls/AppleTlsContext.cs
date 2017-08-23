@@ -57,6 +57,7 @@ namespace Mono.AppleTls
 		bool havePeerTrust;
 		bool isAuthenticated;
 		bool handshakeFinished;
+		bool renegotiating;
 		int handshakeStarted;
 
 		bool closed;
@@ -172,7 +173,7 @@ namespace Mono.AppleTls
 
 		public override bool ProcessHandshake ()
 		{
-			if (handshakeFinished)
+			if (handshakeFinished && !renegotiating)
 				throw new NotSupportedException ("Handshake already finished.");
 
 			while (true) {
@@ -199,6 +200,7 @@ namespace Mono.AppleTls
 					return false;
 				} else if (status == SslStatus.Success) {
 					handshakeFinished = true;
+					renegotiating = false;
 					return true;
 				}
 			}
@@ -873,6 +875,7 @@ namespace Mono.AppleTls
 
 			var status = SSLReHandshake (Handle);
 			CheckStatusAndThrow (status);
+			renegotiating = true;
 #endif
 		}
 
