@@ -145,6 +145,7 @@ namespace Mono.Net.Security
 		enum OperationType {
 			Read,
 			Write,
+			Renegotiate,
 			Shutdown
 		}
 
@@ -358,6 +359,22 @@ namespace Mono.Net.Security
 		{
 			var asyncRequest = new AsyncWriteRequest (this, false, buffer, offset, count);
 			return StartOperation (OperationType.Write, asyncRequest, cancellationToken);
+		}
+
+		public bool CanRenegotiate {
+			get {
+				CheckThrow (true);
+				return xobileTlsContext != null && xobileTlsContext.CanRenegotiate;
+			}
+		}
+
+		public Task RenegotiateAsync (CancellationToken cancellationToken)
+		{
+			Debug ("RenegotiateAsync");
+
+			var asyncRequest = new AsyncRenegotiateRequest (this);
+			var task = StartOperation (OperationType.Renegotiate, asyncRequest, cancellationToken);
+			return task;
 		}
 
 		async Task<int> StartOperation (OperationType type, AsyncProtocolRequest asyncRequest, CancellationToken cancellationToken)
@@ -752,20 +769,6 @@ namespace Mono.Net.Security
 						return false;
 					return xobileTlsContext.IsRemoteCertificateAvailable;
 				}
-			}
-		}
-
-		public bool CanRenegotiate {
-			get {
-				CheckThrow (true);
-				return xobileTlsContext != null && xobileTlsContext.CanRenegotiate;
-			}
-		}
-
-		public void Renegotiate ()
-		{
-			lock (ioLock) {
-				xobileTlsContext.Renegotiate ();
 			}
 		}
 

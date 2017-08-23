@@ -204,7 +204,7 @@ namespace Mono.Security.Interface
 			get;
 		}
 
-		void Renegotiate ();
+		Task RenegotiateAsync (CancellationToken cancellationToken);
 	}
 }
 
