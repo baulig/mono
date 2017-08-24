@@ -84,10 +84,6 @@ namespace Mono.Net.Security
 				if (initialized)
 					return;
 
-#if MARTIN_TLS_DEBUG
-				InitializeDebug ();
-#endif
-
 				InitializeProviderRegistration ();
 
 				MSI.MonoTlsProvider provider;
@@ -227,6 +223,11 @@ namespace Mono.Net.Security
 			lock (locker) {
 				if (providerRegistration != null)
 					return;
+
+#if MARTIN_TLS_DEBUG
+				InitializeDebug ();
+#endif
+
 				providerRegistration = new Dictionary<string,Tuple<Guid,string>> ();
 				providerCache = new Dictionary<Guid,MSI.MonoTlsProvider> ();
 

@@ -226,6 +226,7 @@ namespace Mono.Net.Security
 
 				if (Interlocked.Exchange (ref WriteRequested, 0) != 0) {
 					// Flush the write queue.
+					Debug ("ProcessOperation - flushing write queue");
 					await Parent.InnerWrite (RunSynchronously, cancellationToken);
 				}
 
