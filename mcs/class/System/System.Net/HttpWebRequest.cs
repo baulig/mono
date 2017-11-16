@@ -1584,6 +1584,7 @@ namespace System.Net
 			if (writeStream.WriteBufferLength == 0 || contentLength == 0)
 				return (null, null);
 
+			// Keep the written body, so it can be rewritten in the retry
 			if (AllowWriteStreamBuffering)
 				return (Task.FromResult (writeStream.GetWriteBuffer ()), null);
 
@@ -1591,6 +1592,10 @@ namespace System.Net
 				return (null, new WebException (
 					"The request requires buffering data to succeed.", null, WebExceptionStatus.ProtocolError, response));
 
+			//
+			// Buffering is not allowed but we have alternative way to get same content (we
+			// need to resent it due to NTLM Authentication).
+			//
 			return (HandleResendContentFactory (), null);
 
 			async Task<BufferOffsetSize> HandleResendContentFactory ()
@@ -1627,27 +1632,6 @@ namespace System.Net
 					if (throwMe == null)
 						return (true, mustReadAll, rewriteHandler, null);
 
-#if FIXME
-					// Keep the written body, so it can be rewritten in the retry
-					if (AllowWriteStreamBuffering) {
-						var buffer = writeStream.GetWriteBuffer ();
-						return (true, mustReadAll, Task.FromResult (buffer), null);
-					}
-
-					//
-					// Buffering is not allowed but we have alternative way to get same content (we
-					// need to resent it due to NTLM Authentication).
-					//
-					if (ResendContentFactory != null) {
-						using (var ms = new MemoryStream ()) {
-							ResendContentFactory (ms);
-							var buffer = ms.ToArray ();
-							var bos = new BufferOffsetSize (buffer, 0, buffer.Length, false);
-							return (true, mustReadAll, bos, null);
-						}
-					}
-#endif
-
 					if (!ThrowOnError)
 						return (false, mustReadAll, null, null);
 
@@ -1655,11 +1639,6 @@ namespace System.Net
 					writeStream = null;
 					response.Close ();
 
-#if FIXME
-					throwMe = new WebException ("This request requires buffering " +
-					                            "of data for authentication or " +
-					                            "redirection to be sucessful.");
-#endif
 					return (false, mustReadAll, null, throwMe);
 				}
 			}
@@ -1682,12 +1661,9 @@ namespace System.Net
 			if (throwMe == null) {
 				int c = (int)code;
 				bool b = false;
-//				BufferOffsetSize buffer = null;
 				if (allowAutoRedirect && c >= 300) {
 					b = Redirect (code, response);
 					(rewriteHandler, throwMe) = GetRewriteHandler (response);
-//					if (InternalAllowBuffering)
-//						buffer = writeStream.GetWriteBuffer ();
 					if (b && !unsafe_auth_blah) {
 						auth_state.Reset ();
 						proxy_auth_state.Reset ();
