@@ -1578,6 +1578,12 @@ namespace System.Net
 
 		(Task<BufferOffsetSize> task, WebException throwMe) GetRewriteHandler (HttpWebResponse response)
 		{
+			if (!MethodWithBuffer)
+				return (null, null);
+
+			if (writeStream.WriteBufferLength == 0 || contentLength == 0)
+				return (null, null);
+
 			if (AllowWriteStreamBuffering)
 				return (Task.FromResult (writeStream.GetWriteBuffer ()), null);
 
@@ -1618,7 +1624,7 @@ namespace System.Net
 						return (true, mustReadAll, null, null);
 
 					(rewriteHandler, throwMe) = GetRewriteHandler (response);
-					if (rewriteHandler != null)
+					if (throwMe == null)
 						return (true, mustReadAll, rewriteHandler, null);
 
 #if FIXME
