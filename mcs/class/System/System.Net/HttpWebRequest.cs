@@ -126,7 +126,7 @@ namespace System.Net
 		string host;
 
 		[NonSerialized]
-		internal Action<Stream> ResendContentFactory;
+		internal Func<Stream, Task> ResendContentFactory;
 
 		// Constructors
 		static HttpWebRequest ()
@@ -1111,16 +1111,21 @@ namespace System.Net
 			bool redirect = false;
 			bool mustReadAll = false;
 			WebOperation ntlm = null;
+			Task<BufferOffsetSize> rewriteHandler = null;
 			BufferOffsetSize writeBuffer = null;
 
 			lock (locker) {
-				(redirect, mustReadAll, writeBuffer, throwMe) = CheckFinalStatus (response);
+				(redirect, mustReadAll, rewriteHandler, throwMe) = CheckFinalStatus (response);
 			}
 
 			if (throwMe != null) {
 				if (mustReadAll)
 					await stream.ReadAllAsync (cancellationToken).ConfigureAwait (false);
 				throw throwMe;
+			}
+
+			if (rewriteHandler != null) {
+				writeBuffer = await rewriteHandler.ConfigureAwait (false);
 			}
 
 			lock (locker) {
@@ -1331,7 +1336,8 @@ namespace System.Net
 				break;
 			}
 
-			if (method != "GET" && !InternalAllowBuffering && (writeStream.WriteBufferLength > 0 || contentLength > 0))
+			if (method != "GET" && !InternalAllowBuffering && ResendContentFactory == null &&
+			    (writeStream.WriteBufferLength > 0 || contentLength > 0))
 				e = new WebException ("The request requires buffering data to succeed.", null, WebExceptionStatus.ProtocolError, response);
 
 			if (e != null)
@@ -1472,7 +1478,7 @@ namespace System.Net
 		}
 
 		(WebOperation, bool) HandleNtlmAuth (WebResponseStream stream, HttpWebResponse response,
-		                                     BufferOffsetSize writeBuffer, CancellationToken cancellationToken)
+						     BufferOffsetSize writeBuffer, CancellationToken cancellationToken)
 		{
 			bool isProxy = response.StatusCode == HttpStatusCode.ProxyAuthenticationRequired;
 			if ((isProxy ? proxy_auth_state : auth_state).NtlmAuthState == NtlmAuthState.None)
@@ -1530,7 +1536,7 @@ namespace System.Net
 				if (isProxy && (request.proxy == null || request.proxy.Credentials == null))
 					return false;
 
-				string [] authHeaders = response.Headers.GetValues (isProxy ? "Proxy-Authenticate" : "WWW-Authenticate");
+				string[] authHeaders = response.Headers.GetValues (isProxy ? "Proxy-Authenticate" : "WWW-Authenticate");
 				if (authHeaders == null || authHeaders.Length == 0)
 					return false;
 
@@ -1543,11 +1549,11 @@ namespace System.Net
 				}
 				if (auth == null)
 					return false;
-				request.webHeaders [isProxy ? "Proxy-Authorization" : "Authorization"] = auth.Message;
+				request.webHeaders[isProxy ? "Proxy-Authorization" : "Authorization"] = auth.Message;
 				isCompleted = auth.Complete;
 				bool is_ntlm = (auth.ModuleAuthenticationType == "NTLM");
 				if (is_ntlm)
-					ntlm_auth_state = (NtlmAuthState)((int) ntlm_auth_state + 1);
+					ntlm_auth_state = (NtlmAuthState)((int)ntlm_auth_state + 1);
 				return true;
 			}
 
@@ -1570,14 +1576,36 @@ namespace System.Net
 			return isProxy ? proxy_auth_state.CheckAuthorization (response, code) : auth_state.CheckAuthorization (response, code);
 		}
 
+		(Task<BufferOffsetSize> task, WebException throwMe) GetRewriteHandler (HttpWebResponse response)
+		{
+			if (AllowWriteStreamBuffering)
+				return (Task.FromResult (writeStream.GetWriteBuffer ()), null);
+
+			if (ResendContentFactory == null)
+				return (null, new WebException (
+					"The request requires buffering data to succeed.", null, WebExceptionStatus.ProtocolError, response));
+
+			return (HandleResendContentFactory (), null);
+
+			async Task<BufferOffsetSize> HandleResendContentFactory ()
+			{
+				using (var ms = new MemoryStream ()) {
+					await ResendContentFactory (ms).ConfigureAwait (false);
+					var buffer = ms.ToArray ();
+					return new BufferOffsetSize (buffer, 0, buffer.Length, false);
+				}
+			}
+		}
+
 		// Returns true if redirected
-		(bool redirect, bool mustReadAll, BufferOffsetSize writeBuffer, WebException throwMe) CheckFinalStatus (HttpWebResponse response)
+		(bool redirect, bool mustReadAll, Task<BufferOffsetSize> writeBuffer, WebException throwMe) CheckFinalStatus (HttpWebResponse response)
 		{
 			WebException throwMe = null;
 
 			bool mustReadAll = false;
 			WebExceptionStatus protoError = WebExceptionStatus.ProtocolError;
 			HttpStatusCode code = 0;
+			Task<BufferOffsetSize> rewriteHandler = null;
 
 			code = response.StatusCode;
 			if ((!auth_state.IsCompleted && code == HttpStatusCode.Unauthorized && credentials != null) ||
@@ -1589,10 +1617,15 @@ namespace System.Net
 					if (!MethodWithBuffer)
 						return (true, mustReadAll, null, null);
 
+					(rewriteHandler, throwMe) = GetRewriteHandler (response);
+					if (rewriteHandler != null)
+						return (true, mustReadAll, rewriteHandler, null);
+
+#if FIXME
 					// Keep the written body, so it can be rewritten in the retry
 					if (AllowWriteStreamBuffering) {
 						var buffer = writeStream.GetWriteBuffer ();
-						return (true, mustReadAll, buffer, null);
+						return (true, mustReadAll, Task.FromResult (buffer), null);
 					}
 
 					//
@@ -1607,6 +1640,7 @@ namespace System.Net
 							return (true, mustReadAll, bos, null);
 						}
 					}
+#endif
 
 					if (!ThrowOnError)
 						return (false, mustReadAll, null, null);
@@ -1615,9 +1649,11 @@ namespace System.Net
 					writeStream = null;
 					response.Close ();
 
+#if FIXME
 					throwMe = new WebException ("This request requires buffering " +
 					                            "of data for authentication or " +
 					                            "redirection to be sucessful.");
+#endif
 					return (false, mustReadAll, null, throwMe);
 				}
 			}
@@ -1640,11 +1676,12 @@ namespace System.Net
 			if (throwMe == null) {
 				int c = (int)code;
 				bool b = false;
-				BufferOffsetSize buffer = null;
+//				BufferOffsetSize buffer = null;
 				if (allowAutoRedirect && c >= 300) {
 					b = Redirect (code, response);
-					if (InternalAllowBuffering)
-						buffer = writeStream.GetWriteBuffer ();
+					(rewriteHandler, throwMe) = GetRewriteHandler (response);
+//					if (InternalAllowBuffering)
+//						buffer = writeStream.GetWriteBuffer ();
 					if (b && !unsafe_auth_blah) {
 						auth_state.Reset ();
 						proxy_auth_state.Reset ();
@@ -1654,7 +1691,8 @@ namespace System.Net
 				if (c >= 300 && c != 304)
 					mustReadAll = true;
 
-				return (b, mustReadAll, buffer, null);
+				if (throwMe == null)
+					return (b, mustReadAll, rewriteHandler, null);
 			}
 
 			if (writeStream != null) {
