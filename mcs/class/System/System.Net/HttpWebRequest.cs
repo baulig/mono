@@ -1576,13 +1576,15 @@ namespace System.Net
 			return isProxy ? proxy_auth_state.CheckAuthorization (response, code) : auth_state.CheckAuthorization (response, code);
 		}
 
-		(Task<BufferOffsetSize> task, WebException throwMe) GetRewriteHandler (HttpWebResponse response)
+		(Task<BufferOffsetSize> task, WebException throwMe) GetRewriteHandler (HttpWebResponse response, bool redirect)
 		{
-			if (!MethodWithBuffer)
-				return (null, null);
+			if (redirect) {
+				if (!MethodWithBuffer)
+					return (null, null);
 
-			if (writeStream.WriteBufferLength == 0 || contentLength == 0)
-				return (null, null);
+				if (writeStream.WriteBufferLength == 0 || contentLength == 0)
+					return (null, null);
+			}
 
 			// Keep the written body, so it can be rewritten in the retry
 			if (AllowWriteStreamBuffering)
@@ -1628,7 +1630,7 @@ namespace System.Net
 					if (!MethodWithBuffer)
 						return (true, mustReadAll, null, null);
 
-					(rewriteHandler, throwMe) = GetRewriteHandler (response);
+					(rewriteHandler, throwMe) = GetRewriteHandler (response, false);
 					if (throwMe == null)
 						return (true, mustReadAll, rewriteHandler, null);
 
@@ -1663,7 +1665,7 @@ namespace System.Net
 				bool b = false;
 				if (allowAutoRedirect && c >= 300) {
 					b = Redirect (code, response);
-					(rewriteHandler, throwMe) = GetRewriteHandler (response);
+					(rewriteHandler, throwMe) = GetRewriteHandler (response, true);
 					if (b && !unsafe_auth_blah) {
 						auth_state.Reset ();
 						proxy_auth_state.Reset ();
