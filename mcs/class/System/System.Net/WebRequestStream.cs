@@ -158,7 +158,7 @@ namespace System.Net
 
 				WebConnection.Debug ($"{ME} WRITE ASYNC #1: {allowBuffering} {sendChunked} {Request.ContentLength} {totalWritten}");
 
-				if (allowBuffering && Request.ContentLength > 0 && totalWritten == Request.ContentLength)
+				if (Request.ContentLength > 0 && totalWritten == Request.ContentLength)
 					await FinishWriting (cancellationToken);
 
 				pendingWrite = null;
@@ -326,7 +326,7 @@ namespace System.Net
 				return;
 
 			requestWritten = true;
-			if (sendChunked || !allowBuffering || !HasWriteBuffer)
+			if (sendChunked || !HasWriteBuffer)
 				return;
 
 			BufferOffsetSize buffer = GetWriteBuffer ();
