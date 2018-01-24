@@ -204,7 +204,7 @@ namespace System.Net
 				offset += copy;
 				size -= copy;
 				totalRead += copy;
-				if (size == 0 || totalRead >= contentLength) {
+				if (totalRead >= contentLength) {
 					read_eof = true;
 					contentLength = totalRead;
 				}
