@@ -872,7 +872,7 @@ namespace System.Net
 			}
 		}
 
-		async Task<Stream> MyGetRequestStreamAsync (CancellationToken cancellationToken)
+		Task<Stream> MyGetRequestStreamAsync (CancellationToken cancellationToken)
 		{
 			if (Aborted)
 				throw CreateRequestAbortedException ();
@@ -903,7 +903,7 @@ namespace System.Net
 				}
 			}
 
-			return await operation.GetRequestStream ().ConfigureAwait (false);
+			return operation.GetRequestStream ();
 		}
 
 		public override IAsyncResult BeginGetRequestStream (AsyncCallback callback, object state)
@@ -1013,7 +1013,7 @@ namespace System.Net
 
 					WebConnection.Debug ($"HWR GET RESPONSE LOOP: Req={ID} {auth_state.NtlmAuthState}");
 
-					writeStream = await operation.GetRequestStream ();
+					writeStream = await operation.GetRequestStreamInternal ();
 					await writeStream.WriteRequestAsync (cancellationToken).ConfigureAwait (false);
 
 					stream = await operation.GetResponseStream ();
