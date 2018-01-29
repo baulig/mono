@@ -608,7 +608,7 @@ namespace System.Net
 			get { return version; }
 			set {
 				if (value != HttpVersion.Version10 && value != HttpVersion.Version11)
-					throw new ArgumentException ("value");
+					throw new ArgumentException (SR.net_wrongversion, nameof (value));
 
 				force_version = true;
 				version = value;
