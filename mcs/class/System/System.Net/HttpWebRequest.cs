@@ -68,6 +68,7 @@ namespace System.Net
 		bool hostChanged;
 		bool allowAutoRedirect = true;
 		bool allowBuffering = true;
+		bool allowReadStreamBuffering = false;
 		X509CertificateCollection certificates;
 		string connectionGroup;
 		bool haveContentLength;
@@ -245,11 +246,8 @@ namespace System.Net
 		}
 
 		public virtual bool AllowReadStreamBuffering {
-			get { return false; }
-			set {
-				if (value)
-					throw new InvalidOperationException ();
-			}
+			get { return allowReadStreamBuffering; }
+			set { allowReadStreamBuffering = value; }
 		}
 
 		static Exception GetMustImplement ()

@@ -2642,21 +2642,6 @@ namespace MonoTests.System.Net
 			}
 		}
 
-		[Test]
-#if FEATURE_NO_BSD_SOCKETS
-		[ExpectedException (typeof (PlatformNotSupportedException))]
-#endif
-		public void AllowReadStreamBuffering ()
-		{
-			var hr = WebRequest.CreateHttp ("http://www.google.com");
-			Assert.IsFalse (hr.AllowReadStreamBuffering, "#1");
-			try {
-				hr.AllowReadStreamBuffering = true;
-				Assert.Fail ("#2");
-			} catch (InvalidOperationException) {
-			}
-		}
-
 		class ListenerScope : IDisposable {
 			EventWaitHandle completed;
 			public HttpListener listener;
