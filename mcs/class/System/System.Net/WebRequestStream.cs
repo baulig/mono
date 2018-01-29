@@ -131,7 +131,7 @@ namespace System.Net
 			Operation.CompleteRequestWritten (this);
 		}
 
-		public override Task WriteAsync (byte[] buffer, int offset, int size, CancellationToken cancellationToken)
+		public override Task WriteAsync (byte[] buffer, int offset, int count, CancellationToken cancellationToken)
 		{
 			if (buffer == null)
 				throw new ArgumentNullException (nameof (buffer));
@@ -139,10 +139,10 @@ namespace System.Net
 			int length = buffer.Length;
 			if (offset < 0 || length < offset)
 				throw new ArgumentOutOfRangeException (nameof (offset));
-			if (size < 0 || (length - offset) < size)
-				throw new ArgumentOutOfRangeException (nameof (size));
+			if (count < 0 || (length - offset) < count)
+				throw new ArgumentOutOfRangeException (nameof (count));
 
-			WebConnection.Debug ($"{ME} WRITE ASYNC: {buffer.Length}/{offset}/{size}");
+			WebConnection.Debug ($"{ME} WRITE ASYNC: {buffer.Length}/{offset}/{count}");
 
 			Operation.ThrowIfClosedOrDisposed (cancellationToken);
 
@@ -153,7 +153,7 @@ namespace System.Net
 			if (Interlocked.CompareExchange (ref pendingWrite, myWriteTcs, null) != null)
 				throw new InvalidOperationException (SR.GetString (SR.net_repcall));
 
-			return WriteAsyncInner (buffer, offset, size, myWriteTcs, cancellationToken);
+			return WriteAsyncInner (buffer, offset, count, myWriteTcs, cancellationToken);
 		}
 
 		async Task WriteAsyncInner (byte[] buffer, int offset, int size,
