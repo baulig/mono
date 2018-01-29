@@ -539,7 +539,12 @@ namespace System.Net
 		[MonoTODO ("Use this")]
 		public int MaximumResponseHeadersLength {
 			get { return maxResponseHeadersLength; }
-			set { maxResponseHeadersLength = value; }
+			set {
+				if (value < 0 && value != System.Threading.Timeout.Infinite)
+					throw new ArgumentOutOfRangeException (nameof (value), SR.net_toosmall);
+
+				maxResponseHeadersLength = value;
+			}
 		}
 
 		[MonoTODO ("Use this")]
