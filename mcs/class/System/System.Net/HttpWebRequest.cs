@@ -569,7 +569,13 @@ namespace System.Net
 		[MonoTODO]
 		public int ContinueTimeout {
 			get { throw new NotImplementedException (); }
-			set { throw new NotImplementedException (); }
+			set {
+				if (requestSent)
+					throw new InvalidOperationException (SR.net_reqsubmitted);
+				if ((value < 0) && (value != System.Threading.Timeout.Infinite))
+					throw new ArgumentOutOfRangeException (nameof (value), SR.net_io_timeout_use_ge_zero);
+				throw new NotImplementedException ();
+			}
 		}
 
 		public string MediaType {
