@@ -133,13 +133,6 @@ namespace System.Net
 
 		public override async Task WriteAsync (byte[] buffer, int offset, int size, CancellationToken cancellationToken)
 		{
-			WebConnection.Debug ($"{ME} WRITE ASYNC: {buffer.Length}/{offset}/{size}");
-
-			Operation.ThrowIfClosedOrDisposed (cancellationToken);
-
-			if (Operation.WriteBuffer != null)
-				throw new InvalidOperationException ();
-
 			if (buffer == null)
 				throw new ArgumentNullException (nameof (buffer));
 
@@ -148,6 +141,13 @@ namespace System.Net
 				throw new ArgumentOutOfRangeException (nameof (offset));
 			if (size < 0 || (length - offset) < size)
 				throw new ArgumentOutOfRangeException (nameof (size));
+
+			WebConnection.Debug ($"{ME} WRITE ASYNC: {buffer.Length}/{offset}/{size}");
+
+			Operation.ThrowIfClosedOrDisposed (cancellationToken);
+
+			if (Operation.WriteBuffer != null)
+				throw new InvalidOperationException ();
 
 			var myWriteTcs = new TaskCompletionSource<int> ();
 			if (Interlocked.CompareExchange (ref pendingWrite, myWriteTcs, null) != null)

@@ -172,10 +172,6 @@ namespace System.Net
 		public override IAsyncResult BeginWrite (byte[] buffer, int offset, int size,
 							 AsyncCallback cb, object state)
 		{
-			if (!CanWrite)
-				throw new NotSupportedException (SR.net_readonlystream);
-			Operation.ThrowIfClosedOrDisposed ();
-
 			if (buffer == null)
 				throw new ArgumentNullException (nameof (buffer));
 
@@ -184,6 +180,10 @@ namespace System.Net
 				throw new ArgumentOutOfRangeException (nameof (offset));
 			if (size < 0 || (length - offset) < size)
 				throw new ArgumentOutOfRangeException (nameof (size));
+
+			if (!CanWrite)
+				throw new NotSupportedException (SR.net_readonlystream);
+			Operation.ThrowIfClosedOrDisposed ();
 
 			var task = WriteAsync (buffer, offset, size, CancellationToken.None);
 			return TaskToApm.Begin (task, cb, state);
@@ -203,10 +203,6 @@ namespace System.Net
 
 		public override void Write (byte[] buffer, int offset, int size)
 		{
-			if (!CanWrite)
-				throw new NotSupportedException (SR.net_readonlystream);
-			Operation.ThrowIfClosedOrDisposed ();
-
 			if (buffer == null)
 				throw new ArgumentNullException (nameof (buffer));
 
@@ -215,6 +211,10 @@ namespace System.Net
 				throw new ArgumentOutOfRangeException (nameof (offset));
 			if (size < 0 || (length - offset) < size)
 				throw new ArgumentOutOfRangeException (nameof (size));
+
+			if (!CanWrite)
+				throw new NotSupportedException (SR.net_readonlystream);
+			Operation.ThrowIfClosedOrDisposed ();
 
 			try {
 				WriteAsync (buffer, offset, size).Wait ();
