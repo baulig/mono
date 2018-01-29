@@ -131,7 +131,7 @@ namespace System.Net
 			Operation.CompleteRequestWritten (this);
 		}
 
-		public override async Task WriteAsync (byte[] buffer, int offset, int size, CancellationToken cancellationToken)
+		public override Task WriteAsync (byte[] buffer, int offset, int size, CancellationToken cancellationToken)
 		{
 			if (buffer == null)
 				throw new ArgumentNullException (nameof (buffer));
@@ -153,6 +153,13 @@ namespace System.Net
 			if (Interlocked.CompareExchange (ref pendingWrite, myWriteTcs, null) != null)
 				throw new InvalidOperationException (SR.GetString (SR.net_repcall));
 
+			return WriteAsyncInner (buffer, offset, size, myWriteTcs, cancellationToken);
+		}
+
+		async Task WriteAsyncInner (byte[] buffer, int offset, int size,
+		                            TaskCompletionSource<int> myWriteTcs,
+		                            CancellationToken cancellationToken)
+		{
 			try {
 				await ProcessWrite (buffer, offset, size, cancellationToken).ConfigureAwait (false);
 
