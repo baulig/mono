@@ -30,16 +30,16 @@ System/RemoteExecutorTests.cs
 # MARTIN TEST
 #../../../external/corefx/src/System.Net.Requests/tests/AuthenticationManagerTest.cs
 #../../../external/corefx/src/System.Net.Requests/tests/AuthorizationTest.cs
-#../../../external/corefx/src/System.Net.Requests/tests/FileWebRequestTest.cs
+../../../external/corefx/src/System.Net.Requests/tests/FileWebRequestTest.cs
 #../../../external/corefx/src/System.Net.Requests/tests/FtpWebRequestTest.cs
-#../../../external/corefx/src/System.Net.Requests/tests/GlobalProxySelectionTest.cs
-#../../../external/corefx/src/System.Net.Requests/tests/HttpRequestCachePolicyTest.cs
+../../../external/corefx/src/System.Net.Requests/tests/GlobalProxySelectionTest.cs
+../../../external/corefx/src/System.Net.Requests/tests/HttpRequestCachePolicyTest.cs
 #../../../external/corefx/src/System.Net.Requests/tests/HttpWebRequestTest.cs
-#../../../external/corefx/src/System.Net.Requests/tests/HttpWebResponseHeaderTest.cs
+../../../external/corefx/src/System.Net.Requests/tests/HttpWebResponseHeaderTest.cs
 #../../../external/corefx/src/System.Net.Requests/tests/HttpWebResponseTest.cs
 #../../../external/corefx/src/System.Net.Requests/tests/LoggingTest.cs
 ../../../external/corefx/src/System.Net.Requests/tests/RequestStreamTest.cs
-#../../../external/corefx/src/System.Net.Requests/tests/WebRequestTest.cs
+../../../external/corefx/src/System.Net.Requests/tests/WebRequestTest.cs
 
 # System.Net.WebHeaderCollection
 #../../../external/corefx/src/System.Net.WebHeaderCollection/tests/*.cs
