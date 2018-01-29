@@ -3238,7 +3238,7 @@ namespace MonoTests.System.Net
 						Assert.AreEqual (typeof (ArgumentOutOfRangeException), ex.GetType (), "#A2");
 						Assert.IsNull (ex.InnerException, "#A3");
 						Assert.IsNotNull (ex.Message, "#A4");
-						Assert.AreEqual ("size", ex.ParamName, "#A5");
+						Assert.AreEqual ("count", ex.ParamName, "#A5");
 					}
 				}
 
@@ -3269,7 +3269,7 @@ namespace MonoTests.System.Net
 						Assert.AreEqual (typeof (ArgumentOutOfRangeException), ex.GetType (), "#2");
 						Assert.IsNull (ex.InnerException, "#3");
 						Assert.IsNotNull (ex.Message, "#4");
-						Assert.AreEqual ("size", ex.ParamName, "#5");
+						Assert.AreEqual ("count", ex.ParamName, "#5");
 					}
 				}
 
