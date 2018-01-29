@@ -144,6 +144,9 @@ namespace System.Net
 
 			WebConnection.Debug ($"{ME} WRITE ASYNC: {buffer.Length}/{offset}/{count}");
 
+			if (cancellationToken.IsCancellationRequested)
+				return Task.FromCanceled (cancellationToken);
+
 			Operation.ThrowIfClosedOrDisposed (cancellationToken);
 
 			if (Operation.WriteBuffer != null)
