@@ -48,6 +48,11 @@ mono_w32process_cleanup (void)
 {
 }
 
+void
+mono_w32process_signal_finished (void)
+{
+}
+
 #if G_HAVE_API_SUPPORT(HAVE_CLASSIC_WINAPI_SUPPORT)
 HANDLE
 ves_icall_System_Diagnostics_Process_GetProcess_internal (guint32 pid)
@@ -235,7 +240,7 @@ process_get_shell_arguments (MonoW32ProcessStartInfo *proc_start_info, MonoStrin
 {
 	gchar		*spath = NULL;
 	gchar		*new_cmd, *cmd_utf8;
-	MonoError	mono_error;
+	ERROR_DECL (mono_error);
 
 	*cmd = proc_start_info->arguments;
 
@@ -353,7 +358,7 @@ mono_process_win_enum_processes (DWORD *pids, DWORD count, DWORD *needed)
 MonoArray *
 ves_icall_System_Diagnostics_Process_GetProcesses_internal (void)
 {
-	MonoError error;
+	ERROR_DECL (error);
 	MonoArray *procs;
 	gboolean ret;
 	DWORD needed;

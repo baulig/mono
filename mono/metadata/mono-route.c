@@ -7,8 +7,9 @@
  *   Ben Woods (woodsb02@gmail.com)
  */
 
-#if defined(PLATFORM_MACOSX) || defined(PLATFORM_BSD)
+#include <config.h>
 
+#if defined(HOST_DARWIN) || defined(HOST_BSD)
 #include <sys/socket.h>
 #include <net/if.h>
 #include <net/if_dl.h>
@@ -22,7 +23,7 @@
 
 extern MonoBoolean ves_icall_System_Net_NetworkInformation_MacOsIPInterfaceProperties_ParseRouteInfo_internal(MonoString *iface, MonoArray **gw_addr_list)
 {
-	MonoError error;
+	ERROR_DECL (error);
 	size_t needed;
 	in_addr_t in;
 	int mib[6];
@@ -58,8 +59,10 @@ extern MonoBoolean ves_icall_System_Net_NetworkInformation_MacOsIPInterfacePrope
 		return FALSE;
 
 	// Second sysctl call to retrieve data into appropriately sized buffer
-	if (sysctl(mib, G_N_ELEMENTS(mib), buf, &needed, NULL, 0) < 0)
+	if (sysctl(mib, G_N_ELEMENTS(mib), buf, &needed, NULL, 0) < 0) {
+		g_free (buf);
 		return FALSE;
+	}
 
 	lim = buf + needed;
 	for (next = buf; next < lim; next += rtm->rtm_msglen) {
@@ -73,7 +76,8 @@ extern MonoBoolean ves_icall_System_Net_NetworkInformation_MacOsIPInterfacePrope
 		num_gws++;
 	}
 
-	*gw_addr_list = mono_array_new(domain, mono_get_string_class (), num_gws);
+	*gw_addr_list = mono_array_new_checked (domain, mono_get_string_class (), num_gws, &error);
+	goto_if_nok (&error, leave);
 
 	for (next = buf; next < lim; next += rtm->rtm_msglen) {
 		rtm = (struct rt_msghdr *)next;
@@ -99,12 +103,14 @@ extern MonoBoolean ves_icall_System_Net_NetworkInformation_MacOsIPInterfacePrope
 			// snprintf output truncated
 			continue;
 
-		addr_string = mono_string_new (domain, addr);
+		addr_string = mono_string_new_checked (domain, addr, &error);
+		goto_if_nok (&error, leave);
 		mono_array_setref (*gw_addr_list, gwnum, addr_string);
 		gwnum++;
 	}
+leave:
 	g_free (buf);
-	return TRUE;
+	return is_ok (&error);
 }
 
 in_addr_t gateway_from_rtm(struct rt_msghdr *rtm)
@@ -126,4 +132,4 @@ in_addr_t gateway_from_rtm(struct rt_msghdr *rtm)
 	return 0;
 }
 
-#endif /* #if defined(PLATFORM_MACOSX) || defined(PLATFORM_BSD) */
+#endif /* #if defined(HOST_DARWIN) || defined(HOST_BSD) */

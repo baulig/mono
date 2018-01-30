@@ -1227,8 +1227,8 @@ mono_decompose_vtype_opts (MonoCompile *cfg)
 
 					EMIT_NEW_VARLOADA ((cfg), (src), src_var, src_var->inst_vtype);
 					EMIT_NEW_VARLOADA ((cfg), (dest), dest_var, dest_var->inst_vtype);
+					mini_emit_memory_copy (cfg, dest, src, src_var->klass, src_var->backend.is_pinvoke, 0);
 
-					mini_emit_stobj (cfg, dest, src, src_var->klass, src_var->backend.is_pinvoke);
 					break;
 				}
 				case OP_VZERO:
@@ -1273,7 +1273,7 @@ mono_decompose_vtype_opts (MonoCompile *cfg)
 
 					dreg = alloc_preg (cfg);
 					EMIT_NEW_BIALU_IMM (cfg, dest, OP_ADD_IMM, dreg, ins->inst_destbasereg, ins->inst_offset);
-					mini_emit_stobj (cfg, dest, src, src_var->klass, src_var->backend.is_pinvoke);
+					mini_emit_memory_copy (cfg, dest, src, src_var->klass, src_var->backend.is_pinvoke, 0);
 					break;
 				}
 				case OP_LOADV_MEMBASE: {
@@ -1290,7 +1290,7 @@ mono_decompose_vtype_opts (MonoCompile *cfg)
 					dreg = alloc_preg (cfg);
 					EMIT_NEW_BIALU_IMM (cfg, src, OP_ADD_IMM, dreg, ins->inst_basereg, ins->inst_offset);
 					EMIT_NEW_VARLOADA (cfg, dest, dest_var, dest_var->inst_vtype);
-					mini_emit_stobj (cfg, dest, src, dest_var->klass, dest_var->backend.is_pinvoke);
+					mini_emit_memory_copy (cfg, dest, src, dest_var->klass, dest_var->backend.is_pinvoke, 0);
 					break;
 				}
 				case OP_OUTARG_VT: {
@@ -1527,10 +1527,11 @@ mono_decompose_array_access_opts (MonoCompile *cfg)
 						dest->dreg = ins->dreg;
 					} else {
 						MonoClass *array_class = mono_array_class_get (ins->inst_newa_class, 1);
-						MonoVTable *vtable = mono_class_vtable (cfg->domain, array_class);
+						ERROR_DECL (vt_error);
+						MonoVTable *vtable = mono_class_vtable_checked (cfg->domain, array_class, &vt_error);
 						MonoMethod *managed_alloc = mono_gc_get_managed_array_allocator (array_class);
 
-						g_assert (vtable); /*This shall not fail since we check for this condition on OP_NEWARR creation*/
+						mono_error_assert_ok (&vt_error); /*This shall not fail since we check for this condition on OP_NEWARR creation*/
 						NEW_VTABLECONST (cfg, iargs [0], vtable);
 						MONO_ADD_INS (cfg->cbb, iargs [0]);
 						MONO_INST_NEW (cfg, iargs [1], OP_MOVE);

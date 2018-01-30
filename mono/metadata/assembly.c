@@ -50,7 +50,7 @@
 #include <sys/stat.h>
 #endif
 
-#ifdef PLATFORM_MACOSX
+#ifdef HOST_DARWIN
 #include <mach-o/dyld.h>
 #endif
 
@@ -225,6 +225,7 @@ static const AssemblyVersionMap framework_assemblies [] = {
 	FACADE_ASSEMBLY ("System.Net.WebHeaderCollection"),
 	FACADE_ASSEMBLY ("System.Net.WebSockets"),
 	FACADE_ASSEMBLY ("System.Net.WebSockets.Client"),
+	{"System.Numerics", 3},
 	{"System.Numerics.Vectors", 3},
 	FACADE_ASSEMBLY ("System.ObjectModel"),
 	FACADE_ASSEMBLY ("System.Reflection"),
@@ -331,27 +332,6 @@ static const AssemblyVersionMap framework_assemblies [] = {
  */
 static GList *loaded_assemblies = NULL;
 static MonoAssembly *corlib;
-
-#if defined(__native_client__)
-
-/* On Native Client, allow mscorlib to be loaded from memory  */
-/* instead of loaded off disk.  If these are not set, default */
-/* mscorlib loading will take place                           */
-
-/* NOTE: If mscorlib data is passed to mono in this way then */
-/* it needs to remain allocated during the use of mono.      */
-
-static void *corlibData = NULL;
-static size_t corlibSize = 0;
-
-void
-mono_set_corlib_data (void *data, size_t size)
-{
-  corlibData = data;
-  corlibSize = size;
-}
-
-#endif
 
 static char* unquote (const char *str);
 
@@ -462,12 +442,6 @@ mono_set_assemblies_path (const char* path)
 	}
 }
 
-/* Native Client can't get this info from an environment variable so */
-/* it's passed in to the runtime, or set manually by embedding code. */
-#ifdef __native_client__
-char* nacl_mono_path = NULL;
-#endif
-
 static void
 check_path_env (void)
 {
@@ -475,10 +449,6 @@ check_path_env (void)
 		return;
 
 	char* path = g_getenv ("MONO_PATH");
-#ifdef __native_client__
-	if (!path)
-		path = strdup (nacl_mono_path);
-#endif
 	if (!path)
 		return;
 
@@ -871,7 +841,7 @@ set_dirs (char *exe)
 void
 mono_set_rootdir (void)
 {
-#if defined(HOST_WIN32) || (defined(PLATFORM_MACOSX) && !defined(TARGET_ARM))
+#if defined(HOST_WIN32) || (defined(HOST_DARWIN) && !defined(TARGET_ARM))
 	gchar *bindir, *installdir, *root, *name, *resolvedname, *config;
 
 #ifdef HOST_WIN32
@@ -1150,7 +1120,7 @@ assemblyref_public_tok (MonoImage *image, guint32 key_index, guint32 flags)
 void
 mono_assembly_addref (MonoAssembly *assembly)
 {
-	InterlockedIncrement (&assembly->ref_count);
+	mono_atomic_inc_i32 (&assembly->ref_count);
 }
 
 /*
@@ -1942,7 +1912,7 @@ mono_assembly_open_predicate (const char *filename, gboolean refonly,
 
 	new_fname = NULL;
 	if (!mono_assembly_is_in_gac (fname)) {
-		MonoError error;
+		ERROR_DECL (error);
 		new_fname = mono_make_shadow_copy (fname, &error);
 		if (!is_ok (&error)) {
 			mono_trace (G_LOG_LEVEL_INFO, MONO_TRACE_ASSEMBLY,
@@ -1980,11 +1950,24 @@ mono_assembly_open_predicate (const char *filename, gboolean refonly,
 	}
 
 	if (image->assembly) {
-		/* Already loaded by another appdomain */
-		mono_assembly_invoke_load_hook (image->assembly);
-		mono_image_close (image);
-		g_free (fname);
-		return image->assembly;
+		/* We want to return the MonoAssembly that's already loaded,
+		 * but if we're using the strict assembly loader, we also need
+		 * to check that the previously loaded assembly matches the
+		 * predicate.  It could be that we previously loaded a
+		 * different version that happens to have the filename that
+		 * we're currently probing. */
+		if (mono_loader_get_strict_strong_names () &&
+		    predicate && !predicate (image->assembly, user_data)) {
+			mono_image_close (image);
+			g_free (fname);
+			return NULL;
+		} else {
+			/* Already loaded by another appdomain */
+			mono_assembly_invoke_load_hook (image->assembly);
+			mono_image_close (image);
+			g_free (fname);
+			return image->assembly;
+		}
 	}
 
 	ass = mono_assembly_load_from_predicate (image, fname, refonly, predicate, user_data, status);
@@ -2028,7 +2011,7 @@ free_item (gpointer val, gpointer user_data)
 void
 mono_assembly_load_friends (MonoAssembly* ass)
 {
-	MonoError error;
+	ERROR_DECL (error);
 	int i;
 	MonoCustomAttrInfo* attrs;
 	GSList *list;
@@ -2061,6 +2044,8 @@ mono_assembly_load_friends (MonoAssembly* ass)
 		MonoCustomAttrEntry *attr = &attrs->attrs [i];
 		MonoAssemblyName *aname;
 		const gchar *data;
+		uint32_t data_length;
+		gchar *data_with_terminator;
 		/* Do some sanity checking */
 		if (!attr->ctor || attr->ctor->klass != mono_class_try_get_internals_visible_class ())
 			continue;
@@ -2070,14 +2055,17 @@ mono_assembly_load_friends (MonoAssembly* ass)
 		/* 0xFF means null string, see custom attr format */
 		if (data [0] != 1 || data [1] != 0 || (data [2] & 0xFF) == 0xFF)
 			continue;
-		mono_metadata_decode_value (data + 2, &data);
+		data_length = mono_metadata_decode_value (data + 2, &data);
+		data_with_terminator = (char *)g_memdup (data, data_length + 1);
+		data_with_terminator[data_length] = 0;
 		aname = g_new0 (MonoAssemblyName, 1);
 		/*g_print ("friend ass: %s\n", data);*/
-		if (mono_assembly_name_parse_full (data, aname, TRUE, NULL, NULL)) {
+		if (mono_assembly_name_parse_full (data_with_terminator, aname, TRUE, NULL, NULL)) {
 			list = g_slist_prepend (list, aname);
 		} else {
 			g_free (aname);
 		}
+		g_free (data_with_terminator);
 	}
 	mono_custom_attrs_free (attrs);
 
@@ -2126,6 +2114,10 @@ has_reference_assembly_attribute_iterator (MonoImage *image, guint32 typeref_sco
 gboolean
 mono_assembly_has_reference_assembly_attribute (MonoAssembly *assembly, MonoError *error)
 {
+	g_assert (assembly && assembly->image);
+	/* .NET Framework appears to ignore the attribute on dynamic
+	 * assemblies, so don't call this function for dynamic assemblies. */
+	g_assert (!image_is_dynamic (assembly->image));
 	error_init (error);
 
 	/*
@@ -2236,7 +2228,7 @@ mono_assembly_load_from_predicate (MonoImage *image, const char *fname,
 	ass->ref_only = refonly;
 	ass->image = image;
 
-	mono_profiler_assembly_event (ass, MONO_PROFILE_START_LOAD);
+	MONO_PROFILER_RAISE (assembly_loading, (ass));
 
 	mono_assembly_fill_assembly_name (image, &ass->aname);
 
@@ -2277,7 +2269,7 @@ mono_assembly_load_from_predicate (MonoImage *image, const char *fname,
 	 * candidate. */
 
 	if (!refonly) {
-		MonoError refasm_error;
+		ERROR_DECL (refasm_error);
 		if (mono_assembly_has_reference_assembly_attribute (ass, &refasm_error)) {
 			mono_trace (G_LOG_LEVEL_INFO, MONO_TRACE_ASSEMBLY, "Image for assembly '%s' (%s) has ReferenceAssemblyAttribute, skipping", ass->aname.name, image->name);
 			g_free (ass);
@@ -2328,7 +2320,7 @@ mono_assembly_load_from_predicate (MonoImage *image, const char *fname,
 
 	mono_assembly_invoke_load_hook (ass);
 
-	mono_profiler_assembly_loaded (ass, MONO_PROFILE_OK);
+	MONO_PROFILER_RAISE (assembly_loaded, (ass));
 	
 	return ass;
 }
@@ -2384,19 +2376,20 @@ static gboolean
 parse_public_key (const gchar *key, gchar** pubkey, gboolean *is_ecma)
 {
 	const gchar *pkey;
-	gchar header [16], val, *arr;
+	gchar header [16], val, *arr, *endp;
 	gint i, j, offset, bitlen, keylen, pkeylen;
-	
+
+	//both pubkey and is_ecma are required arguments
+	g_assert (pubkey && is_ecma);
+
 	keylen = strlen (key) >> 1;
 	if (keylen < 1)
 		return FALSE;
 
 	/* allow the ECMA standard key */
 	if (strcmp (key, "00000000000000000400000000000000") == 0) {
-		if (pubkey) {
-			*pubkey = g_strdup (key);
-			*is_ecma = TRUE;
-		}
+		*pubkey = NULL;
+		*is_ecma = TRUE;
 		return TRUE;
 	}
 	*is_ecma = FALSE;
@@ -2441,21 +2434,11 @@ parse_public_key (const gchar *key, gchar** pubkey, gboolean *is_ecma)
 	bitlen = read32 (header + 12) >> 3;
 	if ((bitlen + 16 + 4) != pkeylen)
 		return FALSE;
-
-	/* parsing is OK and the public key itself is not requested back */
-	if (!pubkey)
-		return TRUE;
 		
+	arr = (gchar *)g_malloc (keylen + 4);
 	/* Encode the size of the blob */
-	offset = 0;
-	if (keylen <= 127) {
-		arr = (gchar *)g_malloc (keylen + 1);
-		arr [offset++] = keylen;
-	} else {
-		arr = (gchar *)g_malloc (keylen + 2);
-		arr [offset++] = 0x80; /* 10bs */
-		arr [offset++] = keylen;
-	}
+	mono_metadata_encode_value (keylen, &arr[0], &endp);
+	offset = (gint)(endp-arr);
 		
 	for (i = offset, j = 0; i < keylen + offset; i++) {
 		arr [i] = g_ascii_xdigit_value (key [j++]) << 4;
@@ -2473,7 +2456,7 @@ build_assembly_name (const char *name, const char *version, const char *culture,
 	gint major, minor, build, revision;
 	gint len;
 	gint version_parts;
-	gchar *pkey, *pkeyptr, *encoded, tok [8];
+	gchar *pkeyptr, *encoded, tok [8];
 
 	memset (aname, 0, sizeof (MonoAssemblyName));
 
@@ -2522,17 +2505,16 @@ build_assembly_name (const char *name, const char *version, const char *culture,
 	}
 
 	if (key) {
-		gboolean is_ecma;
+		gboolean is_ecma = FALSE;
+		gchar *pkey = NULL;
 		if (strcmp (key, "null") == 0 || !parse_public_key (key, &pkey, &is_ecma)) {
 			mono_assembly_name_free (aname);
 			return FALSE;
 		}
 
 		if (is_ecma) {
-			if (save_public_key)
-				aname->public_key = (guint8*)pkey;
-			else
-				g_free (pkey);
+			g_assert (pkey == NULL);
+			aname->public_key = NULL;
 			g_strlcpy ((gchar*)aname->public_key_token, "b77a5c561934e089", MONO_PUBLIC_KEY_TOKEN_LENGTH);
 			return TRUE;
 		}
@@ -2947,7 +2929,7 @@ probe_for_partial_name (const char *basepath, const char *fullname, MonoAssembly
 MonoAssembly*
 mono_assembly_load_with_partial_name (const char *name, MonoImageOpenStatus *status)
 {
-	MonoError error;
+	ERROR_DECL (error);
 	MonoAssembly *res;
 	MonoAssemblyName *aname, base_name;
 	MonoAssemblyName mapped_aname;
@@ -3316,7 +3298,7 @@ mono_domain_parse_assembly_bindings (MonoDomain *domain, int amajor, int aminor,
 static MonoAssemblyName*
 mono_assembly_apply_binding (MonoAssemblyName *aname, MonoAssemblyName *dest_name)
 {
-	MonoError error;
+	ERROR_DECL (error);
 	MonoAssemblyBindingInfo *info, *info2;
 	MonoImage *ppimage;
 	MonoDomain *domain;
@@ -3492,23 +3474,6 @@ mono_assembly_load_corlib (const MonoRuntimeInfo *runtime, MonoImageOpenStatus *
 		return corlib;
 	}
 
-	// In native client, Corlib is embedded in the executable as static variable corlibData
-#if defined(__native_client__)
-	if (corlibData != NULL && corlibSize != 0) {
-		int status = 0;
-		/* First "FALSE" instructs mono not to make a copy. */
-		/* Second "FALSE" says this is not just a ref.      */
-		MonoImage* image = mono_image_open_from_data_full (corlibData, corlibSize, FALSE, &status, FALSE);
-		if (image == NULL || status != 0)
-			g_print("mono_image_open_from_data_full failed: %d\n", status);
-		corlib = mono_assembly_load_from_full (image, "mscorlib", &status, FALSE);
-		if (corlib == NULL || status != 0)
-			g_print ("mono_assembly_load_from_full failed: %d\n", status);
-		if (corlib)
-			return corlib;
-	}
-#endif
-
 	// A nonstandard preload hook may provide a special mscorlib assembly
 	aname = mono_assembly_name_new ("mscorlib.dll");
 	corlib = invoke_assembly_preload_hook (aname, assemblies_path);
@@ -3546,10 +3511,13 @@ return_corlib_and_facades:
 static MonoAssembly*
 prevent_reference_assembly_from_running (MonoAssembly* candidate, gboolean refonly)
 {
-	MonoError refasm_error;
+	ERROR_DECL (refasm_error);
 	error_init (&refasm_error);
-	if (candidate && !refonly && mono_assembly_has_reference_assembly_attribute (candidate, &refasm_error)) {
-		candidate = NULL;
+	if (candidate && !refonly) {
+		/* .NET Framework seems to not check for ReferenceAssemblyAttribute on dynamic assemblies */
+		if (!image_is_dynamic (candidate->image) &&
+		    mono_assembly_has_reference_assembly_attribute (candidate, &refasm_error))
+			candidate = NULL;
 	}
 	mono_error_cleanup (&refasm_error);
 	return candidate;
@@ -3829,10 +3797,10 @@ mono_assembly_close_except_image_pools (MonoAssembly *assembly)
 		return FALSE;
 
 	/* Might be 0 already */
-	if (InterlockedDecrement (&assembly->ref_count) > 0)
+	if (mono_atomic_dec_i32 (&assembly->ref_count) > 0)
 		return FALSE;
 
-	mono_profiler_assembly_event (assembly, MONO_PROFILE_START_UNLOAD);
+	MONO_PROFILER_RAISE (assembly_unloading, (assembly));
 
 	mono_trace (G_LOG_LEVEL_INFO, MONO_TRACE_ASSEMBLY, "Unloading assembly %s [%p].", assembly->aname.name, assembly);
 
@@ -3855,7 +3823,7 @@ mono_assembly_close_except_image_pools (MonoAssembly *assembly)
 	g_slist_free (assembly->friend_assembly_names);
 	g_free (assembly->basedir);
 
-	mono_profiler_assembly_event (assembly, MONO_PROFILE_END_UNLOAD);
+	MONO_PROFILER_RAISE (assembly_unloaded, (assembly));
 
 	return TRUE;
 }
@@ -3895,7 +3863,7 @@ mono_assembly_close (MonoAssembly *assembly)
 MonoImage*
 mono_assembly_load_module (MonoAssembly *assembly, guint32 idx)
 {
-	MonoError error;
+	ERROR_DECL (error);
 	MonoImage *result = mono_assembly_load_module_checked (assembly, idx, &error);
 	mono_error_assert_ok (&error);
 	return result;

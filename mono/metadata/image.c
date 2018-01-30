@@ -99,7 +99,7 @@ assign_assembly_parent_for_netmodule (MonoImage *image, MonoImage *assemblyImage
 			mono_error_set_bad_image (error, assemblyImage, "Attempted to load module %s which has already been loaded by assembly %s. This is not supported in Mono.", image->name, assemblyOld->image->name);
 			return FALSE;
 		}
-		gpointer result = InterlockedExchangePointer((gpointer *)&image->assembly, assembly);
+		gpointer result = mono_atomic_xchg_ptr((gpointer *)&image->assembly, assembly);
 		if (result == assembly)
 			return TRUE;
 	}
@@ -765,7 +765,7 @@ mono_image_load_module_checked (MonoImage *image, int idx, MonoError *error)
 MonoImage*
 mono_image_load_module (MonoImage *image, int idx)
 {
-	MonoError error;
+	ERROR_DECL (error);
 	MonoImage *result = mono_image_load_module_checked (image, idx, &error);
 	mono_error_assert_ok (&error);
 	return result;
@@ -1113,6 +1113,11 @@ Right now the list of nugets are the ones that provide the assemblies in $ignore
 
 This is to be removed once a proper fix is shipped through nuget.
 
+Please keep this in sync with mcs/tools/xbuild/data/deniedAssembliesList.txt
+If any assemblies are added/removed, then this should be regenerated with:
+
+  $ mono tools/nuget-hash-extractor/nuget-hash-extractor.exe nugets guids_for_msbuild > mcs/tools/xbuild/data/deniedAssembliesList.txt
+
 */
 
 typedef enum {
@@ -1121,9 +1126,7 @@ typedef enum {
 	SYS_IO_COMPRESSION = 2, //System.IO.Compression
 	SYS_NET_HTTP = 3, //System.Net.Http
 	SYS_TEXT_ENC_CODEPAGES = 4, //System.Text.Encoding.CodePages
-	SYS_REF_DISP_PROXY = 5, //System.Reflection.DispatchProxy
-	SYS_VALUE_TUPLE = 6, //System.ValueTuple
-	SYS_THREADING_OVERLAPPED = 7, //System.Threading.Overlapped
+	SYS_THREADING_OVERLAPPED = 5, //System.Threading.Overlapped
 } IgnoredAssemblyNames;
 
 typedef struct {
@@ -1143,9 +1146,7 @@ const char *ignored_assemblies_file_names[] = {
 	"System.IO.Compression.dll",
 	"System.Net.Http.dll",
 	"System.Text.Encoding.CodePages.dll",
-	"System.Reflection.DispatchProxy.dll",
-	"System.Threading.Overlapped.dll",
-	"System.ValueTuple.dll"
+	"System.Threading.Overlapped.dll"
 };
 
 #define IGNORED_ASSEMBLY(HASH, NAME, GUID, VER_STR)	{ .hash = HASH, .assembly_name = NAME, .guid = GUID }
@@ -1160,17 +1161,16 @@ static const IgnoredAssembly ignored_assemblies [] = {
 	IGNORED_ASSEMBLY (0x10CADA75, SYS_NET_HTTP, "EA2EC6DC-51DD-479C-BFC2-E713FB9E7E47", "4.1.1 net46"),
 	IGNORED_ASSEMBLY (0x8437178B, SYS_NET_HTTP, "C0E04D9C-70CF-48A6-A179-FBFD8CE69FD0", "4.3.0 net46"),
 	IGNORED_ASSEMBLY (0xFAFDA422, SYS_NET_HTTP, "817F01C3-4011-477D-890A-98232B85553D", "4.3.1 net46"),
-	IGNORED_ASSEMBLY (0x4A15555E, SYS_REF_DISP_PROXY, "E40AFEB4-CABE-4124-8412-B46AB79C92FD", "4.0.0 net46"),
-	IGNORED_ASSEMBLY (0xD20D9783, SYS_REF_DISP_PROXY, "2A69F0AD-B86B-40F2-8E4C-5B671E47479F", "4.0.1 netstandard1.3"),
-	IGNORED_ASSEMBLY (0xA33A7E68, SYS_REF_DISP_PROXY, "D4E8D2DB-BD65-4168-99EA-D2C1BDEBF9CC", "4.3.0 netstandard1.3"),
+	IGNORED_ASSEMBLY (0x472FA630, SYS_NET_HTTP, "09D4A140-061C-4884-9B63-22067E841931", "4.3.2 net46"),
+	IGNORED_ASSEMBLY (0xDB9397A9, SYS_NET_HTTP, "56203551-6937-47C1-9246-346A733913EE", "4.3.3 net46"),
 	IGNORED_ASSEMBLY (0x46A4A1C5, SYS_RT_INTEROP_RUNTIME_INFO, "F13660F8-9D0D-419F-BA4E-315693DD26EA", "4.0.0 net45"),
 	IGNORED_ASSEMBLY (0xD07383BB, SYS_RT_INTEROP_RUNTIME_INFO, "DD91439F-3167-478E-BD2C-BF9C036A1395", "4.3.0 net45"),
 	IGNORED_ASSEMBLY (0x911D9EC3, SYS_TEXT_ENC_CODEPAGES, "C142254F-DEB5-46A7-AE43-6F10320D1D1F", "4.0.1 net46"),
 	IGNORED_ASSEMBLY (0xFA686A38, SYS_TEXT_ENC_CODEPAGES, "FD178CD4-EF4F-44D5-9C3F-812B1E25126B", "4.3.0 net46"),
+	IGNORED_ASSEMBLY (0xF6D18A2E, SYS_TEXT_ENC_CODEPAGES, "F5CCCBEC-E1AD-4DBB-9B44-9B42C86B94B8", "4.4.0 net461"),
 	IGNORED_ASSEMBLY (0xAA21986B, SYS_THREADING_OVERLAPPED, "9F5D4F09-787A-458A-BA08-553AA71470F1", "4.0.0 net46"),
 	IGNORED_ASSEMBLY (0x7D927C2A, SYS_THREADING_OVERLAPPED, "FCBD003B-2BB4-4940-BAEF-63AF520C2336", "4.0.1 net46"),
-	IGNORED_ASSEMBLY (0x6FE03EE2, SYS_THREADING_OVERLAPPED, "87697E71-D192-4F0B-BAD4-02BBC7793005", "4.3.0 net46"),
-	IGNORED_ASSEMBLY (0x75B4B041, SYS_VALUE_TUPLE, "F81A4140-A898-4E2B-B6E9-55CE78C273EC", "4.3.0 netstandard1.0"),
+	IGNORED_ASSEMBLY (0x6FE03EE2, SYS_THREADING_OVERLAPPED, "87697E71-D192-4F0B-BAD4-02BBC7793005", "4.3.0 net46")
 };
 
 
@@ -1180,9 +1180,7 @@ const char *ignored_assemblies_names[] = {
 	"System.IO.Compression",
 	"System.Net.Http",
 	"System.Text.Encoding.CodePages",
-	"System.Reflection.DispatchProxy",
-	"System.Threading.Overlapped",
-	"System.ValueTuple"
+	"System.Threading.Overlapped"
 };
 
 #define IGNORED_ASM_VER(NAME, MAJOR, MINOR, BUILD, REVISION) { .assembly_name = NAME, .major = MAJOR, .minor = MINOR, .build = BUILD, .revision = REVISION }
@@ -1196,17 +1194,15 @@ static const IgnoredAssemblyVersion ignored_assembly_versions [] = {
 	IGNORED_ASM_VER (SYS_NET_HTTP, 4, 1, 0, 0),
 	IGNORED_ASM_VER (SYS_NET_HTTP, 4, 1, 0, 1),
 	IGNORED_ASM_VER (SYS_NET_HTTP, 4, 1, 1, 0),
-	IGNORED_ASM_VER (SYS_REF_DISP_PROXY, 4, 0, 0, 0),
-	IGNORED_ASM_VER (SYS_REF_DISP_PROXY, 4, 0, 1, 0),
-	IGNORED_ASM_VER (SYS_REF_DISP_PROXY, 4, 0, 2, 0),
+	IGNORED_ASM_VER (SYS_NET_HTTP, 4, 1, 1, 1),
 	IGNORED_ASM_VER (SYS_RT_INTEROP_RUNTIME_INFO, 4, 0, 0, 0),
 	IGNORED_ASM_VER (SYS_RT_INTEROP_RUNTIME_INFO, 4, 0, 1, 0),
 	IGNORED_ASM_VER (SYS_TEXT_ENC_CODEPAGES, 4, 0, 1, 0),
 	IGNORED_ASM_VER (SYS_TEXT_ENC_CODEPAGES, 4, 0, 2, 0),
+	IGNORED_ASM_VER (SYS_TEXT_ENC_CODEPAGES, 4, 1, 0, 0),
 	IGNORED_ASM_VER (SYS_THREADING_OVERLAPPED, 4, 0, 0, 0),
 	IGNORED_ASM_VER (SYS_THREADING_OVERLAPPED, 4, 0, 1, 0),
 	IGNORED_ASM_VER (SYS_THREADING_OVERLAPPED, 4, 0, 2, 0),
-	IGNORED_ASM_VER (SYS_VALUE_TUPLE, 4, 0, 1, 0),
 };
 
 gboolean
@@ -1275,7 +1271,7 @@ do_mono_image_load (MonoImage *image, MonoImageOpenStatus *status,
 	GSList *errors = NULL;
 	GSList *l;
 
-	mono_profiler_module_event (image, MONO_PROFILE_START_LOAD);
+	MONO_PROFILER_RAISE (image_loading, (image));
 
 	mono_image_init (image);
 
@@ -1339,7 +1335,7 @@ do_mono_image_load (MonoImage *image, MonoImageOpenStatus *status,
 	load_modules (image);
 
 done:
-	mono_profiler_module_loaded (image, MONO_PROFILE_OK);
+	MONO_PROFILER_RAISE (image_loaded, (image));
 	if (status)
 		*status = MONO_IMAGE_OK;
 
@@ -1351,7 +1347,7 @@ invalid_image:
 		g_warning ("Could not load image %s due to %s", image->name, info->message);
 		mono_free_verify_list (errors);
 	}
-	mono_profiler_module_loaded (image, MONO_PROFILE_FAILED);
+	MONO_PROFILER_RAISE (image_failed, (image));
 	mono_image_close (image);
 	return NULL;
 }
@@ -1700,7 +1696,7 @@ mono_image_open_a_lot (const char *fname, MonoImageOpenStatus *status, gboolean 
 	}
 #endif
 
-	absfname = mono_path_canonicalize (fname);
+	absfname = mono_path_resolve_symlinks (fname);
 
 	/*
 	 * The easiest solution would be to do all the loading inside the mutex,
@@ -1868,7 +1864,7 @@ free_array_cache_entry (gpointer key, gpointer val, gpointer user_data)
 void
 mono_image_addref (MonoImage *image)
 {
-	InterlockedIncrement (&image->ref_count);
+	mono_atomic_inc_i32 (&image->ref_count);
 }	
 
 void
@@ -1951,7 +1947,7 @@ mono_image_close_except_pools (MonoImage *image)
 	 */
 	mono_images_lock ();
 
-	if (InterlockedDecrement (&image->ref_count) > 0) {
+	if (mono_atomic_dec_i32 (&image->ref_count) > 0) {
 		mono_images_unlock ();
 		return FALSE;
 	}
@@ -1981,7 +1977,7 @@ mono_image_close_except_pools (MonoImage *image)
 	}
 #endif
 
-	mono_profiler_module_event (image, MONO_PROFILE_START_UNLOAD);
+	MONO_PROFILER_RAISE (image_unloading, (image));
 
 	mono_trace (G_LOG_LEVEL_INFO, MONO_TRACE_ASSEMBLY, "Unloading image %s [%p].", image->name, image);
 
@@ -2088,6 +2084,7 @@ mono_image_close_except_pools (MonoImage *image)
 	free_hash (image->pinvoke_scope_filenames);
 	free_hash (image->native_func_wrapper_cache);
 	mono_conc_hashtable_destroy (image->typespec_cache);
+	free_hash (image->weak_field_indexes);
 
 	mono_wrapper_caches_free (&image->wrapper_caches);
 
@@ -2142,7 +2139,7 @@ mono_image_close_except_pools (MonoImage *image)
 		mono_dynamic_image_free ((MonoDynamicImage*)image);
 	}
 
-	mono_profiler_module_event (image, MONO_PROFILE_END_UNLOAD);
+	MONO_PROFILER_RAISE (image_unloaded, (image));
 
 	return TRUE;
 }
@@ -2177,7 +2174,8 @@ mono_image_close_finish (MonoImage *image)
 	mono_image_close_all (image->modules, image->module_count);
 
 #ifndef DISABLE_PERFCOUNTERS
-	mono_perfcounters->loader_bytes -= mono_mempool_get_allocated (image->mempool);
+	/* FIXME: use an explicit subtraction method as soon as it's available */
+	mono_atomic_fetch_add_i32 (&mono_perfcounters->loader_bytes, -1 * mono_mempool_get_allocated (image->mempool));
 #endif
 
 	if (!image_is_dynamic (image)) {
@@ -2501,7 +2499,7 @@ done:
 MonoImage*
 mono_image_load_file_for_image (MonoImage *image, int fileidx)
 {
-	MonoError error;
+	ERROR_DECL (error);
 	MonoImage *result = mono_image_load_file_for_image_checked (image, fileidx, &error);
 	mono_error_assert_ok (&error);
 	return result;
@@ -2712,7 +2710,7 @@ mono_image_alloc (MonoImage *image, guint size)
 	gpointer res;
 
 #ifndef DISABLE_PERFCOUNTERS
-	mono_perfcounters->loader_bytes += size;
+	mono_atomic_fetch_add_i32 (&mono_perfcounters->loader_bytes, size);
 #endif
 	mono_image_lock (image);
 	res = mono_mempool_alloc (image->mempool, size);
@@ -2727,7 +2725,7 @@ mono_image_alloc0 (MonoImage *image, guint size)
 	gpointer res;
 
 #ifndef DISABLE_PERFCOUNTERS
-	mono_perfcounters->loader_bytes += size;
+	mono_atomic_fetch_add_i32 (&mono_perfcounters->loader_bytes, size);
 #endif
 	mono_image_lock (image);
 	res = mono_mempool_alloc0 (image->mempool, size);
@@ -2742,7 +2740,7 @@ mono_image_strdup (MonoImage *image, const char *s)
 	char *res;
 
 #ifndef DISABLE_PERFCOUNTERS
-	mono_perfcounters->loader_bytes += strlen (s);
+	mono_atomic_fetch_add_i32 (&mono_perfcounters->loader_bytes, (gint32)strlen (s));
 #endif
 	mono_image_lock (image);
 	res = mono_mempool_strdup (image->mempool, s);
@@ -2759,7 +2757,7 @@ mono_image_strdup_vprintf (MonoImage *image, const char *format, va_list args)
 	buf = mono_mempool_strdup_vprintf (image->mempool, format, args);
 	mono_image_unlock (image);
 #ifndef DISABLE_PERFCOUNTERS
-	mono_perfcounters->loader_bytes += strlen (buf);
+	mono_atomic_fetch_add_i32 (&mono_perfcounters->loader_bytes, (gint32)strlen (buf));
 #endif
 	return buf;
 }

@@ -1,4 +1,5 @@
 #include common.sources
+#include common_networking.sources
 
 Microsoft.CSharp/CSharpCodeGenerator.cs
 Microsoft.VisualBasic/VBCodeGenerator.cs
@@ -26,7 +27,7 @@ Microsoft.Win32/UserPreferenceChangingEventHandler.cs
 
 System/MonoToolsLocator.cs
 
-System.CodeDom.Compiler/Executor.cs
+System.CodeDom.Compiler/*.cs
 System.Configuration/ApplicationScopedSettingAttribute.cs
 System.Configuration/ApplicationSettingsBase.cs
 System.Configuration/ApplicationSettingsGroup.cs
@@ -244,7 +245,6 @@ Mono.Net.Dns/ResolverError.cs
 Mono.Net.Dns/SimpleResolverEventArgs.cs
 ReferenceSources/BinaryCompatibility.cs
 ReferenceSources/ConfigurationManagerInternalFactory.cs
-ReferenceSources/SR2.cs
 
 ../referencesource/System/misc/PrivilegedConfigurationManager.cs
 

@@ -9,7 +9,11 @@
     <ProjectGuid>{483DB7F6-9145-4AE2-B9B2-2B5EE6FDEFB4}</ProjectGuid>
     <OutputType>Library</OutputType>
     <NoWarn>1699,436</NoWarn>
-    <OutputPath>./../../class/lib/net_4_x/bare</OutputPath>
+    <LangVersion>latest</LangVersion>
+    <HostPlatform Condition=" '$(HostPlatform)' == '' and '$(OS)' == 'Windows_NT'">win32</HostPlatform>
+    <HostPlatform Condition=" '$(HostPlatform)' == '' and '$(OS)' == 'Unix' and $([System.IO.File]::Exists('/usr/lib/libc.dylib'))">darwin</HostPlatform>
+    <HostPlatform Condition=" '$(HostPlatform)' == '' and '$(OS)' == 'Unix'">linux</HostPlatform>
+    <OutputPath>./../../class/lib/net_4_x-$(HostPlatform)/bare</OutputPath>
     <IntermediateOutputPath>obj-bare</IntermediateOutputPath>
     <GenerateTargetFrameworkAttribute>false</GenerateTargetFrameworkAttribute>
     <NoStdLib>True</NoStdLib>
@@ -22,8 +26,8 @@
     <AssemblyName>System</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
+
   </PropertyGroup>
-  
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
@@ -57,10 +61,10 @@
     <Compile Include="..\..\..\external\corefx\src\Common\src\System\Collections\Generic\LargeArrayBuilder.cs" />
     <Compile Include="..\..\..\external\corefx\src\Common\src\System\CSharpHelpers.cs" />
     <Compile Include="..\..\..\external\corefx\src\Common\src\System\IO\TempFileCollection.cs" />
+    <Compile Include="..\..\..\external\corefx\src\Common\src\System\Net\HttpStatusDescription.cs" />
     <Compile Include="..\..\..\external\corefx\src\Common\src\System\Net\Logging\NetEventSource.Common.cs" />
     <Compile Include="..\..\..\external\corefx\src\Common\src\System\Net\SecurityProtocol.cs" />
     <Compile Include="..\..\..\external\corefx\src\Common\src\System\Net\UriScheme.cs" />
-    <Compile Include="..\..\..\external\corefx\src\Common\src\System\Net\WebSockets\ManagedWebSocket.cs" />
     <Compile Include="..\..\..\external\corefx\src\Common\src\System\Net\WebSockets\WebSocketValidate.cs" />
     <Compile Include="..\..\..\external\corefx\src\Common\src\System\StringExtensions.cs" />
     <Compile Include="..\..\..\external\corefx\src\System.Buffers\src\System\Buffers\ArrayPool.cs" />
@@ -204,6 +208,8 @@
     <Compile Include="..\..\..\external\corefx\src\System.Net.WebSockets.Client\src\System\Net\WebSockets\ClientWebSocket.cs" />
     <Compile Include="..\..\..\external\corefx\src\System.Net.WebSockets.Client\src\System\Net\WebSockets\ClientWebSocketOptions.cs" />
     <Compile Include="..\..\..\external\corefx\src\System.Net.WebSockets.Client\src\System\Net\WebSockets\WebSocketHandle.Managed.cs" />
+    <Compile Include="..\..\..\external\corefx\src\System.Net.WebSockets\src\System\Net\WebSockets\ManagedWebSocket.cs" />
+    <Compile Include="..\..\..\external\corefx\src\System.Net.WebSockets\src\System\Net\WebSockets\ValueWebSocketReceiveResult.cs" />
     <Compile Include="..\..\..\external\corefx\src\System.Net.WebSockets\src\System\Net\WebSockets\WebSocket.cs" />
     <Compile Include="..\..\..\external\corefx\src\System.Net.WebSockets\src\System\Net\WebSockets\WebSocketCloseStatus.cs" />
     <Compile Include="..\..\..\external\corefx\src\System.Net.WebSockets\src\System\Net\WebSockets\WebSocketContext.cs" />
@@ -841,6 +847,7 @@
     <Compile Include="Mono.Btls\MonoBtlsSsl.cs" />
     <Compile Include="Mono.Btls\MonoBtlsSslCtx.cs" />
     <Compile Include="Mono.Btls\MonoBtlsSslError.cs" />
+    <Compile Include="Mono.Btls\MonoBtlsSslRenegotiateMode.cs" />
     <Compile Include="Mono.Btls\MonoBtlsStream.cs" />
     <Compile Include="Mono.Btls\MonoBtlsUtils.cs" />
     <Compile Include="Mono.Btls\MonoBtlsX509.cs" />
@@ -923,6 +930,11 @@
     <Compile Include="ReferenceSources\SR2.cs" />
     <Compile Include="ReferenceSources\SRCategoryAttribute.cs" />
     <Compile Include="ReferenceSources\Win32Exception.cs" />
+    <Compile Include="System.CodeDom.Compiler\CodeDomConfigurationHandler.cs" />
+    <Compile Include="System.CodeDom.Compiler\Compiler.cs" />
+    <Compile Include="System.CodeDom.Compiler\CompilerCollection.cs" />
+    <Compile Include="System.CodeDom.Compiler\CompilerProviderOption.cs" />
+    <Compile Include="System.CodeDom.Compiler\CompilerProviderOptionsCollection.cs" />
     <Compile Include="System.CodeDom.Compiler\Executor.cs" />
     <Compile Include="System.Configuration\ApplicationScopedSettingAttribute.cs" />
     <Compile Include="System.Configuration\ApplicationSettingsBase.cs" />
@@ -1181,7 +1193,6 @@
     <Compile Include="System.Net\BasicClient.cs" />
     <Compile Include="System.Net\BindIPEndPoint.cs" />
     <Compile Include="System.Net\ChunkedInputStream.cs" />
-    <Compile Include="System.Net\ChunkStream.cs" />
     <Compile Include="System.Net\DecompressionMethods.cs" />
     <Compile Include="System.Net\DefaultCertificatePolicy.cs" />
     <Compile Include="System.Net\DigestClient.cs" />
@@ -1200,12 +1211,12 @@
     <Compile Include="System.Net\FtpWebResponse.cs" />
     <Compile Include="System.Net\HttpConnection.cs" />
     <Compile Include="System.Net\HttpListener.cs" />
+    <Compile Include="System.Net\HttpListener.Mono.cs" />
     <Compile Include="System.Net\HttpListenerBasicIdentity.cs" />
     <Compile Include="System.Net\HttpListenerContext.cs" />
     <Compile Include="System.Net\HttpListenerPrefixCollection.cs" />
     <Compile Include="System.Net\HttpListenerRequest.cs" />
     <Compile Include="System.Net\HttpListenerResponse.cs" />
-    <Compile Include="System.Net\HttpListenerResponseHelper.cs" />
     <Compile Include="System.Net\HttpListenerTimeoutManager.cs" />
     <Compile Include="System.Net\HttpRequestCreator.cs" />
     <Compile Include="System.Net\HttpStreamAsyncResult.cs" />
@@ -1213,11 +1224,11 @@
     <Compile Include="System.Net\HttpWebResponse.cs" />
     <Compile Include="System.Net\ICredentialPolicy.cs" />
     <Compile Include="System.Net\IPv6Address.cs" />
-    <Compile Include="System.Net\IWebConnectionState.cs" />
     <Compile Include="System.Net\IWebProxyScript.cs" />
     <Compile Include="System.Net\ListenerAsyncResult.cs" />
     <Compile Include="System.Net\ListenerPrefix.cs" />
     <Compile Include="System.Net\MacProxy.cs" />
+    <Compile Include="System.Net\MonoChunkStream.cs" />
     <Compile Include="System.Net\MonoHttpDate.cs" />
     <Compile Include="System.Net\NetConfig.cs" />
     <Compile Include="System.Net\NtlmClient.cs" />
@@ -1226,14 +1237,15 @@
     <Compile Include="System.Net\ServicePoint.cs" />
     <Compile Include="System.Net\ServicePointManager.cs" />
     <Compile Include="System.Net\ServicePointManager.extra.cs" />
-    <Compile Include="System.Net\SimpleAsyncResult.cs" />
+    <Compile Include="System.Net\ServicePointScheduler.cs" />
     <Compile Include="System.Net\SocketPermission.cs" />
     <Compile Include="System.Net\SocketPermissionAttribute.cs" />
-    <Compile Include="System.Net\WebAsyncResult.cs" />
     <Compile Include="System.Net\WebConnection.cs" />
-    <Compile Include="System.Net\WebConnectionData.cs" />
-    <Compile Include="System.Net\WebConnectionGroup.cs" />
     <Compile Include="System.Net\WebConnectionStream.cs" />
+    <Compile Include="System.Net\WebConnectionTunnel.cs" />
+    <Compile Include="System.Net\WebOperation.cs" />
+    <Compile Include="System.Net\WebRequestStream.cs" />
+    <Compile Include="System.Net\WebResponseStream.cs" />
     <Compile Include="System.Runtime.InteropServices.ComTypes\ADVF.cs" />
     <Compile Include="System.Runtime.InteropServices.ComTypes\DATADIR.cs" />
     <Compile Include="System.Runtime.InteropServices.ComTypes\DVASPECT.cs" />
@@ -1340,6 +1352,11 @@
       <Project>{2CA6026B-2DC8-4C4C-A12C-1E8234049DB7}</Project>
       <Name>corlib-net_4_x</Name>
     </ProjectReference>
+    <Reference Include="./../../../external/binary-reference-assemblies/v4.7.1/System.Net.Http.dll">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>./../../../external/binary-reference-assemblies/v4.7.1/System.Net.Http.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Properties\" />

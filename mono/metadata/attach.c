@@ -267,7 +267,7 @@ mono_attach_cleanup (void)
 static int
 mono_attach_load_agent (MonoDomain *domain, char *agent, char *args, MonoObject **exc)
 {
-	MonoError error;
+	ERROR_DECL (error);
 	MonoAssembly *agent_assembly;
 	MonoImage *image;
 	MonoMethod *method;
@@ -313,7 +313,14 @@ mono_attach_load_agent (MonoDomain *domain, char *agent, char *args, MonoObject 
 	}
 
 	if (args) {
-		mono_array_set (main_args, MonoString*, 0, mono_string_new (domain, args));
+		MonoString *args_str = mono_string_new_checked (domain, args, &error);
+		if (!is_ok (&error)) {
+			g_print ("Could not allocate main method arg string due to %s\n", mono_error_get_message (&error));
+			mono_error_cleanup (&error);
+			g_free (agent);
+			return 1;
+		}
+		mono_array_set (main_args, MonoString*, 0, args_str);
 	}
 
 
@@ -476,7 +483,7 @@ transport_send (int fd, guint8 *data, int len)
 static void
 transport_start_receive (void)
 {
-	MonoError error;
+	ERROR_DECL (error);
 	MonoInternalThread *internal;
 
 	transport_connect ();
@@ -494,7 +501,7 @@ transport_start_receive (void)
 static gsize WINAPI
 receiver_thread (void *arg)
 {
-	MonoError error;
+	ERROR_DECL (error);
 	int res, content_len;
 	guint8 buffer [256];
 	guint8 *p, *p_end;
@@ -502,7 +509,9 @@ receiver_thread (void *arg)
 	MonoInternalThread *internal;
 
 	internal = mono_thread_internal_current ();
-	mono_thread_set_name_internal (internal, mono_string_new (mono_domain_get (), "Attach receiver"), TRUE, FALSE, &error);
+	MonoString *attach_str = mono_string_new_checked (mono_domain_get (), "Attach receiver", &error);
+	mono_error_assert_ok (&error);
+	mono_thread_set_name_internal (internal, attach_str, TRUE, FALSE, &error);
 	mono_error_assert_ok (&error);
 	/* Ask the runtime to not abort this thread */
 	//internal->flags |= MONO_THREAD_FLAG_DONT_MANAGE;

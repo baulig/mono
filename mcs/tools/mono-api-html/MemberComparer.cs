@@ -43,7 +43,7 @@ namespace Xamarin.ApiDiff {
 
 		protected virtual bool IsBreakingRemoval (XElement e)
 		{
-			return true;
+			return !e.Elements ("attributes").SelectMany (a => a.Elements ("attribute")).Any (c => c.Attribute ("name")?.Value == "System.ObsoleteAttribute");
 		}
 
 		public void Compare (XElement source, XElement target)
@@ -374,7 +374,7 @@ namespace Xamarin.ApiDiff {
 						change.Append (paramSourceType);
 					}
 					change.Append (" ");
-					if (paramSourceName != paramTargetName) {
+					if (!State.IgnoreParameterNameChanges && paramSourceName != paramTargetName) {
 						change.AppendModified (paramSourceName, paramTargetName, true);
 					} else {
 						change.Append (paramSourceName);
@@ -404,12 +404,6 @@ namespace Xamarin.ApiDiff {
 			}
 
 			change.Append (")");
-
-			// Ignore any parameter name changes if requested.
-			if (State.IgnoreParameterNameChanges && !change.Breaking) {
-				change.AnyChange = false;
-				change.HasIgnoredChanges = true;
-			}
 		}
 
 		void RenderVTable (MethodAttributes source, MethodAttributes target, ApiChange change)

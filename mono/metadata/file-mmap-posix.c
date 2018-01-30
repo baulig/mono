@@ -118,7 +118,7 @@ file_mmap_init (void)
 retry:	
 	switch (mmap_init_state) {
 	case  0:
-		if (InterlockedCompareExchange (&mmap_init_state, 1, 0) != 0)
+		if (mono_atomic_cas_i32 (&mmap_init_state, 1, 0) != 0)
 			goto retry;
 		named_regions = g_hash_table_new_full (g_str_hash, g_str_equal, NULL, NULL);
 		mono_coop_mutex_init (&named_regions_mutex);
@@ -303,7 +303,7 @@ static void*
 open_memory_map (const char *c_mapName, int mode, gint64 *capacity, int access, int options, int *ioerror)
 {
 	MmapHandle *handle;
-	if (*capacity <= 0) {
+	if (*capacity <= 0 && mode != FILE_MODE_OPEN) {
 		*ioerror = CAPACITY_MUST_BE_POSITIVE;
 		return NULL;
 	}
@@ -381,7 +381,7 @@ done:
 void *
 mono_mmap_open_file (MonoString *path, int mode, MonoString *mapName, gint64 *capacity, int access, int options, int *ioerror)
 {
-	MonoError error;
+	ERROR_DECL (error);
 	MmapHandle *handle = NULL;
 	g_assert (path || mapName);
 
@@ -429,7 +429,7 @@ mono_mmap_open_file (MonoString *path, int mode, MonoString *mapName, gint64 *ca
 void *
 mono_mmap_open_handle (void *input_fd, MonoString *mapName, gint64 *capacity, int access, int options, int *ioerror)
 {
-	MonoError error;
+	ERROR_DECL (error);
 	MmapHandle *handle;
 	if (!mapName) {
 		handle = (MmapHandle *)open_file_map (NULL, GPOINTER_TO_INT (input_fd), FILE_MODE_OPEN, capacity, access, options, ioerror);

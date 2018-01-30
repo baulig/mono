@@ -38,6 +38,7 @@ using System.Security.Cryptography.X509Certificates;
 
 using System;
 using System.Net;
+using System.Diagnostics;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 
@@ -82,6 +83,8 @@ namespace Mono.Net.Security
 			lock (locker) {
 				if (initialized)
 					return;
+
+				InitializeProviderRegistration ();
 
 				MSI.MonoTlsProvider provider;
 				try {
@@ -190,6 +193,22 @@ namespace Mono.Net.Security
 			}
 		}
 
+		static bool enableDebug;
+
+		[Conditional ("MONO_TLS_DEBUG")]
+		static void InitializeDebug ()
+		{
+			if (Environment.GetEnvironmentVariable ("MONO_TLS_DEBUG") != null)
+				enableDebug = true;
+		}
+
+		[Conditional ("MONO_TLS_DEBUG")]
+		internal static void Debug (string message, params object[] args)
+		{
+			if (enableDebug)
+				Console.Error.WriteLine (message, args);
+		}
+
 #endregion
 
 		internal static readonly Guid AppleTlsId = new Guid ("981af8af-a3a3-419a-9f01-a518e3a17c1c");
@@ -201,6 +220,9 @@ namespace Mono.Net.Security
 			lock (locker) {
 				if (providerRegistration != null)
 					return;
+
+				InitializeDebug ();
+
 				providerRegistration = new Dictionary<string,Tuple<Guid,string>> ();
 				providerCache = new Dictionary<Guid,MSI.MonoTlsProvider> ();
 
@@ -210,22 +232,23 @@ namespace Mono.Net.Security
 				providerRegistration.Add ("default", appleTlsEntry);
 				providerRegistration.Add ("apple", appleTlsEntry);
 #else
-				var legacyEntry = new Tuple<Guid,String> (BtlsId, "Mono.Net.Security.LegacyTlsProvider");
-#if MONO_FEATURE_BTLS
-				var btlsEntry = new Tuple<Guid,String> (LegacyId, "Mono.Btls.MonoBtlsProvider");
-#endif
-
+				var legacyEntry = new Tuple<Guid,String> (LegacyId, "Mono.Net.Security.LegacyTlsProvider");
 				providerRegistration.Add ("legacy", legacyEntry);
+
+				Tuple<Guid,String> btlsEntry = null;
+#if MONO_FEATURE_BTLS
+				if (IsBtlsSupported ()) {
+					btlsEntry = new Tuple<Guid,String> (BtlsId, "Mono.Btls.MonoBtlsProvider");
+					providerRegistration.Add ("btls", btlsEntry);
+				}
+#endif
 
 				if (Platform.IsMacOS)
 					providerRegistration.Add ("default", appleTlsEntry);
+				else if (btlsEntry != null)
+					providerRegistration.Add ("default", btlsEntry);
 				else
 					providerRegistration.Add ("default", legacyEntry);
-
-#if MONO_FEATURE_BTLS
-				if (IsBtlsSupported ())
-					providerRegistration.Add ("btls", btlsEntry);
-#endif
 
 				providerRegistration.Add ("apple", appleTlsEntry);
 #endif

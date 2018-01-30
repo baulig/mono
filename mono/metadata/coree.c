@@ -145,7 +145,7 @@ BOOL STDMETHODCALLTYPE _CorDllMain(HINSTANCE hInst, DWORD dwReason, LPVOID lpRes
 #if G_HAVE_API_SUPPORT(HAVE_CLASSIC_WINAPI_SUPPORT)
 __int32 STDMETHODCALLTYPE _CorExeMain(void)
 {
-	MonoError error;
+	ERROR_DECL (error);
 	MonoDomain* domain;
 	MonoAssembly* assembly;
 	MonoImage* image;
@@ -206,7 +206,7 @@ __int32 STDMETHODCALLTYPE _CorExeMain(void)
 	LocalFree (argvw);
 
 	mono_runtime_run_main_checked (method, argc, argv, &error);
-	mono_error_raise_exception (&error); /* OK, triggers unhandled exn handler */
+	mono_error_raise_exception_deprecated (&error); /* OK, triggers unhandled exn handler */
 	mono_thread_manage ();
 
 	mono_runtime_quit ();

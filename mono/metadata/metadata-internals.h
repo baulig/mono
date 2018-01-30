@@ -51,6 +51,11 @@ struct _MonoType {
 #define MONO_PROCESSOR_ARCHITECTURE_AMD64 4
 #define MONO_PROCESSOR_ARCHITECTURE_ARM 5
 
+#if !defined(DISABLE_JIT) || !defined(DISABLE_INTERPRETER)
+/* Some VES is available at runtime */
+#define ENABLE_ILGEN
+#endif
+
 struct _MonoAssemblyName {
 	const char *name;
 	const char *culture;
@@ -411,6 +416,10 @@ struct _MonoImage {
 	MonoGenericContainer *anonymous_generic_class_container;
 	MonoGenericContainer *anonymous_generic_method_container;
 
+	gboolean weak_fields_inited;
+	/* Contains 1 based indexes */
+	GHashTable *weak_field_indexes;
+
 	/*
 	 * No other runtime locks must be taken while holding this lock.
 	 * It's meant to be used only to mutate and query structures part of this image.
@@ -432,6 +441,9 @@ typedef struct {
 	// Generic-specific caches
 	GHashTable *ginst_cache, *gmethod_cache, *gsignature_cache;
 	MonoConcurrentHashTable *gclass_cache;
+
+	/* mirror caches of ones already on MonoImage. These ones contain generics */
+	GHashTable *szarray_cache, *array_cache, *ptr_cache;
 
 	MonoWrapperCaches wrapper_caches;
 
@@ -498,7 +510,6 @@ struct _MonoDynamicImage {
 	GHashTable *typespec;
 	GHashTable *typeref;
 	GHashTable *handleref;
-	MonoGHashTable *handleref_managed;
 	MonoGHashTable *tokens;
 	GHashTable *blob_cache;
 	GHashTable *standalonesig_cache;
@@ -935,7 +946,7 @@ mono_image_set_description (MonoImageSet *);
 MonoImageSet *
 mono_find_image_set_owner (void *ptr);
 
-void
+MONO_API void
 mono_loader_register_module (const char *name, MonoDl *module);
 
 gboolean
@@ -949,6 +960,9 @@ mono_loader_set_strict_strong_names (gboolean enabled);
 
 gboolean
 mono_loader_get_strict_strong_names (void);
+
+char*
+mono_signature_get_managed_fmt_string (MonoMethodSignature *sig);
 
 #endif /* __MONO_METADATA_INTERNALS_H__ */
 

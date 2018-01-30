@@ -28,6 +28,7 @@
 #include <mono/utils/mono-tls.h>
 #include <mono/utils/mono-mmap.h>
 #include <mono/utils/mono-threads.h>
+#include <mono/utils/unlocked.h>
 #include <mono/metadata/object.h>
 #include <mono/metadata/object-internals.h>
 #include <mono/metadata/domain-internals.h>
@@ -40,8 +41,8 @@
 #include <mono/metadata/mono-config.h>
 #include <mono/metadata/threads-types.h>
 #include <mono/metadata/runtime.h>
-#include <metadata/threads.h>
-#include <metadata/profiler-private.h>
+#include <mono/metadata/threads.h>
+#include <mono/metadata/profiler-private.h>
 #include <mono/metadata/coree.h>
 
 static MonoJitInfoFindInAot jit_info_find_in_aot_func = NULL;
@@ -62,21 +63,7 @@ static MonoJitInfoFindInAot jit_info_find_in_aot_func = NULL;
 static int
 jit_info_table_num_elements (MonoJitInfoTable *table)
 {
-	int i;
-	int num_elements = 0;
-
-	for (i = 0; i < table->num_chunks; ++i) {
-		MonoJitInfoTableChunk *chunk = table->chunks [i];
-		int chunk_num_elements = chunk->num_elements;
-		int j;
-
-		for (j = 0; j < chunk_num_elements; ++j) {
-			if (!IS_JIT_INFO_TOMBSTONE (chunk->data [j]))
-				++num_elements;
-		}
-	}
-
-	return num_elements;
+	return table->num_valid;
 }
 
 static MonoJitInfoTableChunk*
@@ -96,6 +83,7 @@ mono_jit_info_table_new (MonoDomain *domain)
 	table->domain = domain;
 	table->num_chunks = 1;
 	table->chunks [0] = jit_info_table_new_chunk ();
+	table->num_valid = 0;
 
 	return table;
 }
@@ -276,7 +264,7 @@ mono_jit_info_table_find_internal (MonoDomain *domain, char *addr, gboolean try_
 	MonoJitInfo *ji, *module_ji;
 	MonoThreadHazardPointers *hp = mono_hazard_pointer_get ();
 
-	++mono_stats.jit_info_table_lookup_count;
+	UnlockedIncrement (&mono_stats.jit_info_table_lookup_count);
 
 	/* First we have to get the domain's jit_info_table.  This is
 	   complicated by the fact that a writer might substitute a
@@ -397,6 +385,7 @@ jit_info_table_realloc (MonoJitInfoTable *old)
 	result = (MonoJitInfoTable *)g_malloc (MONO_SIZEOF_JIT_INFO_TABLE + sizeof (MonoJitInfoTableChunk*) * num_chunks);
 	result->domain = old->domain;
 	result->num_chunks = num_chunks;
+	result->num_valid = old->num_valid;
 
 	for (i = 0; i < num_chunks; ++i)
 		result->chunks [i] = jit_info_table_new_chunk ();
@@ -469,6 +458,7 @@ jit_info_table_copy_and_split_chunk (MonoJitInfoTable *table, MonoJitInfoTableCh
 
 	new_table->domain = table->domain;
 	new_table->num_chunks = table->num_chunks + 1;
+	new_table->num_valid = table->num_valid;
 
 	j = 0;
 	for (i = 0; i < table->num_chunks; ++i) {
@@ -517,6 +507,7 @@ jit_info_table_copy_and_purify_chunk (MonoJitInfoTable *table, MonoJitInfoTableC
 
 	new_table->domain = table->domain;
 	new_table->num_chunks = table->num_chunks;
+	new_table->num_valid = table->num_valid;
 
 	j = 0;
 	for (i = 0; i < table->num_chunks; ++i) {
@@ -651,6 +642,8 @@ jit_info_table_add (MonoDomain *domain, MonoJitInfoTable *volatile *table_ptr, M
 	chunk->last_code_end = (gint8*)chunk->data [chunk->num_elements - 1]->code_start
 		+ chunk->data [chunk->num_elements - 1]->code_size;
 
+	++table->num_valid;
+
 	/* Debugging code, should be removed. */
 	//jit_info_table_check (table);
 }
@@ -662,7 +655,7 @@ mono_jit_info_table_add (MonoDomain *domain, MonoJitInfo *ji)
 
 	mono_domain_lock (domain);
 
-	++mono_stats.jit_info_table_insert_count;
+	UnlockedIncrement (&mono_stats.jit_info_table_insert_count);
 
 	jit_info_table_add (domain, &domain->jit_info_table, ji);
 
@@ -732,6 +725,7 @@ jit_info_table_remove (MonoJitInfoTable *table, MonoJitInfo *ji)
 	g_assert (chunk->data [pos] == ji);
 
 	chunk->data [pos] = mono_jit_info_make_tombstone (chunk, ji);
+	--table->num_valid;
 
 	/* Debugging code, should be removed. */
 	//jit_info_table_check (table);
@@ -745,7 +739,7 @@ mono_jit_info_table_remove (MonoDomain *domain, MonoJitInfo *ji)
 	mono_domain_lock (domain);
 	table = domain->jit_info_table;
 
-	++mono_stats.jit_info_table_remove_count;
+	UnlockedIncrement (&mono_stats.jit_info_table_remove_count);
 
 	jit_info_table_remove (table, ji);
 

@@ -829,7 +829,7 @@ get_simd_vreg (MonoCompile *cfg, MonoMethod *cmethod, MonoInst *src)
 		return src->sreg1;
 	} else if (spec [MONO_INST_DEST] == 'x') {
 		return src->dreg;
-	} else if (src->opcode == OP_VCALL) {
+	} else if (src->opcode == OP_VCALL || src->opcode == OP_VCALL_MEMBASE) {
 		return src->dreg;
 	}
 
@@ -852,7 +852,6 @@ load_simd_vreg_class (MonoCompile *cfg, MonoClass *klass, MonoInst *src, gboolea
 		return src->sreg1;
 	} else if (src->opcode == OP_LDADDR) {
 		int res = ((MonoInst*)src->inst_p0)->dreg;
-		NULLIFY_INS (src);
 		return res;
 	} else if (spec [MONO_INST_DEST] == 'x') {
 		return src->dreg;
@@ -2039,7 +2038,7 @@ static void
 assert_handled (MonoCompile *cfg, MonoMethod *method)
 {
 	MonoCustomAttrInfo *cattr;
-	MonoError error;
+	ERROR_DECL (error);
 
 	if (cfg->verbose_level > 1) {
 		cattr = mono_custom_attrs_from_method_checked (method, &error);

@@ -343,7 +343,8 @@ public class Tests : TestsBase, ITest2
 		gc_suspend ();
 		set_ip ();
 		step_filters ();
-		local_reflect ();
+		if (args.Length > 0 && args [0] == "local-reflect")
+			local_reflect ();
 		if (args.Length > 0 && args [0] == "domain-test")
 			/* This takes a lot of time, so execute it conditionally */
 			domains ();
@@ -1165,8 +1166,16 @@ public class Tests : TestsBase, ITest2
 		return 42;
 	}
 
+	public int invoke_pass_nullable (int? i) {
+		return (int)i;
+	}
+
 	public int? invoke_return_nullable_null () {
 		return null;
+	}
+
+	public int invoke_pass_nullable_null (int? i) {
+		return i.HasValue ? 1 : 2;
 	}
 
 	public void invoke_type_load () {

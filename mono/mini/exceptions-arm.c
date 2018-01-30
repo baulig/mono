@@ -15,9 +15,9 @@
 #include <string.h>
 
 #ifndef MONO_CROSS_COMPILE
-#ifdef PLATFORM_ANDROID
+#ifdef HOST_ANDROID
 #include <asm/sigcontext.h>
-#endif  /* def PLATFORM_ANDROID */
+#endif  /* def HOST_ANDROID */
 #endif
 
 #ifdef HAVE_UCONTEXT_H
@@ -36,6 +36,8 @@
 
 #include "mini.h"
 #include "mini-arm.h"
+#include "mini-runtime.h"
+#include "aot-runtime.h"
 #include "mono/utils/mono-sigcontext.h"
 #include "mono/utils/mono-compiler.h"
 
@@ -142,7 +144,7 @@ mono_arch_get_call_filter (MonoTrampInfo **info, gboolean aot)
 void
 mono_arm_throw_exception (MonoObject *exc, mgreg_t pc, mgreg_t sp, mgreg_t *int_regs, gdouble *fp_regs)
 {
-	MonoError error;
+	ERROR_DECL (error);
 	MonoContext ctx;
 	gboolean rethrow = sp & 1;
 
@@ -463,24 +465,7 @@ mono_arch_unwind_frame (MonoDomain *domain, MonoJitTlsData *jit_tls,
 
 		return TRUE;
 	} else if (*lmf) {
-
-		if (((gsize)(*lmf)->previous_lmf) & 2) {
-			/* 
-			 * This LMF entry is created by the soft debug code to mark transitions to
-			 * managed code done during invokes.
-			 */
-			MonoLMFExt *ext = (MonoLMFExt*)(*lmf);
-
-			g_assert (ext->debugger_invoke);
-
-			memcpy (new_ctx, &ext->ctx, sizeof (MonoContext));
-
-			*lmf = (gpointer)(((gsize)(*lmf)->previous_lmf) & ~3);
-
-			frame->type = FRAME_TYPE_DEBUGGER_INVOKE;
-
-			return TRUE;
-		}
+		g_assert ((((guint64)(*lmf)->previous_lmf) & 2) == 0);
 
 		frame->type = FRAME_TYPE_MANAGED_TO_NATIVE;
 		

@@ -1362,6 +1362,7 @@ ncells ) {
 		return 1.4e-45f;
 	}
 
+	[Category ("!BITCODE")] // bug #59953
 	public static int test_0_float_return_spill () {
 		// The return value of return_float () is spilled because of the
 		// boxing call
@@ -1809,6 +1810,38 @@ ncells ) {
 
         return 0;
     }
+
+	public static int test_0_typedref () {
+		int i = 5;
+		System.TypedReference r = __makeref(i);
+		System.Type t = __reftype(r);
+
+		if (t != typeof (int))
+			return 1;
+		int j = __refvalue(r, int);
+		if (j != 5)
+			return 2;
+
+		try {
+			object o = __refvalue (r, object);
+		} catch (InvalidCastException) {
+		}
+
+		return 0;
+	}
+
+	static void decode (out sbyte v) {
+		byte tmp = 134;
+		v = (sbyte)tmp;
+	}
+
+	// gh #6414
+	public static int test_0_alias_analysis_sign_extend () {
+	  sbyte t;
+	  decode (out t);
+
+	  return t == -122 ? 0 : 1;
+	}
 }
 
 #if __MOBILE__

@@ -35,6 +35,7 @@ namespace Mono.CSharp {
 		Enum		= 1 << 14,
 		Interface	= 1 << 15,
 		TypeParameter = 1 << 16,
+		ByRef		= 1 << 17,
 
 		ArrayType = 1 << 19,
 		PointerType = 1 << 20,
@@ -1500,6 +1501,12 @@ namespace Mono.CSharp {
 									member.GetSignatureForError ());
 							}
 							return false;
+						}
+
+						var pm_member = (MethodCore)member;
+						if (!NamedTupleSpec.CheckOverrideName (pm, pm_member) || !NamedTupleSpec.CheckOverrideName (pm.MemberType, pm_member.MemberType)) {
+							Report.Error (8142, member.Location,
+								"A partial method declaration and partial method implementation must both use the same tuple element names");
 						}
 					}
 				}

@@ -27,17 +27,6 @@
 // WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //
 
-#if SECURITY_DEP
-#if MONO_SECURITY_ALIAS
-extern alias MonoSecurity;
-#endif
-
-#if MONO_SECURITY_ALIAS
-using MSI = MonoSecurity::Mono.Security.Interface;
-#else
-using MSI = Mono.Security.Interface;
-#endif
-
 using System.IO;
 using System.Net.Sockets;
 using System.Text;
@@ -48,8 +37,7 @@ using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 
 namespace System.Net {
-	sealed class HttpConnection
-	{
+	sealed class HttpConnection {
 		static AsyncCallback onread_cb = new AsyncCallback (OnRead);
 		const int BufferSize = 8192;
 		Socket sock;
@@ -391,7 +379,7 @@ namespace System.Net {
 				HttpListenerResponse response = context.Response;
 				response.StatusCode = status;
 				response.ContentType = "text/html";
-				string description = HttpListenerResponseHelper.GetStatusDescription (status);
+				string description = HttpStatusDescription.Get (status);
 				string str;
 				if (msg != null)
 					str = String.Format ("<h1>{0} ({1})</h1>", description, msg);
@@ -495,5 +483,4 @@ namespace System.Net {
 		}
 	}
 }
-#endif
 

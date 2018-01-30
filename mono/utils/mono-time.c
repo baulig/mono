@@ -14,7 +14,7 @@
 #include <sys/time.h>
 #endif
 
-#include <utils/mono-time.h>
+#include <mono/utils/mono-time.h>
 
 
 #define MTICKS_PER_SEC (10 * 1000 * 1000)
@@ -84,7 +84,7 @@ mono_100ns_datetime (void)
 #include <sys/sysctl.h>
 #endif
 
-#if defined(PLATFORM_MACOSX)
+#if defined(HOST_DARWIN)
 #include <mach/mach.h>
 #include <mach/mach_time.h>
 #endif
@@ -143,7 +143,7 @@ gint64
 mono_100ns_ticks (void)
 {
 	struct timeval tv;
-#if defined(PLATFORM_MACOSX)
+#if defined(HOST_DARWIN)
 	/* http://developer.apple.com/library/mac/#qa/qa1398/_index.html */
 	static mach_timebase_info_data_t timebase;
 	guint64 now = mach_absolute_time ();

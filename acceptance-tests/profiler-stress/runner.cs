@@ -38,15 +38,52 @@ namespace Mono.Profiling.Tests.Stress {
 		public ProcessStartInfo StartInfo { get; set; }
 		public Stopwatch Stopwatch { get; set; } = new Stopwatch ();
 		public int? ExitCode { get; set; }
-		public StringBuilder StandardOutput { get; set; } = new StringBuilder ();
-		public StringBuilder StandardError { get; set; } = new StringBuilder ();
+		public string StandardOutput { get; set; }
+		public string StandardError { get; set; }
 	}
 
 	static class Program {
 
-		static readonly TimeSpan _timeout = TimeSpan.FromHours (6);
+		static readonly string[] _options = new [] {
+			"exception",
+			"monitor",
+			"gc",
+			"gcalloc",
+			"gcmove",
+			"gcroot",
+			"gchandle",
+			"finalization",
+			"counter",
+			"jit",
+		};
 
-		static string FilterInvalidXmlChars (string text) {
+		static readonly TimeSpan _timeout = TimeSpan.FromHours (9);
+
+		static readonly Dictionary<string, Predicate<Benchmark>> _filters = new Dictionary<string, Predicate<Benchmark>> {
+			{ "ironjs-v8", FilterNotOnArm },
+			{ "msbiology", FilterNever },
+		};
+
+		static bool FilterNever (Benchmark benchmark)
+		{
+			return false;
+		}
+
+		static bool FilterNotOnArm (Benchmark benchmark)
+		{
+#if ARCH_arm || ARCH_arm64
+			return false;
+#else
+			return true;
+#endif
+		}
+
+		static bool IsSupported (Benchmark benchmark)
+		{
+			return _filters.TryGetValue (benchmark.Name, out var filter) ? filter (benchmark) : true;
+		}
+
+		static string ReplaceInvalidXmlChars (string text) {
 			return Regex.Replace (text, @"[^\x09\x0A\x0D\x20-\uD7FF\uE000-\uFFFD\u10000-\u10FFFF]", string.Empty);
 		}
 
@@ -58,7 +95,7 @@ namespace Mono.Profiling.Tests.Stress {
 
 			var benchmarks = Directory.EnumerateFiles (benchDir, "*.benchmark")
 			                 .Select (Benchmark.Load)
-			                 .Where (b => !b.OnlyExplicit && b.ClientCommandLine == null)
+			                 .Where (b => !b.OnlyExplicit && b.ClientCommandLine == null && IsSupported (b))
 			                 .OrderBy (b => b.Name)
 			                 .ToArray ();
 
@@ -75,14 +112,22 @@ namespace Mono.Profiling.Tests.Stress {
 			for (var i = 0; i < benchmarks.Length; i++) {
 				var bench = benchmarks [i];
 
-				var sampleFreq = rand.Next (0, 1001);
-				var sampleMode = rand.Next (0, 2) == 1 ? "real" : "process";
+				var sampleFreq = rand.Next (-1000, 1001);
+				var sampleMode = rand.Next (0, 2) == 1 ? "-real" : string.Empty;
 				var maxSamples = rand.Next (0, cpus * 2000 + 1);
-				var heapShotFreq = rand.Next (0, 11);
+				var heapShotFreq = rand.Next (-10, 11);
 				var maxFrames = rand.Next (0, 33);
-				var allocMode = rand.Next (0, 2) == 1 ? "alloc" : "noalloc";
+				var options = _options.ToDictionary (x => x, _ => rand.Next (0, 2) == 1)
+				                      .Select (x => (x.Value ? string.Empty : "no") + x.Key)
+				                      .ToArray ();
 
-				var profOptions = $"sample=cycles/{sampleFreq},sampling-{sampleMode},maxsamples={maxSamples},heapshot={heapShotFreq}gc,maxframes={maxFrames},{allocMode},output=/dev/null";
+				var profOptions = $"maxframes={maxFrames},{string.Join (",", options)},output=/dev/null";
+
+				if (sampleFreq > 0)
+					profOptions += $",sample{sampleMode}={sampleFreq},maxsamples={maxSamples}";
+
+				if (heapShotFreq > 0)
+					profOptions += $",heapshot={heapShotFreq}gc";
 
 				var info = new ProcessStartInfo {
 					UseShellExecute = false,
@@ -110,14 +155,19 @@ namespace Mono.Profiling.Tests.Stress {
 				using (var proc = new Process ()) {
 					proc.StartInfo = info;
 
+					var stdout = new StringBuilder ();
+					var stderr = new StringBuilder ();
+
 					proc.OutputDataReceived += (sender, args) => {
 						if (args.Data != null)
-							result.StandardOutput.AppendLine (args.Data);
+							lock (result)
+								stdout.AppendLine (args.Data);
 					};
 
 					proc.ErrorDataReceived += (sender, args) => {
 						if (args.Data != null)
-							result.StandardError.AppendLine (args.Data);
+							lock (result)
+								stderr.AppendLine (args.Data);
 					};
 
 					result.Stopwatch.Start ();
@@ -140,6 +190,11 @@ namespace Mono.Profiling.Tests.Stress {
 						result.ExitCode = proc.ExitCode;
 
 					result.Stopwatch.Stop ();
+
+					lock (result) {
+						result.StandardOutput = stdout.ToString ();
+						result.StandardError = stderr.ToString ();
+					}
 				}
 
 				var resultStr = result.ExitCode == null ? "timed out" : $"exited with code: {result.ExitCode}";
@@ -153,13 +208,13 @@ namespace Mono.Profiling.Tests.Stress {
 					Console.WriteLine ("===== stdout =====");
 					Console.ResetColor ();
 
-					Console.WriteLine (result.StandardOutput.ToString ());
+					Console.WriteLine (result.StandardOutput);
 
 					Console.ForegroundColor = ConsoleColor.Red;
 					Console.WriteLine ("===== stderr =====");
 					Console.ResetColor ();
 
-					Console.WriteLine (result.StandardError.ToString ());
+					Console.WriteLine (result.StandardError);
 				}
 
 				results.Add (result);
@@ -239,11 +294,11 @@ namespace Mono.Profiling.Tests.Stress {
 						writer.WriteStartElement ("failure");
 
 						writer.WriteStartElement ("message");
-						writer.WriteCData (FilterInvalidXmlChars (result.StandardOutput.ToString ()));
+						writer.WriteCData (ReplaceInvalidXmlChars (result.StandardOutput));
 						writer.WriteEndElement ();
 
 						writer.WriteStartElement ("stack-trace");
-						writer.WriteCData (FilterInvalidXmlChars (result.StandardError.ToString ()));
+						writer.WriteCData (ReplaceInvalidXmlChars (result.StandardError));
 						writer.WriteEndElement ();
 
 						writer.WriteEndElement ();

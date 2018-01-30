@@ -7,11 +7,13 @@
 #ifndef __MONO_METADATA_DOMAIN_INTERNALS_H__
 #define __MONO_METADATA_DOMAIN_INTERNALS_H__
 
+#include <mono/metadata/object-forward.h>
 #include <mono/metadata/appdomain.h>
 #include <mono/metadata/mempool.h>
 #include <mono/metadata/lock-tracer.h>
 #include <mono/utils/mono-codeman.h>
 #include <mono/metadata/mono-hash.h>
+#include <mono/metadata/mono-conc-hash.h>
 #include <mono/utils/mono-compiler.h>
 #include <mono/utils/mono-internal-hash.h>
 #include <mono/metadata/mempool-internals.h>
@@ -69,6 +71,7 @@ struct _MonoJitInfoTable
 {
 	MonoDomain	       *domain;
 	int			num_chunks;
+	int			num_valid;
 	MonoJitInfoTableChunk  *chunks [MONO_ZERO_LEN_ARRAY];
 };
 
@@ -241,6 +244,8 @@ struct _MonoJitInfo {
 	 * d.tramp_info contains additional data in this case.
 	 */
 	gboolean    is_trampoline:1;
+	/* Whenever this jit info refers to an interpreter method */
+	gboolean    is_interp:1;
 
 	/* FIXME: Embed this after the structure later*/
 	gpointer    gc_info; /* Currently only used by SGen */
@@ -336,7 +341,7 @@ struct _MonoDomain {
 	MonoGHashTable     *ldstr_table;
 	/* hashtables for Reflection handles */
 	MonoGHashTable     *type_hash;
-	MonoGHashTable     *refobject_hash;
+	MonoConcGHashTable     *refobject_hash;
 	/* maps class -> type initialization exception object */
 	MonoGHashTable    *type_init_exception_hash;
 	/* maps delegate trampoline addr -> delegate object */
@@ -533,6 +538,9 @@ mono_domain_unset (void);
 void
 mono_domain_set_internal_with_options (MonoDomain *domain, gboolean migrate_exception);
 
+gboolean
+mono_domain_set_config_checked (MonoDomain *domain, const char *base_dir, const char *config_file_name, MonoError *error);
+
 MonoTryBlockHoleTableJitInfo*
 mono_jit_info_get_try_block_hole_table_info (MonoJitInfo *ji);
 
@@ -601,7 +609,10 @@ MonoJitInfo* mono_jit_info_table_find_internal (MonoDomain *domain, char *addr, 
 void mono_enable_debug_domain_unload (gboolean enable);
 
 MonoReflectionAssembly *
-mono_domain_try_type_resolve_checked (MonoDomain *domain, char *name, MonoObject *tb, MonoError *error);
+mono_domain_try_type_resolve_name (MonoDomain *domain, const char *name, MonoError *error);
+
+MonoReflectionAssembly *
+mono_domain_try_type_resolve_typebuilder (MonoDomain *domain, MonoReflectionTypeBuilder *typebuilder, MonoError *error);
 
 void
 mono_runtime_init_checked (MonoDomain *domain, MonoThreadStartCB start_cb, MonoThreadAttachCB attach_cb, MonoError *error);

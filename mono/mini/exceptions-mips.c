@@ -28,6 +28,8 @@
 
 #include "mini.h"
 #include "mini-mips.h"
+#include "mini-runtime.h"
+#include "aot-runtime.h"
 
 #define GENERIC_EXCEPTION_SIZE 256
 
@@ -78,7 +80,7 @@ mono_arch_get_restore_context (MonoTrampInfo **info, gboolean aot)
 
 	g_assert ((code - start) < sizeof(start));
 	mono_arch_flush_icache (start, code - start);
-	mono_profiler_code_buffer_new (start, code - start, MONO_PROFILER_CODE_BUFFER_EXCEPTION_HANDLING, NULL);
+	MONO_PROFILER_RAISE (jit_code_buffer, (start, code - start, MONO_PROFILER_CODE_BUFFER_EXCEPTION_HANDLING, NULL));
 	return start;
 }
 
@@ -170,14 +172,14 @@ mono_arch_get_call_filter (MonoTrampInfo **info, gboolean aot)
 
 	g_assert ((code - start) < sizeof(start));
 	mono_arch_flush_icache (start, code - start);
-	mono_profiler_code_buffer_new (start, code - start, MONO_PROFILER_CODE_BUFFER_EXCEPTION_HANDLING, NULL);
+	MONO_PROFILER_RAISE (jit_code_buffer, (start, code - start, MONO_PROFILER_CODE_BUFFER_EXCEPTION_HANDLING, NULL));
 	return start;
 }
 
 static void
 throw_exception (MonoObject *exc, unsigned long eip, unsigned long esp, gboolean rethrow)
 {
-	MonoError error;
+	ERROR_DECL (error);
 	MonoContext ctx;
 
 #ifdef DEBUG_EXCEPTIONS
@@ -288,7 +290,7 @@ mono_arch_get_throw_exception_generic (guint8 *start, int size, int corlib, gboo
 
 	g_assert ((code - start) < size);
 	mono_arch_flush_icache (start, code - start);
-	mono_profiler_code_buffer_new (start, code - start, MONO_PROFILER_CODE_BUFFER_EXCEPTION_HANDLING, NULL);
+	MONO_PROFILER_RAISE (jit_code_buffer, (start, code - start, MONO_PROFILER_CODE_BUFFER_EXCEPTION_HANDLING, NULL));
 	return start;
 }
 
@@ -354,7 +356,7 @@ mono_arch_get_throw_exception_by_name (void)
 	start = code = mono_global_codeman_reserve (size);
 	mips_break (code, 0xfd);
 	mono_arch_flush_icache (start, code - start);
-	mono_profiler_code_buffer_new (start, code - start, MONO_PROFILER_CODE_BUFFER_EXCEPTION_HANDLING, NULL);
+	MONO_PROFILER_RAISE (jit_code_buffer, (start, code - start, MONO_PROFILER_CODE_BUFFER_EXCEPTION_HANDLING, NULL));
 	return start;
 }
 
@@ -437,24 +439,7 @@ mono_arch_unwind_frame (MonoDomain *domain, MonoJitTlsData *jit_tls,
 		g_assert (MONO_CONTEXT_GET_SP (new_ctx) != MONO_CONTEXT_GET_SP (ctx));
 		return TRUE;
 	} else if (*lmf) {
-
-		if (((mgreg_t)(*lmf)->previous_lmf) & 2) {
-			/* 
-			 * This LMF entry is created by the soft debug code to mark transitions to
-			 * managed code done during invokes.
-			 */
-			MonoLMFExt *ext = (MonoLMFExt*)(*lmf);
-
-			g_assert (ext->debugger_invoke);
-
-			memcpy (new_ctx, &ext->ctx, sizeof (MonoContext));
-
-			*lmf = (gpointer)(((gsize)(*lmf)->previous_lmf) & ~3);
-
-			frame->type = FRAME_TYPE_DEBUGGER_INVOKE;
-
-			return TRUE;
-		}
+		g_assert ((((guint64)(*lmf)->previous_lmf) & 2) == 0);
 
 		if (!(*lmf)->method) {
 #ifdef DEBUG_EXCEPTIONS

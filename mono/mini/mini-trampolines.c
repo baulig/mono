@@ -17,13 +17,14 @@
 #include <mono/utils/mono-membar.h>
 #include <mono/utils/mono-compiler.h>
 #include <mono/utils/mono-threads-coop.h>
+#include <mono/utils/unlocked.h>
 
 #include "mini.h"
 #include "lldb.h"
+#include "aot-runtime.h"
+#include "mini-runtime.h"
 
-#ifdef ENABLE_INTERPRETER
 #include "interp/interp.h"
-#endif
 
 /*
  * Address of the trampoline code.  This is used by the debugger to check
@@ -33,7 +34,13 @@ guint8* mono_trampoline_code [MONO_TRAMPOLINE_NUM];
 
 static GHashTable *rgctx_lazy_fetch_trampoline_hash;
 static GHashTable *rgctx_lazy_fetch_trampoline_hash_addr;
-static guint32 trampoline_calls, jit_trampolines, unbox_trampolines, static_rgctx_trampolines;
+
+static gint32 trampoline_calls;
+static gint32 jit_trampolines;
+static gint32 unbox_trampolines;
+static gint32 static_rgctx_trampolines;
+static gint32 rgctx_unmanaged_lookups;
+static gint32 rgctx_num_lazy_fetch_trampolines;
 
 #define mono_trampolines_lock() mono_os_mutex_lock (&trampolines_mutex)
 #define mono_trampolines_unlock() mono_os_mutex_unlock (&trampolines_mutex)
@@ -128,9 +135,9 @@ mono_create_static_rgctx_trampoline (MonoMethod *m, gpointer addr)
 	info->m = m;
 	info->addr = addr;
 	g_hash_table_insert (domain_jit_info (domain)->static_rgctx_trampoline_hash, info, res);
-	mono_domain_unlock (domain);
 
-	static_rgctx_trampolines ++;
+	UnlockedIncrement (&static_rgctx_trampolines);
+	mono_domain_unlock (domain);
 
 	return res;
 }
@@ -567,6 +574,10 @@ common_call_trampoline (mgreg_t *regs, guint8 *code, MonoMethod *m, MonoVTable *
 			vtable_slot = mini_resolve_imt_method (vt, vtable_slot, imt_method, &impl_method, &addr, &need_rgctx_tramp, &variant_iface, error);
 			return_val_if_nok (error, NULL);
 
+			/* We must handle magic interfaces on rank 1 arrays of ref types as if they were variant */
+			if (!variant_iface && vt->klass->rank == 1 && !vt->klass->element_class->valuetype && imt_method->klass->is_array_special_interface)
+				variant_iface = imt_method;
+
 			/* This is the vcall slot which gets called through the IMT trampoline */
 			vtable_slot_to_patch = vtable_slot;
 
@@ -824,19 +835,19 @@ gpointer
 mono_magic_trampoline (mgreg_t *regs, guint8 *code, gpointer arg, guint8* tramp)
 {
 	gpointer res;
+	ERROR_DECL (error);
 
-	MONO_ENTER_GC_UNSAFE_UNBALANCED;
+	MONO_REQ_GC_UNSAFE_MODE;
 
-	MonoError error;
+	g_assert (mono_thread_is_gc_unsafe_mode ());
 
-	trampoline_calls ++;
+	UnlockedIncrement (&trampoline_calls);
 
 	res = common_call_trampoline (regs, code, (MonoMethod *)arg, NULL, NULL, &error);
-	mono_error_set_pending_exception (&error);
-
-	mono_interruption_checkpoint_from_trampoline ();
-
-	MONO_EXIT_GC_UNSAFE_UNBALANCED;
+	if (!is_ok (&error)) {
+		mono_error_set_pending_exception (&error);
+		return NULL;
+	}
 
 	return res;
 }
@@ -855,10 +866,10 @@ mono_vcall_trampoline (mgreg_t *regs, guint8 *code, int slot, guint8 *tramp)
 	MonoVTable *vt;
 	gpointer *vtable_slot;
 	MonoMethod *m;
-	MonoError error;
+	ERROR_DECL (error);
 	gpointer addr, res = NULL;
 
-	trampoline_calls ++;
+	UnlockedIncrement (&trampoline_calls);
 
 	/*
 	 * We need to obtain the following pieces of information:
@@ -882,8 +893,7 @@ mono_vcall_trampoline (mgreg_t *regs, guint8 *code, int slot, guint8 *tramp)
 
 		/* Avoid loading metadata or creating a generic vtable if possible */
 		addr = mono_aot_get_method_from_vt_slot (mono_domain_get (), vt, slot, &error);
-		if (!is_ok (&error))
-			goto leave;
+		goto_if_nok (&error, leave);
 		if (addr && !vt->klass->valuetype) {
 			if (mono_domain_owns_vtable_slot (mono_domain_get (), vtable_slot))
 				*vtable_slot = addr;
@@ -927,12 +937,12 @@ mono_generic_virtual_remoting_trampoline (mgreg_t *regs, guint8 *code, MonoMetho
 {
 	MONO_REQ_GC_UNSAFE_MODE;
 
-	MonoError error;
+	ERROR_DECL (error);
 	MonoGenericContext context = { NULL, NULL };
 	MonoMethod *imt_method, *declaring;
 	gpointer addr;
 
-	trampoline_calls ++;
+	UnlockedIncrement (&trampoline_calls);
 
 	g_assert (m->is_generic);
 
@@ -951,7 +961,11 @@ mono_generic_virtual_remoting_trampoline (mgreg_t *regs, guint8 *code, MonoMetho
 		context.method_inst = ((MonoMethodInflated*)imt_method)->context.method_inst;
 	m = mono_class_inflate_generic_method_checked (declaring, &context, &error);
 	g_assert (mono_error_ok (&error)); /* FIXME don't swallow the error */;
-	m = mono_marshal_get_remoting_invoke_with_check (m);
+	m = mono_marshal_get_remoting_invoke_with_check (m, &error);
+	if (!is_ok (&error)) {
+		mono_error_set_pending_exception (&error);
+		return NULL;
+	}
 
 	addr = mono_jit_compile_method (m, &error);
 	if (!mono_error_ok (&error)) {
@@ -982,9 +996,9 @@ mono_aot_trampoline (mgreg_t *regs, guint8 *code, guint8 *token_info,
 	MonoMethod *method = NULL;
 	gpointer addr;
 	guint8 *plt_entry;
-	MonoError error;
+	ERROR_DECL (error);
 
-	trampoline_calls ++;
+	UnlockedIncrement (&trampoline_calls);
 
 	image = (MonoImage *)*(gpointer*)(gpointer)token_info;
 	token_info += sizeof (gpointer);
@@ -1026,9 +1040,9 @@ mono_aot_plt_trampoline (mgreg_t *regs, guint8 *code, guint8 *aot_module,
 
 	guint32 plt_info_offset = mono_aot_get_plt_info_offset (regs, code);
 	gpointer res;
-	MonoError error;
+	ERROR_DECL (error);
 
-	trampoline_calls ++;
+	UnlockedIncrement (&trampoline_calls);
 
 	res = mono_aot_plt_resolve (aot_module, plt_info_offset, code, &error);
 	if (!res) {
@@ -1049,24 +1063,16 @@ mono_rgctx_lazy_fetch_trampoline (mgreg_t *regs, guint8 *code, gpointer data, gu
 {
 	MONO_REQ_GC_UNSAFE_MODE;
 
-	static gboolean inited = FALSE;
-	static int num_lookups = 0;
 	guint32 slot = GPOINTER_TO_UINT (data);
 	mgreg_t *r = (mgreg_t*)regs;
 	gpointer arg = (gpointer)(gssize)r [MONO_ARCH_VTABLE_REG];
 	guint32 index = MONO_RGCTX_SLOT_INDEX (slot);
 	gboolean mrgctx = MONO_RGCTX_SLOT_IS_MRGCTX (slot);
-	MonoError error;
+	ERROR_DECL (error);
 	gpointer res;
 
-	trampoline_calls ++;
-
-	if (!inited) {
-		mono_counters_register ("RGCTX unmanaged lookups", MONO_COUNTER_GENERICS | MONO_COUNTER_INT, &num_lookups);
-		inited = TRUE;
-	}
-
-	num_lookups++;
+	UnlockedIncrement (&trampoline_calls);
+	UnlockedIncrement (&rgctx_unmanaged_lookups);
 
 	if (mrgctx)
 		res = mono_method_fill_runtime_generic_context ((MonoMethodRuntimeGenericContext *)arg, index, &error);
@@ -1095,7 +1101,7 @@ mono_delegate_trampoline (mgreg_t *regs, guint8 *code, gpointer *arg, guint8* tr
 	MonoJitInfo *ji;
 	MonoMethod *m;
 	MonoMethod *method = NULL;
-	MonoError error;
+	ERROR_DECL (error);
 	gboolean multicast, callvirt = FALSE, closed_over_null = FALSE;
 	gboolean need_rgctx_tramp = FALSE;
 	gboolean need_unbox_tramp = FALSE;
@@ -1104,12 +1110,12 @@ mono_delegate_trampoline (mgreg_t *regs, guint8 *code, gpointer *arg, guint8* tr
 	MonoMethod *invoke = tramp_info->invoke;
 	guint8 *impl_this = (guint8 *)tramp_info->impl_this;
 	guint8 *impl_nothis = (guint8 *)tramp_info->impl_nothis;
-	MonoError err;
+	ERROR_DECL (err);
 	MonoMethodSignature *sig;
 	gpointer addr, compiled_method;
 	gboolean is_remote = FALSE;
 
-	trampoline_calls ++;
+	UnlockedIncrement (&trampoline_calls);
 
 	/* Obtain the delegate object according to the calling convention */
 	delegate = (MonoDelegate *)mono_arch_get_this_arg_from_call (regs, code);
@@ -1128,11 +1134,16 @@ mono_delegate_trampoline (mgreg_t *regs, guint8 *code, gpointer *arg, guint8* tr
 #ifndef DISABLE_REMOTING
 		if (delegate->target && mono_object_is_transparent_proxy (delegate->target)) {
 			is_remote = TRUE;
+			error_init (&err);
 #ifndef DISABLE_COM
 			if (((MonoTransparentProxy *)delegate->target)->remote_class->proxy_class != mono_class_get_com_object_class () &&
 			   !mono_class_is_com_object (((MonoTransparentProxy *)delegate->target)->remote_class->proxy_class))
 #endif
-				method = mono_marshal_get_remoting_invoke (method);
+				method = mono_marshal_get_remoting_invoke (method, &err);
+			if (!is_ok (&err)) {
+				mono_error_set_pending_exception (&err);
+				return NULL;
+			}
 		}
 #endif
 		if (!is_remote) {
@@ -1273,68 +1284,6 @@ mono_delegate_trampoline (mgreg_t *regs, guint8 *code, gpointer *arg, guint8* tr
 	return code;
 }
 
-#ifdef MONO_ARCH_HAVE_HANDLER_BLOCK_GUARD
-static gpointer
-mono_handler_block_guard_trampoline (mgreg_t *regs, guint8 *code, gpointer *tramp_info, guint8* tramp)
-{
-	MONO_REQ_GC_UNSAFE_MODE;
-
-	MonoContext ctx;
-	MonoException *exc;
-	MonoJitTlsData *jit_tls = (MonoJitTlsData *)mono_tls_get_jit_tls ();
-	gpointer resume_ip = jit_tls->handler_block_return_address;
-
-	memcpy (&ctx, &jit_tls->handler_block_context, sizeof (MonoContext));
-	MONO_CONTEXT_SET_IP (&ctx, jit_tls->handler_block_return_address);
-
-	jit_tls->handler_block_return_address = NULL;
-	jit_tls->handler_block = NULL;
-
-	if (!resume_ip) /*this should not happen, but we should avoid crashing */
-		exc = mono_get_exception_execution_engine ("Invalid internal state, resuming abort after handler block but no resume ip found");
-	else
-		exc = mono_thread_resume_interruption (TRUE);
-
-	if (exc) {
-		mono_handle_exception (&ctx, (MonoObject *)exc);
-		mono_restore_context (&ctx);
-	}
-
-	return resume_ip;
-}
-
-gpointer
-mono_create_handler_block_trampoline (void)
-{
-	static gpointer code;
-
-	if (code)
-		return code;
-
-	if (mono_aot_only) {
-		gpointer tmp = mono_aot_get_trampoline ("handler_block_trampoline");
-		g_assert (tmp);
-		mono_memory_barrier ();
-		code = tmp;
-		return code;
-	}
-
-	mono_trampolines_lock ();
-	if (!code) {
-		MonoTrampInfo *info;
-		gpointer tmp;
-
-		tmp = mono_arch_create_handler_block_trampoline (&info, FALSE);
-		mono_tramp_info_register (info, NULL);
-		mono_memory_barrier ();
-		code = tmp;
-	}
-	mono_trampolines_unlock ();
-
-	return code;
-}
-#endif
-
 /*
  * mono_get_trampoline_func:
  *
@@ -1366,10 +1315,6 @@ mono_get_trampoline_func (MonoTrampolineType tramp_type)
 #endif
 	case MONO_TRAMPOLINE_VCALL:
 		return mono_vcall_trampoline;
-#ifdef MONO_ARCH_HAVE_HANDLER_BLOCK_GUARD
-	case MONO_TRAMPOLINE_HANDLER_BLOCK_GUARD:
-		return mono_handler_block_guard_trampoline;
-#endif
 	default:
 		g_assert_not_reached ();
 		return NULL;
@@ -1409,15 +1354,13 @@ mono_trampolines_init (void)
 	mono_trampoline_code [MONO_TRAMPOLINE_GENERIC_VIRTUAL_REMOTING] = create_trampoline_code (MONO_TRAMPOLINE_GENERIC_VIRTUAL_REMOTING);
 #endif
 	mono_trampoline_code [MONO_TRAMPOLINE_VCALL] = create_trampoline_code (MONO_TRAMPOLINE_VCALL);
-#ifdef MONO_ARCH_HAVE_HANDLER_BLOCK_GUARD
-	mono_trampoline_code [MONO_TRAMPOLINE_HANDLER_BLOCK_GUARD] = create_trampoline_code (MONO_TRAMPOLINE_HANDLER_BLOCK_GUARD);
-	mono_create_handler_block_trampoline ();
-#endif
 
 	mono_counters_register ("Calls to trampolines", MONO_COUNTER_JIT | MONO_COUNTER_INT, &trampoline_calls);
 	mono_counters_register ("JIT trampolines", MONO_COUNTER_JIT | MONO_COUNTER_INT, &jit_trampolines);
 	mono_counters_register ("Unbox trampolines", MONO_COUNTER_JIT | MONO_COUNTER_INT, &unbox_trampolines);
 	mono_counters_register ("Static rgctx trampolines", MONO_COUNTER_JIT | MONO_COUNTER_INT, &static_rgctx_trampolines);
+	mono_counters_register ("RGCTX unmanaged lookups", MONO_COUNTER_GENERICS | MONO_COUNTER_INT, &rgctx_unmanaged_lookups);
+	mono_counters_register ("RGCTX num lazy fetch trampolines", MONO_COUNTER_GENERICS | MONO_COUNTER_INT, &rgctx_num_lazy_fetch_trampolines);
 }
 
 void
@@ -1464,14 +1407,12 @@ mono_create_jump_trampoline (MonoDomain *domain, MonoMethod *method, gboolean ad
 
 	error_init (error);
 
-#ifdef ENABLE_INTERPRETER
 	if (mono_use_interpreter) {
-		gpointer ret = mono_interp_create_trampoline (domain, method, error);
+		gpointer ret = mini_get_interp_callbacks ()->create_trampoline (domain, method, error);
 		if (!mono_error_ok (error))
 			return NULL;
 		return ret;
 	}
-#endif
 
 	code = mono_jit_find_compiled_method_with_jit_info (domain, method, &ji);
 	/*
@@ -1562,9 +1503,8 @@ mono_create_jit_trampoline (MonoDomain *domain, MonoMethod *method, MonoError *e
 	
 	mono_domain_lock (domain);
 	g_hash_table_insert (domain_jit_info (domain)->jit_trampoline_hash, method, tramp);
+	UnlockedIncrement (&jit_trampolines);
 	mono_domain_unlock (domain);
-
-	jit_trampolines++;
 
 	return tramp;
 }	
@@ -1585,7 +1525,7 @@ mono_create_jit_trampoline_from_token (MonoImage *image, guint32 token)
 
 	tramp = mono_create_specific_trampoline (start, MONO_TRAMPOLINE_AOT, domain, NULL);
 
-	jit_trampolines++;
+	UnlockedIncrement (&jit_trampolines);
 
 	return tramp;
 }	
@@ -1600,7 +1540,7 @@ MonoDelegateTrampInfo*
 mono_create_delegate_trampoline_info (MonoDomain *domain, MonoClass *klass, MonoMethod *method)
 {
 	MonoMethod *invoke;
-	MonoError error;
+	ERROR_DECL (error);
 	MonoDelegateTrampInfo *tramp_info;
 	MonoClassMethodPair pair, *dpair;
 	guint32 code_size = 0;
@@ -1668,10 +1608,7 @@ mono_create_delegate_virtual_trampoline (MonoDomain *domain, MonoClass *klass, M
 gpointer
 mono_create_rgctx_lazy_fetch_trampoline (guint32 offset)
 {
-	static gboolean inited = FALSE;
-	static int num_trampolines = 0;
 	MonoTrampInfo *info;
-
 	gpointer tramp, ptr;
 
 	mono_trampolines_lock ();
@@ -1699,14 +1636,8 @@ mono_create_rgctx_lazy_fetch_trampoline (guint32 offset)
 	g_hash_table_insert (rgctx_lazy_fetch_trampoline_hash, GUINT_TO_POINTER (offset), ptr);
 	g_assert (offset != -1);
 	g_hash_table_insert (rgctx_lazy_fetch_trampoline_hash_addr, ptr, GUINT_TO_POINTER (offset + 1));
+	rgctx_num_lazy_fetch_trampolines ++;
 	mono_trampolines_unlock ();
-
-	if (!inited) {
-		mono_counters_register ("RGCTX num lazy fetch trampolines",
-				MONO_COUNTER_GENERICS | MONO_COUNTER_INT, &num_trampolines);
-		inited = TRUE;
-	}
-	num_trampolines++;
 
 	return ptr;
 }
@@ -1740,8 +1671,7 @@ static const char*tramp_names [MONO_TRAMPOLINE_NUM] = {
 	"delegate",
 	"restore_stack_prot",
 	"generic_virtual_remoting",
-	"vcall",
-	"handler_block_guard"
+	"vcall"
 };
 
 /*

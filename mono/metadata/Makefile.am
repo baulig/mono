@@ -59,9 +59,16 @@ unix_sources = \
 platform_sources = $(unix_sources)
 endif
 
-if PLATFORM_ANDROID
+if HOST_ANDROID
 platform_sources += ../../support/libm/complex.c
 endif
+
+if HOST_WASM
+platform_sources += threadpool-worker-wasm.c
+else
+platform_sources += threadpool-worker-default.c
+endif
+
 
 #
 # libtool is not capable of creating static/shared versions of the same
@@ -121,10 +128,14 @@ null_sources = \
 	console-null.c
 
 null_gc_sources = \
-	null-gc.c
+	null-gc.c \
+	null-gc-handles.h \
+	null-gc-handles.c
 
 common_sources = \
 	$(platform_sources)	\
+	appdomain.c	\
+	domain.c	\
 	appdomain-icalls.h	\
 	assembly.c		\
 	assembly-internals.h	\
@@ -192,7 +203,10 @@ common_sources = \
 	debug-internals.h	\
 	mono-endian.c		\
 	mono-endian.h		\
+	mono-hash.c		\
 	mono-hash.h		\
+	mono-conc-hash.c		\
+	mono-conc-hash.h		\
 	mono-mlist.c		\
 	mono-mlist.h		\
 	mono-perfcounters.c	\
@@ -202,11 +216,12 @@ common_sources = \
 	mono-route.c		\
 	mono-route.h		\
 	monitor.h		\
-	nacl-stub.c		\
 	normalization-tables.h	\
 	number-formatter.h	\
 	number-ms.c		\
 	number-ms.h		\
+	object.c	\
+	object-forward.h	\
 	object-internals.h	\
 	opcodes.c		\
 	property-bag.h	\
@@ -239,7 +254,6 @@ common_sources = \
 	threads-types.h		\
 	threadpool.c	\
 	threadpool.h	\
-	threadpool-worker-default.c	\
 	threadpool-worker.h	\
 	threadpool-io.c	\
 	threadpool-io.h	\
@@ -270,24 +284,23 @@ common_sources = \
 	w32handle-namespace.c	\
 	w32handle.h	\
 	w32handle.c	\
-	w32error.h
-
-# These source files have compile time dependencies on GC code
-gc_dependent_sources = \
-	appdomain.c	\
-	domain.c	\
-	gc-stats.c	\
-	gc.c		\
-	monitor.c	\
-	mono-hash.c	\
-	object.c	\
+	w32error.h	\
+	reflection.c	\
 	dynamic-image.c	\
 	sre.c	\
 	sre-encode.c	\
 	sre-save.c	\
 	custom-attrs.c	\
-	reflection.c
+	fdhandle.h	\
+	fdhandle.c	\
+	callspec.h	\
+	callspec.c
 
+# These source files have compile time dependencies on GC code
+gc_dependent_sources = \
+	gc-stats.c	\
+	gc.c		\
+	monitor.c
 
 boehm_sources = \
 	boehm-gc.c
@@ -325,15 +338,15 @@ libmonoruntimesgen_static_la_LIBADD = libmonoruntime-config.la
 
 libmonoruntimeincludedir = $(includedir)/mono-$(API_VER)/mono/metadata
 
+# This list is sorted for easier searching.
 libmonoruntimeinclude_HEADERS = \
+	appdomain.h		\
 	assembly.h		\
 	attrdefs.h		\
-	appdomain.h		\
 	blob.h			\
 	class.h			\
 	debug-helpers.h		\
 	debug-mono-symfile.h	\
-	threads.h		\
 	environment.h		\
 	exception.h		\
 	image.h			\
@@ -342,12 +355,14 @@ libmonoruntimeinclude_HEADERS = \
 	mono-config.h		\
 	mono-debug.h		\
 	mono-gc.h		\
-	sgen-bridge.h		\
 	object.h		\
 	opcodes.h		\
 	profiler.h		\
+	profiler-events.h	\
 	reflection.h		\
 	row-indexes.h		\
+	sgen-bridge.h		\
+	threads.h		\
 	tokentype.h		\
 	verify.h		
 

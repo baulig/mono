@@ -6,8 +6,9 @@ SUBDIRS := build jay mcs class nunit24 ilasm tools tests errors docs packages
 
 basic_SUBDIRS := build jay class
 build_SUBDIRS := build class class/aot-compiler tools ilasm
-monodroid_SUBDIRS := build class
-monotouch_SUBDIRS := build class
+monodroid_SUBDIRS := build class tools
+monodroid_tools_SUBDIRS := build class tools
+monotouch_SUBDIRS := build class tools
 monotouch_watch_SUBDIRS := build class
 monotouch_tv_SUBDIRS := build class
 monotouch_runtime_SUBDIRS := build class
@@ -23,6 +24,8 @@ xbuild_12_SUBDIRS := build class tools/xbuild
 xbuild_14_SUBDIRS := build class tools/xbuild
 winaot_SUBDIRS := build class
 orbis_SUBDIRS := build class
+unreal_SUBDIRS := build class
+wasm_SUBDIRS := build class
 
 include build/rules.make
 
@@ -65,6 +68,7 @@ $(_boot_:%=profile-do--xbuild_12--%):         profile-do--xbuild_12--%:         
 $(_boot_:%=profile-do--binary_reference_assemblies--%):           profile-do--binary_reference_assemblies--%:           profile-do--build--%
 $(_boot_:%=profile-do--net_4_x--%):           profile-do--net_4_x--%:           profile-do--build--%
 $(_boot_:%=profile-do--monodroid--%):         profile-do--monodroid--%:         profile-do--build--%
+$(_boot_:%=profile-do--monodroid_tools--%):         profile-do--monodroid_tools--%:         profile-do--build--%
 $(_boot_:%=profile-do--monotouch--%):         profile-do--monotouch--%:         profile-do--build--%
 $(_boot_:%=profile-do--monotouch_watch--%):   profile-do--monotouch_watch--%:   profile-do--build--%
 $(_boot_:%=profile-do--monotouch_tv--%):      profile-do--monotouch_tv--%:      profile-do--build--%
@@ -77,6 +81,8 @@ $(_boot_:%=profile-do--testing_aot_hybrid--%):        profile-do--testing_aot_hy
 $(_boot_:%=profile-do--testing_aot_full--%):          profile-do--testing_aot_full--%:          profile-do--build--%
 $(_boot_:%=profile-do--winaot--%):              profile-do--winaot--%:              profile-do--build--%
 $(_boot_:%=profile-do--orbis--%):              profile-do--orbis--%:              profile-do--build--%
+$(_boot_:%=profile-do--unreal--%):              profile-do--unreal--%:              profile-do--build--%
+$(_boot_:%=profile-do--wasm--%):              profile-do--wasm--%:              profile-do--build--%
 $(_boot_:%=profile-do--build--%):             profile-do--build--%:             profile-do--basic--%
 
 testcorlib:
@@ -95,8 +101,7 @@ DISTFILES = \
 	mkinstalldirs		\
 	MonoIcon.png		\
 	README			\
-	ScalableMonoIcon.svg	\
-	winexe.in
+	ScalableMonoIcon.svg
 
 dist-local: dist-default
 
@@ -138,34 +143,12 @@ distcheck: dist-tarball
 	rm -f before.list after.list distdist.list ; \
 	rm -rf $(package) InstallTest
 
-monocharge:
-	chargedir=monocharge-`date -u +%Y%m%d` ; \
-	mkdir "$$chargedir" ; \
-	DESTDIR=`cd "$$chargedir" && pwd` ; \
-	$(MAKE) install DESTDIR="$$DESTDIR" || exit 1 ; \
-	tar cvjf "$$chargedir".tar.bz2 "$$chargedir" ; \
-	rm -rf "$$chargedir"
-
-# A bare-bones monocharge.
-
-monocharge-lite:
-	chargedir=monocharge-lite-`date -u +%Y%m%d` ; \
-	mkdir "$$chargedir" ; \
-	DESTDIR=`cd "$$chargedir" && pwd` ; \
-	$(MAKE) -C mcs install DESTDIR="$$DESTDIR" || exit 1; \
-	$(MAKE) -C class/corlib install DESTDIR="$$DESTDIR" || exit 1; \
-	$(MAKE) -C class/System install DESTDIR="$$DESTDIR" || exit 1; \
-	$(MAKE) -C class/System.XML install DESTDIR="$$DESTDIR" || exit 1; \
-	$(MAKE) -C class/Mono.CSharp.Debugger install DESTDIR="$$DESTDIR" || exit 1; \
-	tar cvjf "$$chargedir".tar.bz2 "$$chargedir" ; \
-	rm -rf "$$chargedir"
-
 # Targets for creating API diffs of the framework
 
 MONO_API_SNAPSHOT_PATH := $(topdir)../external/api-snapshot/
 GENAPI := $(MONO_API_SNAPSHOT_PATH)tools/genapi/GenAPI.exe
 MONO_API_SNAPSHOT_PROFILE_PATH := $(MONO_API_SNAPSHOT_PATH)profiles/$(PROFILE)/
-MONO_API_ASSEMBLIES_IGNORED := $(addprefix $(topdir)class/lib/$(PROFILE)/, SystemWebTestShim.dll standalone-runner-support.dll nunit.core.dll nunit.core.extensions.dll nunit.core.interfaces.dll nunit.framework.dll nunit.framework.extensions.dll nunit.mocks.dll nunit.util.dll nunit-console-runner.dll nunitlite.dll)
+MONO_API_ASSEMBLIES_IGNORED := $(addprefix $(topdir)class/lib/$(PROFILE)/, Mono.CSharp.dll SystemWebTestShim.dll standalone-runner-support.dll nunit.core.dll nunit.core.extensions.dll nunit.core.interfaces.dll nunit.framework.dll nunit.framework.extensions.dll nunit.mocks.dll nunit.util.dll nunit-console-runner.dll nunitlite.dll Mono.Profiler.Log.dll)
 MONO_API_ASSEMBLIES := $(filter-out $(MONO_API_ASSEMBLIES_IGNORED), $(wildcard $(topdir)class/lib/$(PROFILE)/*.dll)) $(wildcard $(topdir)class/lib/$(PROFILE)/Facades/*.dll)
 MONO_API_ASSEMBLIES_CS := $(MONO_API_ASSEMBLIES:$(topdir)class/lib/$(PROFILE)/%.dll=$(MONO_API_SNAPSHOT_PROFILE_PATH)%.cs)
 
@@ -175,10 +158,17 @@ $(MONO_API_SNAPSHOT_PROFILE_PATH)%.cs: $(topdir)class/lib/$(PROFILE)/%.dll $(GEN
 
 mono-api-current: $(MONO_API_ASSEMBLIES_CS)
 
+mono-api-current-clean:
+	$(Q) find "$(MONO_API_SNAPSHOT_PROFILE_PATH)" -name "*.cs" -type f -delete
+
 mono-api-diff:
 	@echo "Regenerating API snapshot..."
-	$(Q) rm -rf "$(MONO_API_SNAPSHOT_PROFILE_PATH)"
-	$(Q) $(MAKE) mono-api-current
+	$(Q) $(MAKE) mono-api-current-clean PROFILE=net_4_x
+	$(Q) $(MAKE) mono-api-current-clean PROFILE=monotouch
+	$(Q) $(MAKE) mono-api-current-clean PROFILE=monodroid
+	$(Q) $(MAKE) mono-api-current PROFILE=net_4_x
+	$(Q) $(MAKE) mono-api-current PROFILE=monotouch
+	$(Q) $(MAKE) mono-api-current PROFILE=monodroid
 	@echo "Checking public API differences..."
 	$(Q) cd $(MONO_API_SNAPSHOT_PATH); git add -A .
 	$(Q) cd $(MONO_API_SNAPSHOT_PATH); git diff --no-renames HEAD > $(abspath $(topdir))/temp.patch
