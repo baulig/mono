@@ -307,19 +307,17 @@ namespace System.Net
 			set {
 				CheckRequestStarted ();
 
-				if (string.IsNullOrEmpty (value)) {
+				if (string.IsNullOrWhiteSpace (value)) {
 					webHeaders.RemoveInternal ("Connection");
 					return;
 				}
 
 				string val = value.ToLowerInvariant ();
 				if (val.Contains ("keep-alive") || val.Contains ("close"))
-					throw new ArgumentException ("Keep-Alive and Close may not be set with this property");
+					throw new ArgumentException (SR.net_connarg, nameof (value));
 
-				if (keepAlive)
-					value = value + ", Keep-Alive";
-
-				webHeaders.CheckUpdate ("Connection", value);
+				string checkedValue = HttpValidationHelpers.CheckBadHeaderValueChars (value);
+				webHeaders.CheckUpdate ("Connection", checkedValue);
 			}
 		}
 
