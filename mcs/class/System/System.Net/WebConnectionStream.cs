@@ -169,23 +169,23 @@ namespace System.Net
 			}
 		}
 
-		public override IAsyncResult BeginWrite (byte[] buffer, int offset, int size,
+		public override IAsyncResult BeginWrite (byte[] buffer, int offset, int count,
 							 AsyncCallback cb, object state)
 		{
-			if (!CanWrite)
-				throw new NotSupportedException (SR.net_readonlystream);
-			Operation.ThrowIfClosedOrDisposed ();
-
 			if (buffer == null)
 				throw new ArgumentNullException (nameof (buffer));
 
 			int length = buffer.Length;
 			if (offset < 0 || length < offset)
 				throw new ArgumentOutOfRangeException (nameof (offset));
-			if (size < 0 || (length - offset) < size)
-				throw new ArgumentOutOfRangeException (nameof (size));
+			if (count < 0 || (length - offset) < count)
+				throw new ArgumentOutOfRangeException (nameof (count));
 
-			var task = WriteAsync (buffer, offset, size, CancellationToken.None);
+			if (!CanWrite)
+				throw new NotSupportedException (SR.net_readonlystream);
+			Operation.ThrowIfClosedOrDisposed ();
+
+			var task = WriteAsync (buffer, offset, count, CancellationToken.None);
 			return TaskToApm.Begin (task, cb, state);
 		}
 
@@ -201,23 +201,23 @@ namespace System.Net
 			}
 		}
 
-		public override void Write (byte[] buffer, int offset, int size)
+		public override void Write (byte[] buffer, int offset, int count)
 		{
-			if (!CanWrite)
-				throw new NotSupportedException (SR.net_readonlystream);
-			Operation.ThrowIfClosedOrDisposed ();
-
 			if (buffer == null)
 				throw new ArgumentNullException (nameof (buffer));
 
 			int length = buffer.Length;
 			if (offset < 0 || length < offset)
 				throw new ArgumentOutOfRangeException (nameof (offset));
-			if (size < 0 || (length - offset) < size)
-				throw new ArgumentOutOfRangeException (nameof (size));
+			if (count < 0 || (length - offset) < count)
+				throw new ArgumentOutOfRangeException (nameof (count));
+
+			if (!CanWrite)
+				throw new NotSupportedException (SR.net_readonlystream);
+			Operation.ThrowIfClosedOrDisposed ();
 
 			try {
-				WriteAsync (buffer, offset, size).Wait ();
+				WriteAsync (buffer, offset, count).Wait ();
 			} catch (Exception e) {
 				throw GetException (e);
 			}
@@ -225,6 +225,13 @@ namespace System.Net
 
 		public override void Flush ()
 		{
+		}
+
+		public override Task FlushAsync (CancellationToken cancellationToken)
+		{
+			return cancellationToken.IsCancellationRequested ?
+			    Task.FromCancellation (cancellationToken) :
+			    Task.CompletedTask;
 		}
 
 		internal void InternalClose ()

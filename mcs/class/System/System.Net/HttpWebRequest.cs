@@ -68,6 +68,7 @@ namespace System.Net
 		bool hostChanged;
 		bool allowAutoRedirect = true;
 		bool allowBuffering = true;
+		bool allowReadStreamBuffering = false;
 		X509CertificateCollection certificates;
 		string connectionGroup;
 		bool haveContentLength;
@@ -245,11 +246,8 @@ namespace System.Net
 		}
 
 		public virtual bool AllowReadStreamBuffering {
-			get { return false; }
-			set {
-				if (value)
-					throw new InvalidOperationException ();
-			}
+			get { return allowReadStreamBuffering; }
+			set { allowReadStreamBuffering = value; }
 		}
 
 		static Exception GetMustImplement ()
@@ -539,7 +537,12 @@ namespace System.Net
 		[MonoTODO ("Use this")]
 		public int MaximumResponseHeadersLength {
 			get { return maxResponseHeadersLength; }
-			set { maxResponseHeadersLength = value; }
+			set {
+				if (value < 0 && value != System.Threading.Timeout.Infinite)
+					throw new ArgumentOutOfRangeException (nameof (value), SR.net_toosmall);
+
+				maxResponseHeadersLength = value;
+			}
 		}
 
 		[MonoTODO ("Use this")]
@@ -564,7 +567,13 @@ namespace System.Net
 		[MonoTODO]
 		public int ContinueTimeout {
 			get { throw new NotImplementedException (); }
-			set { throw new NotImplementedException (); }
+			set {
+				if (requestSent)
+					throw new InvalidOperationException (SR.net_reqsubmitted);
+				if ((value < 0) && (value != System.Threading.Timeout.Infinite))
+					throw new ArgumentOutOfRangeException (nameof (value), SR.net_io_timeout_use_ge_zero);
+				throw new NotImplementedException ();
+			}
 		}
 
 		public string MediaType {
@@ -577,8 +586,10 @@ namespace System.Net
 		public override string Method {
 			get { return this.method; }
 			set {
-				if (value == null || value.Trim () == "")
-					throw new ArgumentException ("not a valid method");
+				if (string.IsNullOrEmpty (value))
+					throw new ArgumentException (SR.net_badmethod, nameof (value));
+				if (HttpValidationHelpers.IsInvalidMethodOrHeaderString (value))
+					throw new ArgumentException (SR.net_badmethod, nameof (value));
 
 				method = value.ToUpperInvariant ();
 				if (method != "HEAD" && method != "GET" && method != "POST" && method != "PUT" &&
@@ -603,7 +614,7 @@ namespace System.Net
 			get { return version; }
 			set {
 				if (value != HttpVersion.Version10 && value != HttpVersion.Version11)
-					throw new ArgumentException ("value");
+					throw new ArgumentException (SR.net_wrongversion, nameof (value));
 
 				force_version = true;
 				version = value;
@@ -863,7 +874,7 @@ namespace System.Net
 			}
 		}
 
-		async Task<Stream> MyGetRequestStreamAsync (CancellationToken cancellationToken)
+		Task<Stream> MyGetRequestStreamAsync (CancellationToken cancellationToken)
 		{
 			if (Aborted)
 				throw CreateRequestAbortedException ();
@@ -894,14 +905,11 @@ namespace System.Net
 				}
 			}
 
-			return await operation.GetRequestStream ().ConfigureAwait (false);
+			return operation.GetRequestStream ();
 		}
 
 		public override IAsyncResult BeginGetRequestStream (AsyncCallback callback, object state)
 		{
-			if (Aborted)
-				throw CreateRequestAbortedException ();
-
 			return TaskToApm.Begin (RunWithTimeout (MyGetRequestStreamAsync), callback, state);
 		}
 
@@ -932,11 +940,27 @@ namespace System.Net
 			throw new NotImplementedException ();
 		}
 
-		internal static async Task<T> RunWithTimeout<T> (Func<CancellationToken, Task<T>> func, int timeout, Action abort)
+		public override Task<Stream> GetRequestStreamAsync ()
 		{
-			using (var cts = new CancellationTokenSource ()) {
+			return RunWithTimeout (MyGetRequestStreamAsync);
+		}
+
+		internal static Task<T> RunWithTimeout<T> (
+			Func<CancellationToken, Task<T>> func, int timeout, Action abort)
+		{
+			// Call `func` here to propagate any potential exception that it
+			// might throw to our caller rather than returning a faulted task.
+			var cts = new CancellationTokenSource ();
+			var workerTask = func (cts.Token);
+			return RunWithTimeoutWorker (workerTask, timeout, abort, cts);
+		}
+
+		static async Task<T> RunWithTimeoutWorker<T> (
+			Task<T> workerTask, int timeout, Action abort,
+			CancellationTokenSource cts)
+		{
+			try {
 				var timeoutTask = Task.Delay (timeout);
-				var workerTask = func (cts.Token);
 				var ret = await Task.WhenAny (workerTask, timeoutTask).ConfigureAwait (false);
 				if (ret == timeoutTask) {
 					try {
@@ -948,6 +972,8 @@ namespace System.Net
 					throw new WebException (SR.net_timeout, WebExceptionStatus.Timeout);
 				}
 				return workerTask.Result;
+			} finally {
+				cts.Dispose ();
 			}
 		}
 
@@ -1004,7 +1030,7 @@ namespace System.Net
 
 					WebConnection.Debug ($"HWR GET RESPONSE LOOP: Req={ID} {auth_state.NtlmAuthState}");
 
-					writeStream = await operation.GetRequestStream ();
+					writeStream = await operation.GetRequestStreamInternal ();
 					await writeStream.WriteRequestAsync (cancellationToken).ConfigureAwait (false);
 
 					stream = await operation.GetResponseStream ();

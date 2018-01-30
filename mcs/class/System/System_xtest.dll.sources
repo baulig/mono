@@ -27,6 +27,20 @@ System/RemoteExecutorTests.cs
 ../../../external/corefx/src/Common/tests/System/Net/Configuration.Certificates.cs
 #../../../external/corefx/src/System.Net.Requests/tests/*.cs
 
+# MARTIN TEST
+#../../../external/corefx/src/System.Net.Requests/tests/AuthenticationManagerTest.cs
+#../../../external/corefx/src/System.Net.Requests/tests/AuthorizationTest.cs
+../../../external/corefx/src/System.Net.Requests/tests/FileWebRequestTest.cs
+#../../../external/corefx/src/System.Net.Requests/tests/FtpWebRequestTest.cs
+../../../external/corefx/src/System.Net.Requests/tests/GlobalProxySelectionTest.cs
+../../../external/corefx/src/System.Net.Requests/tests/HttpRequestCachePolicyTest.cs
+#../../../external/corefx/src/System.Net.Requests/tests/HttpWebRequestTest.cs
+../../../external/corefx/src/System.Net.Requests/tests/HttpWebResponseHeaderTest.cs
+../../../external/corefx/src/System.Net.Requests/tests/HttpWebResponseTest.cs
+#../../../external/corefx/src/System.Net.Requests/tests/LoggingTest.cs
+../../../external/corefx/src/System.Net.Requests/tests/RequestStreamTest.cs
+../../../external/corefx/src/System.Net.Requests/tests/WebRequestTest.cs
+
 # System.Net.WebHeaderCollection
 #../../../external/corefx/src/System.Net.WebHeaderCollection/tests/*.cs
 
@@ -34,7 +48,7 @@ System/RemoteExecutorTests.cs
 #../../../external/corefx/src/System.Net.NameResolution/tests/FunctionalTests/*.cs
 
 # System.Net.WebClient
-#../../../external/corefx/src/System.Net.WebClient/tests/*.cs
+../../../external/corefx/src/System.Net.WebClient/tests/*.cs
 
 # System.Net.Security
 ../../../external/corefx/src/Common/tests/System/Net/SslProtocolSupport.cs
@@ -59,7 +73,7 @@ System/RemoteExecutorTests.cs
 #../../../external/corefx/src/System.Net.WebProxy/tests/*.cs
 
 # System.Net.ServicePoint
-#../../../external/corefx/src/System.Net.ServicePoint/tests/*.cs
+../../../external/corefx/src/System.Net.ServicePoint/tests/*.cs
 
 # System.Net.Sockets
 ../../../external/corefx/src/Common/tests/System/Diagnostics/Tracing/TestEventListener.cs
