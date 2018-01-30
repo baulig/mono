@@ -908,9 +908,6 @@ namespace System.Net
 
 		public override IAsyncResult BeginGetRequestStream (AsyncCallback callback, object state)
 		{
-			if (Aborted)
-				throw CreateRequestAbortedException ();
-
 			return TaskToApm.Begin (RunWithTimeout (MyGetRequestStreamAsync), callback, state);
 		}
 
@@ -941,11 +938,27 @@ namespace System.Net
 			throw new NotImplementedException ();
 		}
 
-		internal static async Task<T> RunWithTimeout<T> (Func<CancellationToken, Task<T>> func, int timeout, Action abort)
+		public override Task<Stream> GetRequestStreamAsync ()
 		{
-			using (var cts = new CancellationTokenSource ()) {
+			return RunWithTimeout (MyGetRequestStreamAsync);
+		}
+
+		internal static Task<T> RunWithTimeout<T> (
+			Func<CancellationToken, Task<T>> func, int timeout, Action abort)
+		{
+			// Call `func` here to propagate any potential exception that it
+			// might throw to our caller rather than returning a faulted task.
+			var cts = new CancellationTokenSource ();
+			var workerTask = func (cts.Token);
+			return RunWithTimeoutWorker (workerTask, timeout, abort, cts);
+		}
+
+		static async Task<T> RunWithTimeoutWorker<T> (
+			Task<T> workerTask, int timeout, Action abort,
+			CancellationTokenSource cts)
+		{
+			try {
 				var timeoutTask = Task.Delay (timeout);
-				var workerTask = func (cts.Token);
 				var ret = await Task.WhenAny (workerTask, timeoutTask).ConfigureAwait (false);
 				if (ret == timeoutTask) {
 					try {
@@ -957,6 +970,8 @@ namespace System.Net
 					throw new WebException (SR.net_timeout, WebExceptionStatus.Timeout);
 				}
 				return workerTask.Result;
+			} finally {
+				cts.Dispose ();
 			}
 		}
 
