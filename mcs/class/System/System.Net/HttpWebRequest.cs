@@ -586,8 +586,10 @@ namespace System.Net
 		public override string Method {
 			get { return this.method; }
 			set {
-				if (value == null || value.Trim () == "")
-					throw new ArgumentException ("not a valid method");
+				if (string.IsNullOrEmpty (value))
+					throw new ArgumentException (SR.net_badmethod, nameof (value));
+				if (HttpValidationHelpers.IsInvalidMethodOrHeaderString (value))
+					throw new ArgumentException (SR.net_badmethod, nameof (value));
 
 				method = value.ToUpperInvariant ();
 				if (method != "HEAD" && method != "GET" && method != "POST" && method != "PUT" &&
