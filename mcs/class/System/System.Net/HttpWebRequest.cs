@@ -110,6 +110,8 @@ namespace System.Net
 		DecompressionMethods auto_decomp;
 		int maxResponseHeadersLength;
 		static int defaultMaxResponseHeadersLength;
+		static int defaultMaximumErrorResponseLength;
+		static RequestCachePolicy defaultCachePolicy;
 		int readWriteTimeout = 300000; // ms
 #if SECURITY_DEP
 		MonoTlsProvider tlsProvider;
@@ -137,6 +139,8 @@ namespace System.Net
 		static HttpWebRequest ()
 		{
 			defaultMaxResponseHeadersLength = 64;
+			defaultMaximumErrorResponseLength = 64;
+			defaultCachePolicy = new RequestCachePolicy (RequestCacheLevel.BypassCache);
 #if !MOBILE
 #pragma warning disable 618
 			NetConfig config = ConfigurationSettings.GetConfig ("system.net/settings") as NetConfig;
@@ -367,13 +371,15 @@ namespace System.Net
 #if !MOBILE
 		[MonoTODO]
 		public static new RequestCachePolicy DefaultCachePolicy {
-			get; set;
+			get { return defaultCachePolicy; }
+			set { defaultCachePolicy = value; }
 		}
 #endif
 
 		[MonoTODO]
 		public static int DefaultMaximumErrorResponseLength {
-			get; set;
+			get { return defaultMaximumErrorResponseLength; }
+			set { defaultMaximumErrorResponseLength = value; }
 		}
 
 		public string Expect {
