@@ -400,12 +400,7 @@ namespace System.Net
 
 		[MonoTODO]
 		public static int DefaultMaximumErrorResponseLength {
-			get {
-				throw GetMustImplement ();
-			}
-			set {
-				throw GetMustImplement ();
-			}
+			get; set;
 		}
 
 		public string Expect {
