@@ -390,12 +390,7 @@ namespace System.Net
 #if !MOBILE
 		[MonoTODO]
 		public static new RequestCachePolicy DefaultCachePolicy {
-			get {
-				throw GetMustImplement ();
-			}
-			set {
-				throw GetMustImplement ();
-			}
+			get; set;
 		}
 #endif
 
