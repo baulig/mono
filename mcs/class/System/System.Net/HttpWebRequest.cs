@@ -543,11 +543,10 @@ namespace System.Net
 		public int ReadWriteTimeout {
 			get { return readWriteTimeout; }
 			set {
-				if (requestSent)
-					throw new InvalidOperationException ("The request has already been sent.");
+				CheckRequestStarted ();
 
-				if (value < -1)
-					throw new ArgumentOutOfRangeException ("value", "Must be >= -1");
+				if (value <= 0 && value != System.Threading.Timeout.Infinite)
+					throw new ArgumentOutOfRangeException (nameof (value), SR.net_io_timeout_use_gt_zero);
 
 				readWriteTimeout = value;
 			}
