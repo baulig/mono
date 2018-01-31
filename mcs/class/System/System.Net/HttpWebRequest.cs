@@ -117,6 +117,11 @@ namespace System.Net
 #endif
 		ServerCertValidationCallback certValidationCallback;
 
+		// stores the user provided Host header as Uri. If the user specified a default port explicitly we'll lose
+		// that information when converting the host string to a Uri. _HostHasPort will store that information.
+		bool hostHasPort;
+		Uri hostUri;
+
 		enum NtlmAuthState
 		{
 			None,
@@ -124,7 +129,6 @@ namespace System.Net
 			Response
 		}
 		AuthorizationState auth_state, proxy_auth_state;
-		string host;
 
 		[NonSerialized]
 		internal Func<Stream, Task> ResendContentFactory;
@@ -426,40 +430,40 @@ namespace System.Net
 		}
 
 		public string Host {
+
 			get {
-				if (host == null)
-					return actualUri.Authority;
-				return host;
+				Uri uri = hostUri ?? Address;
+				return (hostUri == null || !hostHasPort) && Address.IsDefaultPort ?
+				    uri.Host : uri.Host + ":" + uri.Port;
 			}
 			set {
+				CheckRequestStarted ();
+
 				if (value == null)
-					throw new ArgumentNullException ("value");
+					throw new ArgumentNullException (nameof (value));
 
-				if (!CheckValidHost (actualUri.Scheme, value))
-					throw new ArgumentException ("Invalid host: " + value);
+				Uri uri;
+				if ((value.IndexOf ('/') != -1) || (!TryGetHostUri (value, out uri)))
+					throw new ArgumentException (SR.net_invalid_host, nameof (value));
 
-				host = value;
+				hostUri = uri;
+
+				// Determine if the user provided string contains a port
+				if (!hostUri.IsDefaultPort) {
+					hostHasPort = true;
+				} else if (value.IndexOf (':') == -1) {
+					hostHasPort = false;
+				} else {
+					int endOfIPv6Address = value.IndexOf (']');
+					hostHasPort = endOfIPv6Address == -1 || value.LastIndexOf (':') > endOfIPv6Address;
+				}
 			}
 		}
 
-		static bool CheckValidHost (string scheme, string val)
+		bool TryGetHostUri (string hostName, out Uri hostUri)
 		{
-			if (val.Length == 0)
-				return false;
-
-			if (val[0] == '.')
-				return false;
-
-			int idx = val.IndexOf ('/');
-			if (idx >= 0)
-				return false;
-
-			IPAddress ipaddr;
-			if (IPAddress.TryParse (val, out ipaddr))
-				return true;
-
-			string u = scheme + "://" + val + "/";
-			return Uri.IsWellFormedUriString (u, UriKind.Absolute);
+			string s = Address.Scheme + "://" + hostName + Address.PathAndQuery;
+			return Uri.TryCreate (s, UriKind.Absolute, out hostUri);
 		}
 
 		public DateTime IfModifiedSince {
