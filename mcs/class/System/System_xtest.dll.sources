@@ -34,7 +34,7 @@ System/RemoteExecutorTests.cs
 #../../../external/corefx/src/System.Net.Requests/tests/FtpWebRequestTest.cs
 ../../../external/corefx/src/System.Net.Requests/tests/GlobalProxySelectionTest.cs
 ../../../external/corefx/src/System.Net.Requests/tests/HttpRequestCachePolicyTest.cs
-#../../../external/corefx/src/System.Net.Requests/tests/HttpWebRequestTest.cs
+../../../external/corefx/src/System.Net.Requests/tests/HttpWebRequestTest.cs
 ../../../external/corefx/src/System.Net.Requests/tests/HttpWebResponseHeaderTest.cs
 ../../../external/corefx/src/System.Net.Requests/tests/HttpWebResponseTest.cs
 #../../../external/corefx/src/System.Net.Requests/tests/LoggingTest.cs
