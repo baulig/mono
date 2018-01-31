@@ -514,6 +514,7 @@ namespace System.Net
 		public int MaximumResponseHeadersLength {
 			get { return maxResponseHeadersLength; }
 			set {
+				CheckRequestStarted ();
 				if (value < 0 && value != System.Threading.Timeout.Infinite)
 					throw new ArgumentOutOfRangeException (nameof (value), SR.net_toosmall);
 
