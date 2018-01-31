@@ -176,7 +176,12 @@ namespace System.Net
 		[Obsolete ("Serialization is obsoleted for this type", false)]
 		protected HttpWebRequest (SerializationInfo serializationInfo, StreamingContext streamingContext)
 		{
-			throw new PlatformNotSupportedException ();
+			ThrowSerializationNotSupported ();
+		}
+
+		static void ThrowSerializationNotSupported ()
+		{
+			throw new SerializationException ();
 		}
 
 #if MONO_WEB_DEBUG
@@ -1226,13 +1231,13 @@ namespace System.Net
 		void ISerializable.GetObjectData (SerializationInfo serializationInfo,
 		   				  StreamingContext streamingContext)
 		{
-			throw new PlatformNotSupportedException ();
+			ThrowSerializationNotSupported ();
 		}
 
 		protected override void GetObjectData (SerializationInfo serializationInfo,
 			StreamingContext streamingContext)
 		{
-			throw new PlatformNotSupportedException ();
+			ThrowSerializationNotSupported ();
 		}
 
 		void CheckRequestStarted ()
