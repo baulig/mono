@@ -94,6 +94,7 @@ namespace System.Net
 		bool sendChunked;
 		ServicePoint servicePoint;
 		int timeout = 100000;
+		int continueTimeout = 350;
 
 		WebRequestStream writeStream;
 		HttpWebResponse webResponse;
@@ -559,13 +560,14 @@ namespace System.Net
 
 		[MonoTODO]
 		public int ContinueTimeout {
-			get { throw new NotImplementedException (); }
+			get {
+				return continueTimeout;
+			}
 			set {
-				if (requestSent)
-					throw new InvalidOperationException (SR.net_reqsubmitted);
+				CheckRequestStarted ();
 				if ((value < 0) && (value != System.Threading.Timeout.Infinite))
 					throw new ArgumentOutOfRangeException (nameof (value), SR.net_io_timeout_use_ge_zero);
-				throw new NotImplementedException ();
+				continueTimeout = value;
 			}
 		}
 
