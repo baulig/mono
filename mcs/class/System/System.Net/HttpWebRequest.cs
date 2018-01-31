@@ -104,7 +104,6 @@ namespace System.Net
 		bool gotRequestStream;
 		int redirects;
 		bool expectContinue;
-		bool getResponseCalled;
 		object locker = new object ();
 		bool finished_reading;
 		DecompressionMethods auto_decomp;
@@ -868,8 +867,7 @@ namespace System.Net
 
 			WebOperation operation;
 			lock (locker) {
-				if (getResponseCalled)
-					throw new InvalidOperationException ("The operation cannot be performed once the request has been submitted.");
+				CheckRequestStarted ();
 
 				operation = currentOperation;
 				if (operation == null) {
@@ -972,7 +970,6 @@ namespace System.Net
 			var myTcs = new TaskCompletionSource<HttpWebResponse> ();
 			WebOperation operation;
 			lock (locker) {
-				getResponseCalled = true;
 				var oldTcs = Interlocked.CompareExchange (ref responseTask, myTcs, null);
 				WebConnection.Debug ($"HWR GET RESPONSE: Req={ID} {oldTcs != null}");
 				if (oldTcs != null) {
