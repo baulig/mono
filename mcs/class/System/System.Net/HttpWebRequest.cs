@@ -681,22 +681,25 @@ namespace System.Net
 			get { return webHeaders["Transfer-Encoding"]; }
 			set {
 				CheckRequestStarted ();
-				string val = value;
-				if (val != null)
-					val = val.Trim ().ToLower ();
 
-				if (val == null || val.Length == 0) {
+				if (string.IsNullOrWhiteSpace (value)) {
 					webHeaders.RemoveInternal ("Transfer-Encoding");
 					return;
 				}
 
-				if (val == "chunked")
-					throw new ArgumentException ("Chunked encoding must be set with the SendChunked property");
+				string val = value.ToLower ();
+				//
+				// prevent them from adding chunked, or from adding an Encoding without
+				// turning on chunked, the reason is due to the HTTP Spec which prevents
+				// additional encoding types from being used without chunked
+				//
+				if (val.Contains ("chunked"))
+					throw new ArgumentException (SR.net_nochunked, nameof (value));
+				else if (!SendChunked)
+					throw new InvalidOperationException (SR.net_needchunked);
 
-				if (!sendChunked)
-					throw new ArgumentException ("SendChunked must be True", "value");
-
-				webHeaders.CheckUpdate ("Transfer-Encoding", value);
+				string checkedValue = HttpValidationHelpers.CheckBadHeaderValueChars (value);
+				webHeaders.CheckUpdate ("Transfer-Encoding", checkedValue);
 			}
 		}
 
