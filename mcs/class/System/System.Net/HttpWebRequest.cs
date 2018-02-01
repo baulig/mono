@@ -78,6 +78,7 @@ namespace System.Net
 		ICredentials credentials;
 		bool haveResponse;
 		bool requestSent;
+		int beginGetRequestStreamCalled;
 		WebHeaderCollection webHeaders;
 		bool keepAlive = true;
 		int maxAutoRedirect = 50;
@@ -891,6 +892,12 @@ namespace System.Net
 
 		public override IAsyncResult BeginGetRequestStream (AsyncCallback callback, object state)
 		{
+			if (Aborted)
+				throw CreateRequestAbortedException ();
+
+			if (Interlocked.Exchange (ref beginGetRequestStreamCalled, 1) != 0)
+				throw new InvalidOperationException (SR.net_repcall);
+
 			return TaskToApm.Begin (RunWithTimeout (MyGetRequestStreamAsync), callback, state);
 		}
 
