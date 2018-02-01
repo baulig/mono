@@ -922,6 +922,8 @@ corefx/SR.cs
 
 ../../../external/corefx/src/System.Net.WebClient/src/System/Net/WebClient.cs
 
+../../../external/corefx/src/System.Net.WebClient/src/System/Net/WebClient.cs
+
 ../../../external/corefx/src/System.Private.Uri/src/System/UriBuilder.cs
 
 ../../../external/corefx/src/System.Runtime.Extensions/src/System/CodeDom/Compiler/IndentedTextWriter.cs
