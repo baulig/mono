@@ -25,7 +25,7 @@ System/RemoteExecutorTests.cs
 ../../../external/corefx/src/Common/tests/System/Net/Configuration.cs
 ../../../external/corefx/src/Common/tests/System/Net/Configuration.Http.cs
 ../../../external/corefx/src/Common/tests/System/Net/Configuration.Certificates.cs
-#../../../external/corefx/src/System.Net.Requests/tests/*.cs
+../../../external/corefx/src/System.Net.Requests/tests/*.cs:AuthenticationManagerTest.cs,FtpWebRequestTest.cs
 
 # MARTIN TEST
 #../../../external/corefx/src/System.Net.Requests/tests/AuthenticationManagerTest.cs
