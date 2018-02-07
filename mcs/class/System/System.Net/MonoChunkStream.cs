@@ -122,7 +122,7 @@ namespace System.Net
 		static void ThrowExpectingChunkTrailer ()
 		{
 			throw new WebException (
-				"Expecting chuk traier.", null,
+				"Expecting chunk trailer.", null,
 				WebExceptionStatus.ServerProtocolViolation, null);
 		}
 	}
