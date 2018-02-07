@@ -89,12 +89,6 @@ namespace System.Net
 #endif
 		}
 
-		public override long Length {
-			get {
-				return stream_length;
-			}
-		}
-
 		public override bool CanRead => true;
 
 		public override bool CanWrite => false;
