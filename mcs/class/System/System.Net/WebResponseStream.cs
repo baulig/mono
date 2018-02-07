@@ -170,7 +170,7 @@ namespace System.Net
 				nestedRead = 0;
 			}
 
-			if (false && totalRead >= contentLength && !nextReadCalled) {
+			if (read_eof && !nextReadCalled) {
 				WebConnection.Debug ($"{ME} READ ASYNC - READ COMPLETE: {nbytes} - {totalRead} {contentLength} {nextReadCalled}");
 				if (!nextReadCalled) {
 					nextReadCalled = true;
