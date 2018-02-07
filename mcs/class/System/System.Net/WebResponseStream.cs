@@ -42,7 +42,6 @@ namespace System.Net
 		long contentLength;
 		long totalRead;
 		bool nextReadCalled;
-		int stream_length; // -1 when CL not present
 		TaskCompletionSource<int> readTcs;
 		object locker = new object ();
 		int nestedRead;
@@ -291,31 +290,45 @@ namespace System.Net
 				}
 			}
 
-			// Negative numbers?
-			if (!Int32.TryParse (clength, out stream_length))
-				stream_length = -1;
-
 			string tencoding = null;
 			if (ExpectContent)
 				tencoding = Headers["Transfer-Encoding"];
 
 			ChunkedRead = (tencoding != null && tencoding.IndexOf ("chunked", StringComparison.OrdinalIgnoreCase) != -1);
 
-			if (ChunkedRead) {
-				innerStreamWrapper = innerChunkStream = new MonoChunkStream (
-					Operation, CreateStreamWrapper (buffer), Headers);
-			} else if (!IsNtlmAuth () && contentLength > 0 && buffer.Size >= contentLength) {
+			/*
+			 * Inner layer:
+			 * We may have read a few extra bytes while parsing the headers, these will be
+			 * passed to us in the @buffer parameter and we need to read these before
+			 * reading from the `InnerStream`.
+			 */
+			bool bufferedEntireContent = false;
+			if (!IsNtlmAuth () && contentLength > 0 && buffer.Size >= contentLength) {
+				bufferedEntireContent = true;
 				innerStreamWrapper = new BufferedReadStream (Operation, null, buffer);
+			} else if (buffer.Size > 0) {
+				innerStreamWrapper = new BufferedReadStream (Operation, InnerStream, buffer);
 			} else {
-				var remainingLength = contentLength - buffer.Size;
-				if (remainingLength > 0)
-					innerStreamWrapper = new FixedSizeReadStream (Operation, InnerStream, remainingLength);
-				else
-					innerStreamWrapper = InnerStream;
-				if (buffer.Size > 0)
-					innerStreamWrapper = new BufferedReadStream (Operation, innerStreamWrapper, buffer);
+				innerStreamWrapper = InnerStream;
 			}
 
+			/*
+			 * Intermediate layer:
+			 * - Wrap with MonoChunkStream when using chunked encoding.
+			 * - Otherwise, we should have a Content-Length, wrap with
+			 *   FixedSizeReadStream to read exactly that many bytes.
+			 */
+			if (ChunkedRead) {
+				innerStreamWrapper = innerChunkStream = new MonoChunkStream (
+					Operation, innerStreamWrapper, Headers);
+			} else if (!bufferedEntireContent && contentLength > 0) {
+				innerStreamWrapper = new FixedSizeReadStream (Operation, innerStreamWrapper, contentLength);
+			}
+
+			/*
+			 * Outer layer:
+			 * - Decode gzip/deflate if requested.
+			 */
 			string content_encoding = Headers["Content-Encoding"];
 			if (content_encoding == "gzip" && (Request.AutomaticDecompression & DecompressionMethods.GZip) != 0) {
 				innerStreamWrapper = new GZipStream (innerStreamWrapper, CompressionMode.Decompress);
