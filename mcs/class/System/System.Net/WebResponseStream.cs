@@ -289,8 +289,9 @@ namespace System.Net
 			} else if (!IsNtlmAuth () && contentLength > 0 && buffer.Size >= contentLength) {
 				innerStreamWrapper = new BufferedReadStream (Operation, null, buffer);
 			} else {
-				if (contentLength > 0)
-					innerStreamWrapper = new FixedSizeReadStream (Operation, InnerStream, contentLength);
+				var remainingLength = contentLength - buffer.Size;
+				if (remainingLength > 0)
+					innerStreamWrapper = new FixedSizeReadStream (Operation, InnerStream, remainingLength);
 				else
 					innerStreamWrapper = InnerStream;
 				if (buffer.Size > 0)
