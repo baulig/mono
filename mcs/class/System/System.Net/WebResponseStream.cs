@@ -289,7 +289,12 @@ namespace System.Net
 			} else if (!IsNtlmAuth () && contentLength > 0 && buffer.Size >= contentLength) {
 				innerStreamWrapper = new BufferedReadStream (Operation, null, buffer);
 			} else {
-				innerStreamWrapper = CreateStreamWrapper (buffer);
+				if (contentLength > 0)
+					innerStreamWrapper = new FixedSizeReadStream (Operation, InnerStream, contentLength);
+				else
+					innerStreamWrapper = InnerStream;
+				if (buffer.Size > 0)
+					innerStreamWrapper = new BufferedReadStream (Operation, innerStreamWrapper, buffer);
 			}
 
 			string content_encoding = Headers["Content-Encoding"];

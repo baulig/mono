@@ -32,14 +32,14 @@ namespace System.Net
 {
 	class FixedSizeReadStream : WebReadStream
 	{
-		public int ContentLength {
+		public long ContentLength {
 			get;
 		}
 
-		int position;
+		long position;
 
 		public FixedSizeReadStream (WebOperation operation, Stream innerStream,
-		                            int contentLength)
+		                            long contentLength)
 			: base (operation, innerStream)
 		{
 			ContentLength = contentLength;
@@ -63,7 +63,7 @@ namespace System.Net
 			if (remaining == 0)
 				return 0;
 
-			var readSize = Math.Min (remaining, size);
+			var readSize = (int)Math.Min (remaining, size);
 			var ret = await InnerStream.ReadAsync (
 				buffer, offset, readSize, cancellationToken).ConfigureAwait (false);
 			if (ret <= 0)
