@@ -38,11 +38,17 @@ namespace System.Net
 
 		long position;
 
+		internal readonly string ME;
+
 		public FixedSizeReadStream (WebOperation operation, Stream innerStream,
 		                            long contentLength)
 			: base (operation, innerStream)
 		{
 			ContentLength = contentLength;
+
+#if MONO_WEB_DEBUG
+			ME = $"FSRS(Op={Operation.ID})";
+#endif
 		}
 
 		public override async Task<int> ReadAsync (byte[] buffer, int offset, int size,
@@ -60,12 +66,16 @@ namespace System.Net
 				throw new ArgumentOutOfRangeException (nameof (size));
 
 			var remaining = ContentLength - position;
+			WebConnection.Debug ($"{ME} READ: position={position} length={ContentLength} size={size} remaining={remaining}");
+
 			if (remaining == 0)
 				return 0;
 
 			var readSize = (int)Math.Min (remaining, size);
+			WebConnection.Debug ($"{ME} READ #1: readSize={readSize}");
 			var ret = await InnerStream.ReadAsync (
 				buffer, offset, readSize, cancellationToken).ConfigureAwait (false);
+			WebConnection.Debug ($"{ME} READ #2: ret={ret}");
 			if (ret <= 0)
 				return ret;
 

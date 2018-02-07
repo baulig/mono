@@ -170,7 +170,7 @@ namespace System.Net
 				nestedRead = 0;
 			}
 
-			if (totalRead >= contentLength && !nextReadCalled) {
+			if (false && totalRead >= contentLength && !nextReadCalled) {
 				WebConnection.Debug ($"{ME} READ ASYNC - READ COMPLETE: {nbytes} - {totalRead} {contentLength} {nextReadCalled}");
 				if (!nextReadCalled) {
 					nextReadCalled = true;
@@ -186,13 +186,13 @@ namespace System.Net
 			WebConnection.Debug ($"{ME} PROCESS READ: {totalRead} {contentLength}");
 
 			cancellationToken.ThrowIfCancellationRequested ();
-			if (read_eof || totalRead >= contentLength) {
+			if (read_eof || (false && totalRead >= contentLength)) {
 				read_eof = true;
 				contentLength = totalRead;
 				return 0;
 			}
 
-			if (contentLength != Int64.MaxValue && contentLength - totalRead < size)
+			if (false && contentLength != Int64.MaxValue && contentLength - totalRead < size)
 				size = (int)(contentLength - totalRead);
 
 			WebConnection.Debug ($"{ME} PROCESS READ #1: {size} {read_eof}");
