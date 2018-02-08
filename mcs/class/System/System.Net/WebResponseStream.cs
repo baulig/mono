@@ -343,10 +343,27 @@ namespace System.Net
 			return new BufferedReadStream (Operation, InnerStream, buffer);
 		}
 
+		async Task<byte[]> ReadAllAsync (int bufferSize, long maximumSize, CancellationToken cancellationToken)
+		{
+			using (var ms = new MemoryStream ()) {
+				while (ms.Position < maximumSize) {
+					cancellationToken.ThrowIfCancellationRequested ();
+					var buffer = new byte[bufferSize];
+					var ret = await InnerReadAsync (buffer, 0, bufferSize, cancellationToken).ConfigureAwait (false);
+					if (ret < 0)
+						throw new IOException ();
+					if (ret == 0)
+						break;
+					ms.Write (buffer, 0, ret);
+				}
+				return ms.GetBuffer ();
+			}
+		}
+
 		internal async Task ReadAllAsync (bool resending, CancellationToken cancellationToken)
 		{
 			WebConnection.Debug ($"{ME} READ ALL ASYNC: resending={resending} eof={read_eof} total={totalRead} " +
-			                     "length={contentLength} nextReadCalled={nextReadCalled}");
+					     "length={contentLength} nextReadCalled={nextReadCalled}");
 			if (read_eof || bufferedEntireContent || nextReadCalled) {
 				if (!nextReadCalled) {
 					nextReadCalled = true;
@@ -374,9 +391,9 @@ namespace System.Net
 
 			WebConnection.Debug ($"{ME} READ ALL ASYNC #1");
 
-			cancellationToken.ThrowIfCancellationRequested ();
-
 			try {
+				cancellationToken.ThrowIfCancellationRequested ();
+
 				/*
 				 * We may have awaited on the 'readTcs', so check
 				 * for eof again as ReadAsync() may have set it.
@@ -392,52 +409,8 @@ namespace System.Net
 					return;
 				}
 
-				int new_size;
-
-				if (contentLength == Int64.MaxValue && !ChunkedRead) {
-					WebConnection.Debug ($"{ME} READ ALL ASYNC - NEITHER LENGTH NOR CHUNKED: resending={resending}");
-					/*
-					 * This is a violation of the HTTP Spec - the server neither send a
-					 * "Content-Length:" nor a "Transfer-Encoding: chunked" header.
-					 *
-					 * When we're redirecting or resending for NTLM, then we can simply close
-					 * the connection here.
-					 *
-					 * However, if it's the final reply, then we need to try our best to read it.
-					 */
-					if (resending) {
-						Close ();
-						return;
-					}
-					KeepAlive = false;
-				}
-
-				BufferOffsetSize bos;
-				if (contentLength == Int64.MaxValue) {
-					var ms = new MemoryStream ();
-					var buffer = new BufferOffsetSize (new byte[8192], false);
-
-					int read;
-					while ((read = await InnerReadAsync (buffer.Buffer, buffer.Offset, buffer.Size, cancellationToken)) != 0)
-						ms.Write (buffer.Buffer, buffer.Offset, read);
-
-					new_size = (int)ms.Length;
-					contentLength = new_size;
-					bos = new BufferOffsetSize (ms.GetBuffer (), 0, new_size, false);
-				} else {
-					new_size = (int)(contentLength - totalRead);
-					var b = new byte[new_size];
-					int readSize = 0;
-					int remaining = new_size;
-					int r = -1;
-					while (remaining > 0 && r != 0) {
-						r = await InnerReadAsync (b, readSize, remaining, cancellationToken).ConfigureAwait (false);
-						remaining -= r;
-						readSize += r;
-					}
-					bos = new BufferOffsetSize (b, 0, new_size, false);
-				}
-
+				var buffer = await ReadAllAsync (16384, Int64.MaxValue, cancellationToken).ConfigureAwait (false);
+				var bos = new BufferOffsetSize (buffer, 0, buffer.Length, false);
 				innerStreamWrapper = new BufferedReadStream (Operation, null, bos);
 
 				totalRead = 0;
