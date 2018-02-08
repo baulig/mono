@@ -377,8 +377,20 @@ namespace System.Net
 			cancellationToken.ThrowIfCancellationRequested ();
 
 			try {
-				if (totalRead >= contentLength)
+				/*
+				 * We may have awaited on the 'readTcs', so check
+				 * for eof again as ReadAsync() may have set it.
+				 */
+				if (read_eof || bufferedEntireContent)
 					return;
+				/*
+				 * Simplify: if we're resending on a new connection,
+				 * then we can simply close the connection here.
+				 */
+				if (resending && !KeepAlive) {
+					Close ();
+					return;
+				}
 
 				int new_size;
 
