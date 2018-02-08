@@ -190,7 +190,7 @@ namespace System.Net
 					if (ret != 0)
 						return ret;
 
-					await FinalizeInnerReadAsync (cancellationToken).ConfigureAwait (false);
+					await ProcessReadFinished (cancellationToken).ConfigureAwait (false);
 					return ret;
 				},
 				ReadTimeout,
@@ -200,7 +200,7 @@ namespace System.Net
 				}, cancellationToken);
 		}
 
-		async Task FinalizeInnerReadAsync (CancellationToken cancellationToken)
+		async Task ProcessReadFinished (CancellationToken cancellationToken)
 		{
 			if (innerChunkStream == null || innerChunkStream == innerStreamWrapper)
 				return;
