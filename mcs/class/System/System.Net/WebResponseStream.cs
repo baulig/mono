@@ -349,13 +349,14 @@ namespace System.Net
 			return new BufferedReadStream (Operation, InnerStream, buffer);
 		}
 
-		async Task<byte[]> ReadAllAsync (int bufferSize, long maximumSize, CancellationToken cancellationToken)
+		async Task<byte[]> ReadAllAsyncInner (CancellationToken cancellationToken)
 		{
+			var maximumSize = (long)HttpWebRequest.DefaultMaximumErrorResponseLength << 16;
 			using (var ms = new MemoryStream ()) {
 				while (ms.Position < maximumSize) {
 					cancellationToken.ThrowIfCancellationRequested ();
-					var buffer = new byte[bufferSize];
-					var ret = await ProcessRead (buffer, 0, bufferSize, cancellationToken).ConfigureAwait (false);
+					var buffer = new byte[16384];
+					var ret = await ProcessRead (buffer, 0, buffer.Length, cancellationToken).ConfigureAwait (false);
 					if (ret < 0)
 						throw new IOException ();
 					if (ret == 0)
@@ -415,7 +416,7 @@ namespace System.Net
 					return;
 				}
 
-				var buffer = await ReadAllAsync (16384, Int64.MaxValue, cancellationToken).ConfigureAwait (false);
+				var buffer = await ReadAllAsyncInner (cancellationToken).ConfigureAwait (false);
 				var bos = new BufferOffsetSize (buffer, 0, buffer.Length, false);
 				innerStreamWrapper = new BufferedReadStream (Operation, null, bos);
 
