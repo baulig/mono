@@ -184,14 +184,22 @@ namespace System.Net
 			return nbytes;
 		}
 
-		async Task<int> InnerReadAsync (byte[] buffer, int offset, int size, CancellationToken cancellationToken)
+		Task<int> InnerReadAsync (byte[] buffer, int offset, int size, CancellationToken cancellationToken)
 		{
-			var ret = await InnerReadAsyncInner (buffer, offset, size, cancellationToken).ConfigureAwait (false);
-			if (ret != 0)
-				return ret;
+			return HttpWebRequest.RunWithTimeout (
+				async ct => {
+					var ret = await InnerReadAsyncInner (buffer, offset, size, cancellationToken).ConfigureAwait (false);
+					if (ret != 0)
+						return ret;
 
-			await FinalizeInnerReadAsync (cancellationToken).ConfigureAwait (false);
-			return ret;
+					await FinalizeInnerReadAsync (cancellationToken).ConfigureAwait (false);
+					return ret;
+				},
+				ReadTimeout,
+				() => {
+					Operation.Abort ();
+					innerStreamWrapper.Dispose ();
+				});
 		}
 
 		async Task FinalizeInnerReadAsync (CancellationToken cancellationToken)
