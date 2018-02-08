@@ -128,7 +128,7 @@ namespace System.Net
 				await oldReadTcs.Task.ConfigureAwait (false);
 			}
 
-			WebConnection.Debug ($"{ME} READ ASYNC #2: {totalRead} {contentLength}");
+			WebConnection.Debug ($"{ME} READ ASYNC #2");
 
 			int nbytes = 0;
 			Exception throwMe = null;
@@ -140,7 +140,7 @@ namespace System.Net
 				throwMe = GetReadException (WebExceptionStatus.ReceiveFailure, e, "ReadAsync");
 			}
 
-			WebConnection.Debug ($"{ME} READ ASYNC #3: {totalRead} {contentLength} - {nbytes} {throwMe?.Message}");
+			WebConnection.Debug ($"{ME} READ ASYNC #3: {nbytes} {throwMe?.Message}");
 
 			if (throwMe != null) {
 				lock (locker) {
@@ -158,10 +158,9 @@ namespace System.Net
 				totalRead += nbytes;
 			} else if (!read_eof) {
 				read_eof = true;
-				contentLength = totalRead;
 
 				if (!nextReadCalled) {
-					WebConnection.Debug ($"{ME} READ ASYNC - READ COMPLETE: {nbytes} - {totalRead} {contentLength} {nextReadCalled}");
+					WebConnection.Debug ($"{ME} READ ASYNC - READ COMPLETE: {nbytes} - {nextReadCalled}");
 					if (!nextReadCalled) {
 						nextReadCalled = true;
 						Operation.CompleteResponseRead (true);
@@ -369,8 +368,8 @@ namespace System.Net
 
 		internal async Task ReadAllAsync (bool resending, CancellationToken cancellationToken)
 		{
-			WebConnection.Debug ($"{ME} READ ALL ASYNC: resending={resending} eof={read_eof} total={totalRead} " +
-					     "length={contentLength} nextReadCalled={nextReadCalled}");
+			WebConnection.Debug ($"{ME} READ ALL ASYNC: resending={resending} eof={read_eof} " +
+					     "nextReadCalled={nextReadCalled}");
 			if (read_eof || bufferedEntireContent || nextReadCalled) {
 				if (!nextReadCalled) {
 					nextReadCalled = true;
