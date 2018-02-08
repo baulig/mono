@@ -43,7 +43,7 @@ namespace System.Net
 		long totalRead;
 		bool nextReadCalled;
 		bool bufferedEntireContent;
-		TaskCompletionSource<int> readTcs;
+		TaskCompletionSource<object> readTcs;
 		object locker = new object ();
 		int nestedRead;
 		bool read_eof;
@@ -116,7 +116,7 @@ namespace System.Net
 			if (Interlocked.CompareExchange (ref nestedRead, 1, 0) != 0)
 				throw new InvalidOperationException ("Invalid nested call.");
 
-			var myReadTcs = new TaskCompletionSource<int> ();
+			var myReadTcs = new TaskCompletionSource<object> ();
 			while (!cancellationToken.IsCancellationRequested) {
 				/*
 				 * 'readTcs' is set by ReadAllAsync().
@@ -176,7 +176,7 @@ namespace System.Net
 			}
 
 			lock (locker) {
-				readTcs.TrySetResult (nbytes);
+				readTcs.TrySetResult (null);
 				readTcs = null;
 				nestedRead = 0;
 			}
@@ -356,7 +356,7 @@ namespace System.Net
 			}
 
 			var timeoutTask = Task.Delay (ReadTimeout);
-			var myReadTcs = new TaskCompletionSource<int> ();
+			var myReadTcs = new TaskCompletionSource<object> ();
 			while (true) {
 				/*
 				 * 'readTcs' is set by ReadAsync().
@@ -442,7 +442,7 @@ namespace System.Net
 
 				totalRead = 0;
 				nextReadCalled = true;
-				myReadTcs.TrySetResult (new_size);
+				myReadTcs.TrySetResult (null);
 			} catch (Exception ex) {
 				WebConnection.Debug ($"{ME} READ ALL ASYNC EX: {ex.Message}");
 				myReadTcs.TrySetException (ex);

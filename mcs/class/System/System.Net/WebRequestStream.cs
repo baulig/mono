@@ -39,7 +39,7 @@ namespace System.Net
 		bool requestWritten;
 		bool allowBuffering;
 		bool sendChunked;
-		TaskCompletionSource<int> pendingWrite;
+		TaskCompletionSource<object> pendingWrite;
 		long totalWritten;
 		byte[] headers;
 		bool headersSent;
@@ -146,7 +146,7 @@ namespace System.Net
 			if (Operation.WriteBuffer != null)
 				throw new InvalidOperationException ();
 
-			var myWriteTcs = new TaskCompletionSource<int> ();
+			var myWriteTcs = new TaskCompletionSource<object> ();
 			if (Interlocked.CompareExchange (ref pendingWrite, myWriteTcs, null) != null)
 				throw new InvalidOperationException (SR.GetString (SR.net_repcall));
 
@@ -154,7 +154,7 @@ namespace System.Net
 		}
 
 		async Task WriteAsyncInner (byte[] buffer, int offset, int size,
-		                            TaskCompletionSource<int> myWriteTcs,
+		                            TaskCompletionSource<object> myWriteTcs,
 		                            CancellationToken cancellationToken)
 		{
 			try {
@@ -166,7 +166,7 @@ namespace System.Net
 					await FinishWriting (cancellationToken);
 
 				pendingWrite = null;
-				myWriteTcs.TrySetResult (0);
+				myWriteTcs.TrySetResult (null);
 			} catch (Exception ex) {
 				KillBuffer ();
 				closed = true;
@@ -368,7 +368,7 @@ namespace System.Net
 				cts.CancelAfter (WriteTimeout);
 				var timeoutTask = Task.Delay (WriteTimeout);
 				while (true) {
-					var myWriteTcs = new TaskCompletionSource<int> ();
+					var myWriteTcs = new TaskCompletionSource<object> ();
 					var oldTcs = Interlocked.CompareExchange (ref pendingWrite, myWriteTcs, null);
 					if (oldTcs == null)
 						break;
