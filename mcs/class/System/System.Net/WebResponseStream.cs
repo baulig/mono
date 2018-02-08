@@ -186,7 +186,7 @@ namespace System.Net
 				return Task.FromCanceled<int> (cancellationToken);
 			return HttpWebRequest.RunWithTimeout (
 				async ct => {
-					var ret = await InnerReadAsyncInner (buffer, offset, size, cancellationToken).ConfigureAwait (false);
+					var ret = await ProcessReadInner (buffer, offset, size, cancellationToken).ConfigureAwait (false);
 					if (ret != 0)
 						return ret;
 
@@ -217,7 +217,7 @@ namespace System.Net
 			WebConnection.Debug ($"{ME} INNER READ - READ CHUNK TRAILER DONE");
 		}
 
-		async Task<int> InnerReadAsyncInner (byte[] buffer, int offset, int size, CancellationToken cancellationToken)
+		async Task<int> ProcessReadInner (byte[] buffer, int offset, int size, CancellationToken cancellationToken)
 		{
 			Operation.ThrowIfDisposed (cancellationToken);
 
