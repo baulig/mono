@@ -42,6 +42,7 @@ namespace System.Net
 		long contentLength;
 		long totalRead;
 		bool nextReadCalled;
+		bool bufferedEntireContent;
 		TaskCompletionSource<int> readTcs;
 		object locker = new object ();
 		int nestedRead;
@@ -134,12 +135,13 @@ namespace System.Net
 
 			try {
 				// FIXME: NetworkStream.ReadAsync() does not support cancellation.
-				nbytes = await HttpWebRequest.RunWithTimeout (
-					ct => ProcessRead (buffer, offset, count, ct),
-					ReadTimeout, () => {
-						Operation.Abort ();
-						InnerStream.Dispose ();
-					}).ConfigureAwait (false);
+				if (!read_eof)
+					nbytes = await HttpWebRequest.RunWithTimeout (
+						ct => InnerReadAsync (buffer, offset, count, ct),
+						ReadTimeout, () => {
+							Operation.Abort ();
+							InnerStream.Dispose ();
+						}).ConfigureAwait (false);
 			} catch (Exception e) {
 				throwMe = GetReadException (WebExceptionStatus.ReceiveFailure, e, "ReadAsync");
 			}
@@ -158,13 +160,28 @@ namespace System.Net
 				throw throwMe;
 			}
 
+			if (nbytes > 0) {
+				totalRead += nbytes;
+			} else if (!read_eof) {
+				read_eof = true;
+				contentLength = totalRead;
+
+				if (!nextReadCalled) {
+					WebConnection.Debug ($"{ME} READ ASYNC - READ COMPLETE: {nbytes} - {totalRead} {contentLength} {nextReadCalled}");
+					if (!nextReadCalled) {
+						nextReadCalled = true;
+						Operation.CompleteResponseRead (true);
+					}
+				}
+			}
+
 			lock (locker) {
 				readTcs.TrySetResult (nbytes);
 				readTcs = null;
 				nestedRead = 0;
 			}
 
-			if (read_eof && !nextReadCalled) {
+			if (false && read_eof && !nextReadCalled) {
 				WebConnection.Debug ($"{ME} READ ASYNC - READ COMPLETE: {nbytes} - {totalRead} {contentLength} {nextReadCalled}");
 				if (!nextReadCalled) {
 					nextReadCalled = true;
@@ -173,34 +190,6 @@ namespace System.Net
 			}
 
 			return nbytes;
-		}
-
-		async Task<int> ProcessRead (byte[] buffer, int offset, int size, CancellationToken cancellationToken)
-		{
-			WebConnection.Debug ($"{ME} PROCESS READ: {totalRead} {contentLength}");
-
-			cancellationToken.ThrowIfCancellationRequested ();
-			if (read_eof || (false && totalRead >= contentLength)) {
-				read_eof = true;
-				contentLength = totalRead;
-				return 0;
-			}
-
-			if (false && contentLength != Int64.MaxValue && contentLength - totalRead < size)
-				size = (int)(contentLength - totalRead);
-
-			WebConnection.Debug ($"{ME} PROCESS READ #1: {size} {read_eof}");
-
-			var ret = await InnerReadAsync (buffer, offset, size, cancellationToken).ConfigureAwait (false);
-
-			if (ret <= 0) {
-				read_eof = true;
-				contentLength = totalRead;
-				return ret;
-			}
-
-			totalRead += ret;
-			return ret;
 		}
 
 		async Task<int> InnerReadAsync (byte[] buffer, int offset, int size, CancellationToken cancellationToken)
@@ -302,7 +291,6 @@ namespace System.Net
 			 * passed to us in the @buffer parameter and we need to read these before
 			 * reading from the `InnerStream`.
 			 */
-			bool bufferedEntireContent = false;
 			if (!IsNtlmAuth () && contentLength > 0 && buffer.Size >= contentLength) {
 				bufferedEntireContent = true;
 				innerStreamWrapper = new BufferedReadStream (Operation, null, buffer);
