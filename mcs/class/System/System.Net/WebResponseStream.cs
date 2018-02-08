@@ -238,14 +238,6 @@ namespace System.Net
 			return (authHeader != null && authHeader.IndexOf ("NTLM", StringComparison.Ordinal) != -1);
 		}
 
-		bool IsNtlmAuth ()
-		{
-			bool isProxy = (Request.Proxy != null && !Request.Proxy.IsBypassed (Request.Address));
-			if (isProxy && CheckAuthHeader ("Proxy-Authenticate"))
-				return true;
-			return CheckAuthHeader ("WWW-Authenticate");
-		}
-
 		bool ExpectContent {
 			get {
 				if (Request.Method == "HEAD")
@@ -291,7 +283,7 @@ namespace System.Net
 			 * passed to us in the @buffer parameter and we need to read these before
 			 * reading from the `InnerStream`.
 			 */
-			if (!IsNtlmAuth () && contentLength > 0 && buffer.Size >= contentLength) {
+			if (!ExpectContent || (!ChunkedRead && buffer.Size >= contentLength)) {
 				bufferedEntireContent = true;
 				innerStreamWrapper = new BufferedReadStream (Operation, null, buffer);
 			} else if (buffer.Size > 0) {
@@ -452,10 +444,11 @@ namespace System.Net
 
 		protected override void Close_internal (ref bool disposed)
 		{
-			WebConnection.Debug ($"{ME} CLOSE: {disposed} {closed} {nextReadCalled}");
+			WebConnection.Debug ($"{ME} CLOSE: disposed={disposed} closed={closed} nextReadCalled={nextReadCalled}");
 			if (!closed && !nextReadCalled) {
 				nextReadCalled = true;
-				if (totalRead >= contentLength) {
+				WebConnection.Debug ($"{ME} CLOSE #1: read_eof={read_eof} bufferedEntireContent={bufferedEntireContent}");
+				if (read_eof || bufferedEntireContent) {
 					disposed = true;
 					Operation.CompleteResponseRead (true);
 				} else {
