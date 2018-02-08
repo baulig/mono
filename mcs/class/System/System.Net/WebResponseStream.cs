@@ -333,7 +333,7 @@ namespace System.Net
 		{
 			WebConnection.Debug ($"{ME} READ ALL ASYNC: resending={resending} eof={read_eof} total={totalRead} " +
 			                     "length={contentLength} nextReadCalled={nextReadCalled}");
-			if (read_eof || totalRead >= contentLength || nextReadCalled) {
+			if (read_eof || bufferedEntireContent || nextReadCalled) {
 				if (!nextReadCalled) {
 					nextReadCalled = true;
 					Operation.CompleteResponseRead (true);
