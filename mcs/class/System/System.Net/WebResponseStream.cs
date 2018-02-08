@@ -293,7 +293,7 @@ namespace System.Net
 			if (ChunkedRead) {
 				innerStreamWrapper = innerChunkStream = new MonoChunkStream (
 					Operation, innerStreamWrapper, Headers);
-			} else if (!bufferedEntireContent && contentLength > 0) {
+			} else if (!bufferedEntireContent && contentLength != Int64.MaxValue) {
 				innerStreamWrapper = new FixedSizeReadStream (Operation, innerStreamWrapper, contentLength);
 			}
 
