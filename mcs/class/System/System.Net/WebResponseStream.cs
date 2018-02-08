@@ -39,8 +39,6 @@ namespace System.Net
 	{
 		Stream innerStreamWrapper;
 		MonoChunkStream innerChunkStream;
-		long contentLength;
-		long totalRead;
 		bool nextReadCalled;
 		bool bufferedEntireContent;
 		TaskCompletionSource<object> readTcs;
@@ -154,9 +152,7 @@ namespace System.Net
 				throw throwMe;
 			}
 
-			if (nbytes > 0) {
-				totalRead += nbytes;
-			} else if (!read_eof) {
+			if (nbytes <= 0 && !read_eof) {
 				read_eof = true;
 
 				if (!nextReadCalled) {
@@ -251,6 +247,7 @@ namespace System.Net
 		{
 			WebConnection.Debug ($"{ME} INIT: status={(int)StatusCode} bos={buffer.Offset}/{buffer.Size}");
 
+			long contentLength;
 			string contentType = Headers["Transfer-Encoding"];
 			bool chunkedRead = (contentType != null && contentType.IndexOf ("chunked", StringComparison.OrdinalIgnoreCase) != -1);
 			string clength = Headers["Content-Length"];
@@ -332,11 +329,7 @@ namespace System.Net
 			WebConnection.Debug ($"{ME} INIT #1: - {ExpectContent} {closed} {nextReadCalled}");
 
 			if (!ExpectContent) {
-				if (!closed && !nextReadCalled) {
-					if (contentLength == Int64.MaxValue)
-						contentLength = 0;
-					nextReadCalled = true;
-				}
+				nextReadCalled = true;
 				Operation.CompleteResponseRead (true);
 			}
 		}
@@ -419,7 +412,6 @@ namespace System.Net
 				var bos = new BufferOffsetSize (buffer, 0, buffer.Length, false);
 				innerStreamWrapper = new BufferedReadStream (Operation, null, bos);
 
-				totalRead = 0;
 				nextReadCalled = true;
 				myReadTcs.TrySetResult (null);
 			} catch (Exception ex) {
