@@ -190,8 +190,14 @@ namespace System.Net
 			if (ret != 0)
 				return ret;
 
+			await FinalizeInnerReadAsync (cancellationToken).ConfigureAwait (false);
+			return ret;
+		}
+
+		async Task FinalizeInnerReadAsync (CancellationToken cancellationToken)
+		{
 			if (innerChunkStream == null || innerChunkStream == innerStreamWrapper)
-				return 0;
+				return;
 
 			/*
 			 * We only get here when using GZip/Deflate decompression with
@@ -202,9 +208,7 @@ namespace System.Net
 
 			WebConnection.Debug ($"{ME} INNER READ - READ CHUNK TRAILER");
 			await innerChunkStream.ReadChunkTrailer (cancellationToken).ConfigureAwait (false);
-			WebConnection.Debug ($"{ME} INNER READ - READ CHUNK TRAILER #DONE");
-
-			return 0;
+			WebConnection.Debug ($"{ME} INNER READ - READ CHUNK TRAILER DONE");
 		}
 
 		async Task<int> InnerReadAsyncInner (byte[] buffer, int offset, int size, CancellationToken cancellationToken)
