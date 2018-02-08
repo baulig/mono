@@ -135,13 +135,7 @@ namespace System.Net
 
 			try {
 				// FIXME: NetworkStream.ReadAsync() does not support cancellation.
-				if (!read_eof)
-					nbytes = await HttpWebRequest.RunWithTimeout (
-						ct => InnerReadAsync (buffer, offset, count, ct),
-						ReadTimeout, () => {
-							Operation.Abort ();
-							InnerStream.Dispose ();
-						}).ConfigureAwait (false);
+				nbytes = await ProcessRead (buffer, offset, count, cancellationToken).ConfigureAwait (false);
 			} catch (Exception e) {
 				throwMe = GetReadException (WebExceptionStatus.ReceiveFailure, e, "ReadAsync");
 			}
@@ -184,8 +178,12 @@ namespace System.Net
 			return nbytes;
 		}
 
-		Task<int> InnerReadAsync (byte[] buffer, int offset, int size, CancellationToken cancellationToken)
+		Task<int> ProcessRead (byte[] buffer, int offset, int size, CancellationToken cancellationToken)
 		{
+			if (read_eof)
+				return Task.FromResult (0);
+			if (cancellationToken.IsCancellationRequested)
+				return Task.FromCanceled<int> (cancellationToken);
 			return HttpWebRequest.RunWithTimeout (
 				async ct => {
 					var ret = await InnerReadAsyncInner (buffer, offset, size, cancellationToken).ConfigureAwait (false);
@@ -357,7 +355,7 @@ namespace System.Net
 				while (ms.Position < maximumSize) {
 					cancellationToken.ThrowIfCancellationRequested ();
 					var buffer = new byte[bufferSize];
-					var ret = await InnerReadAsync (buffer, 0, bufferSize, cancellationToken).ConfigureAwait (false);
+					var ret = await ProcessRead (buffer, 0, bufferSize, cancellationToken).ConfigureAwait (false);
 					if (ret < 0)
 						throw new IOException ();
 					if (ret == 0)
