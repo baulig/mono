@@ -197,7 +197,7 @@ namespace System.Net
 				() => {
 					Operation.Abort ();
 					innerStreamWrapper.Dispose ();
-				});
+				}, cancellationToken);
 		}
 
 		async Task FinalizeInnerReadAsync (CancellationToken cancellationToken)
