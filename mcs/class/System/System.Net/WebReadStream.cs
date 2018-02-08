@@ -144,6 +144,18 @@ namespace System.Net
 				throw GetException (e);
 			}
 		}
+
+		bool disposed;
+
+		protected override void Dispose (bool disposing)
+		{
+			if (disposing && !disposed) {
+				disposed = true;
+				if (InnerStream != null)
+					InnerStream.Dispose ();
+			}
+			base.Dispose (disposing);
+		}
 	}
 }
 
