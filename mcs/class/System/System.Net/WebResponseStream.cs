@@ -252,6 +252,12 @@ namespace System.Net
 				contentLength = Int64.MaxValue;
 			}
 
+			string tencoding = null;
+			if (ExpectContent)
+				tencoding = Headers["Transfer-Encoding"];
+
+			ChunkedRead = (tencoding != null && tencoding.IndexOf ("chunked", StringComparison.OrdinalIgnoreCase) != -1);
+
 			if (Version == HttpVersion.Version11 && RequestStream.KeepAlive) {
 				KeepAlive = true;
 				var cncHeader = Headers[ServicePoint.UsesProxy ? "Proxy-Connection" : "Connection"];
@@ -261,13 +267,17 @@ namespace System.Net
 					if (cncHeader.IndexOf ("close", StringComparison.Ordinal) != -1)
 						KeepAlive = false;
 				}
+
+				if (!ChunkedRead && contentLength == Int64.MaxValue) {
+					/*
+					 * This is a violation of the HTTP Spec - the server neither send a
+					 * "Content-Length:" nor a "Transfer-Encoding: chunked" header.
+					 * The only way to recover from this is to keep reading until the
+					 * remote closes the connection, so we can't reuse it.
+					 */
+					KeepAlive = false;
+				}
 			}
-
-			string tencoding = null;
-			if (ExpectContent)
-				tencoding = Headers["Transfer-Encoding"];
-
-			ChunkedRead = (tencoding != null && tencoding.IndexOf ("chunked", StringComparison.OrdinalIgnoreCase) != -1);
 
 			/*
 			 * Inner layer:
@@ -369,7 +379,7 @@ namespace System.Net
 				int new_size;
 
 				if (contentLength == Int64.MaxValue && !ChunkedRead) {
-					WebConnection.Debug ($"{ME} READ ALL ASYNC - NEITHER LENGTH NOR CHUNKED");
+					WebConnection.Debug ($"{ME} READ ALL ASYNC - NEITHER LENGTH NOR CHUNKED: resending={resending}");
 					/*
 					 * This is a violation of the HTTP Spec - the server neither send a
 					 * "Content-Length:" nor a "Transfer-Encoding: chunked" header.
