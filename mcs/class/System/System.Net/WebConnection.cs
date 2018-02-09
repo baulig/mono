@@ -265,6 +265,12 @@ namespace System.Net
 				goto retry;
 			}
 
+			try {
+				networkStream.ReadTimeout = operation.Request.ReadWriteTimeout;
+			} catch (Exception ex) {
+				Console.Error.WriteLine ($"MARTIN TEST: Setting ReadTimeout to {operation.Request.ReadWriteTimeout} in WebConnection.InitConnection() threw: `{ex}'");
+			}
+
 			return new WebRequestStream (this, operation, networkStream, tunnel);
 		}
 
