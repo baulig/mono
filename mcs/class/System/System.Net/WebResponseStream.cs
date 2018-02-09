@@ -82,12 +82,6 @@ namespace System.Net
 		{
 			RequestStream = request;
 
-			try {
-				request.InnerStream.ReadTimeout = ReadTimeout;
-			} catch (Exception ex) {
-				Console.Error.WriteLine ($"MARTIN TEST: Setting ReadTimeout to {ReadTimeout} in WebResponseStream.ctor() threw: `{ex}'");
-			}
-
 #if MONO_WEB_DEBUG
 			ME = $"WRP(Cnc={Connection.ID}, Op={Operation.ID})";
 #endif
