@@ -1431,6 +1431,8 @@ namespace System.Net
 					host = hostUri.GetComponents (UriComponents.HostAndPort, UriFormat.Unescaped);
 				else
 					host = hostUri.GetComponents (UriComponents.Host, UriFormat.Unescaped);
+			} else if (Address.IsDefaultPort) {
+				host = Address.GetComponents (UriComponents.Host, UriFormat.Unescaped);
 			} else {
 				host = Address.GetComponents (UriComponents.HostAndPort, UriFormat.Unescaped);
 			}
