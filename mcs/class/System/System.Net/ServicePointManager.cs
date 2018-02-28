@@ -122,8 +122,6 @@ namespace System.Net
 		private static bool _checkCRL = false;
 		private static SecurityProtocolType _securityProtocol = SecurityProtocolType.Tls | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls12;
 
-		static bool expectContinue = true;
-		static bool useNagle = true;
 		static ServerCertValidationCallback server_cert_cb;
 		static bool tcp_keepalive;
 		static int tcp_keepalive_time;
@@ -225,17 +223,6 @@ namespace System.Net
 			}
 		}
 		
-		[MonoTODO]
-		public static bool EnableDnsRoundRobin
-		{
-			get {
-				throw GetMustImplement ();
-			}
-			set {
-				throw GetMustImplement ();
-			}
-		}
-		
 		public static int MaxServicePointIdleTime {
 			get { 
 				return maxServicePointIdleTime;
@@ -257,12 +244,6 @@ namespace System.Net
 
 				maxServicePoints = value;
 			}
-		}
-
-		[MonoTODO]
-		public static bool ReusePort {
-			get { return false; }
-			set { throw new NotImplementedException (); }
 		}
 
 		public static SecurityProtocolType SecurityProtocol {
@@ -306,15 +287,11 @@ namespace System.Net
 			}
 		}
 
-		public static bool Expect100Continue {
-			get { return expectContinue; }
-			set { expectContinue = value; }
-		}
+		public static bool UseNagleAlgorithm { get; set; } = true;
 
-		public static bool UseNagleAlgorithm {
-			get { return useNagle; }
-			set { useNagle = value; }
-		}
+		public static bool Expect100Continue { get; set; } = true;
+
+		public static bool EnableDnsRoundRobin { get; set; }
 
 		internal static bool DisableStrongCrypto {
 			get { return false; }
@@ -389,8 +366,8 @@ namespace System.Net
 				limit = (int) manager.GetMaxConnections (addr);
 #endif
 				sp = new ServicePoint (address, limit, maxServicePointIdleTime);
-				sp.Expect100Continue = expectContinue;
-				sp.UseNagleAlgorithm = useNagle;
+				sp.Expect100Continue = Expect100Continue;
+				sp.UseNagleAlgorithm = UseNagleAlgorithm;
 				sp.UsesProxy = usesProxy;
 				sp.UseConnect = useConnect;
 				sp.SetTcpKeepAlive (tcp_keepalive, tcp_keepalive_time, tcp_keepalive_interval);
