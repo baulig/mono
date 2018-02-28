@@ -235,11 +235,6 @@ namespace System.Net
 			set { allowReadStreamBuffering = value; }
 		}
 
-		static Exception GetMustImplement ()
-		{
-			return new NotImplementedException ();
-		}
-
 		public DecompressionMethods AutomaticDecompression {
 			get {
 				return auto_decomp;
