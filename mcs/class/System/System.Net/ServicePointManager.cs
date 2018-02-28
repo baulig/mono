@@ -188,6 +188,8 @@ namespace System.Net
 			return policy;
 		}
 
+		public static bool ReusePort { get; set; }
+
 		[MonoTODO("CRL checks not implemented")]
 		public static bool CheckCertificateRevocationList {
 			get { return _checkCRL; }
