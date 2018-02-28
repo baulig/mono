@@ -267,7 +267,17 @@ namespace System.Net
 
 		public static SecurityProtocolType SecurityProtocol {
 			get { return _securityProtocol; }
-			set { _securityProtocol = value; }
+			set {
+				ValidateSecurityProtocol (value);
+				_securityProtocol = value;
+			}
+		}
+
+		static void ValidateSecurityProtocol (SecurityProtocolType value)
+		{
+			SecurityProtocolType allowed = SecurityProtocolType.Tls | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls12;
+			if ((value & ~allowed) != 0)
+				throw new NotSupportedException (SR.net_securityprotocolnotsupported);
 		}
 
 		internal static ServerCertValidationCallback ServerCertValidationCallback {
