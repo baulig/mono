@@ -123,7 +123,7 @@ namespace System.Net
 		private static SecurityProtocolType _securityProtocol = SecurityProtocolType.Tls | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls12;
 
 		static bool expectContinue = true;
-		static bool useNagle;
+		static bool useNagle = true;
 		static ServerCertValidationCallback server_cert_cb;
 		static bool tcp_keepalive;
 		static int tcp_keepalive_time;
