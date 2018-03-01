@@ -39,9 +39,9 @@ namespace System.Net
 			completion = new TaskCompletionSource<Result> ();
 		}
 
-		public bool TrySetCompleted ()
+		public bool TrySetCompleted (object argument = null)
 		{
-			return completion.TrySetResult (new Result (State.Completed, null));
+			return completion.TrySetResult (new Result (argument));
 		}
 
 		public bool TrySetCanceled ()
@@ -66,14 +66,14 @@ namespace System.Net
 			completion.Task.Result.Error?.Throw ();
 		}
 
-		public async Task<bool> WaitForCompletion (bool throwOnError)
+		public async Task<(bool success, object result)> WaitForCompletion (bool throwOnError)
 		{
 			var result = await completion.Task.ConfigureAwait (false);
 			if (result.State == State.Completed)
-				return true;
+				return (true, result.Argument);
 			if (throwOnError)
 				result.Error.Throw ();
-			return false;
+			return (false, null);
 		}
 
 		enum State : int {
@@ -91,6 +91,16 @@ namespace System.Net
 
 			public ExceptionDispatchInfo Error {
 				get;
+			}
+
+			public object Argument {
+				get;
+			}
+
+			public Result (object argument)
+			{
+				State = State.Completed;
+				Argument = argument;
 			}
 
 			public Result (State state, ExceptionDispatchInfo error)
