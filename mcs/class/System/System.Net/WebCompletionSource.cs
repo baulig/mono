@@ -30,7 +30,7 @@ using System.Runtime.ExceptionServices;
 
 namespace System.Net
 {
-	class WebCompletionSource
+	class WebCompletionSource<T>
 	{
 		TaskCompletionSource<Result> completion;
 
@@ -39,9 +39,14 @@ namespace System.Net
 			completion = new TaskCompletionSource<Result> ();
 		}
 
-		public bool TrySetCompleted (object argument = null)
+		public bool TrySetCompleted (T argument)
 		{
 			return completion.TrySetResult (new Result (argument));
+		}
+
+		public bool TrySetCompleted ()
+		{
+			return completion.TrySetResult (new Result (State.Completed, null));
 		}
 
 		public bool TrySetCanceled ()
@@ -76,6 +81,12 @@ namespace System.Net
 			return (false, null);
 		}
 
+		public async Task<T> WaitForCompletion ()
+		{
+			var (result, argument) = await WaitForCompletion (true);
+			return (T)argument;
+		}
+
 		enum State : int {
 			Running,
 			Completed,
@@ -93,11 +104,11 @@ namespace System.Net
 				get;
 			}
 
-			public object Argument {
+			public T Argument {
 				get;
 			}
 
-			public Result (object argument)
+			public Result (T argument)
 			{
 				State = State.Completed;
 				Argument = argument;
@@ -111,17 +122,7 @@ namespace System.Net
 		}
 	}
 
-	class WebCompletionSource<T> : WebCompletionSource
+	class WebCompletionSource : WebCompletionSource<object>
 	{
-		public bool TrySetCompleted (T argument)
-		{
-			return base.TrySetCompleted (argument);
-		}
-
-		public async Task<T> WaitForCompletion ()
-		{
-			var (result, argument) = await base.WaitForCompletion (true);
-			return (T)argument;
-		}
 	}
 }
