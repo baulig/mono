@@ -110,4 +110,18 @@ namespace System.Net
 			}
 		}
 	}
+
+	class WebCompletionSource<T> : WebCompletionSource
+	{
+		public bool TrySetCompleted (T argument)
+		{
+			return base.TrySetCompleted (argument);
+		}
+
+		public async Task<T> WaitForCompletion ()
+		{
+			var (result, argument) = await base.WaitForCompletion (true);
+			return (T)argument;
+		}
+	}
 }
