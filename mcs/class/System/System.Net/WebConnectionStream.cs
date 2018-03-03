@@ -46,7 +46,6 @@ namespace System.Net
 		object locker = new object ();
 		int read_timeout;
 		int write_timeout;
-		internal bool IgnoreIOErrors;
 
 		protected WebConnectionStream (WebConnection cnc, WebOperation operation, Stream stream)
 		{

@@ -240,8 +240,7 @@ namespace System.Net
 			try {
 				await InnerStream.WriteAsync (buffer, offset, size, cancellationToken).ConfigureAwait (false);
 			} catch {
-				if (!IgnoreIOErrors)
-					throw;
+				throw;
 			}
 		}
 
