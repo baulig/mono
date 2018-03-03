@@ -253,45 +253,38 @@ namespace System.Net
 			}
 		}
 
-		internal void Start ()
+		internal async void Run ()
 		{
-			Task.Run (async () => {
-				try {
-					await Run ().ConfigureAwait (false);
-				} catch (OperationCanceledException) {
-					WebConnection.Debug ($"WO START - SET CANCELED: Cnc={Connection?.ID} Op={ID}");
-					SetCanceled ();
-				} catch (Exception e) {
-					WebConnection.Debug ($"WO START - SET ERROR: Cnc={Connection?.ID} Op={ID} - {e.Message}");
-					SetError (e);
-				}
-			});
-		}
+			try {
+				FinishReading ();
 
-		async Task Run ()
-		{
-			FinishReading ();
+				ThrowIfClosedOrDisposed ();
 
-			ThrowIfClosedOrDisposed ();
+				var requestStream = await Connection.InitConnection (this, cts.Token).ConfigureAwait (false);
 
-			var requestStream = await Connection.InitConnection (this, cts.Token).ConfigureAwait (false);
+				ThrowIfClosedOrDisposed ();
 
-			ThrowIfClosedOrDisposed ();
+				writeStream = requestStream;
 
-			writeStream = requestStream;
+				await requestStream.Initialize (cts.Token).ConfigureAwait (false);
 
-			await requestStream.Initialize (cts.Token).ConfigureAwait (false);
+				ThrowIfClosedOrDisposed ();
 
-			ThrowIfClosedOrDisposed ();
+				requestTask.TrySetCompleted (requestStream);
 
-			requestTask.TrySetCompleted (requestStream);
+				var stream = new WebResponseStream (requestStream);
+				responseStream = stream;
 
-			var stream = new WebResponseStream (requestStream);
-			responseStream = stream;
+				await stream.InitReadAsync (cts.Token).ConfigureAwait (false);
 
-			await stream.InitReadAsync (cts.Token).ConfigureAwait (false);
-
-			responseTask.TrySetCompleted (stream);
+				responseTask.TrySetCompleted (stream);
+			} catch (OperationCanceledException) {
+				Console.Error.WriteLine ($"WO SET CANCELED!");
+				SetCanceled ();
+			} catch (Exception e) {
+				Console.Error.WriteLine ($"WO SET ERROR!");
+				SetError (e);
+			}
 		}
 
 		async void FinishReading ()
