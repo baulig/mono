@@ -70,12 +70,6 @@ namespace System.Net
 			get;
 		}
 
-		public override long Length {
-			get {
-				throw new NotSupportedException ();
-			}
-		}
-
 		public override bool CanRead => false;
 
 		public override bool CanWrite => true;

@@ -24,6 +24,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 using System.IO;
+using System.IO.Compression;
 using System.Text;
 using System.Collections;
 using System.Collections.Generic;
@@ -36,11 +37,10 @@ namespace System.Net
 {
 	class WebResponseStream : WebConnectionStream
 	{
-		BufferOffsetSize readBuffer;
-		long contentLength;
-		long totalRead;
+		Stream innerStreamWrapper;
+		MonoChunkStream innerChunkStream;
 		bool nextReadCalled;
-		int stream_length; // -1 when CL not present
+		bool bufferedEntireContent;
 		WebCompletionSource pendingRead;
 		object locker = new object ();
 		int nestedRead;
@@ -87,21 +87,11 @@ namespace System.Net
 #endif
 		}
 
-		public override long Length {
-			get {
-				return stream_length;
-			}
-		}
-
 		public override bool CanRead => true;
 
 		public override bool CanWrite => false;
 
 		bool ChunkedRead {
-			get; set;
-		}
-
-		MonoChunkStream ChunkStream {
 			get; set;
 		}
 
@@ -135,7 +125,7 @@ namespace System.Net
 				await oldCompletion.WaitForCompletion ().ConfigureAwait (false);
 			}
 
-			WebConnection.Debug ($"{ME} READ ASYNC #2: {totalRead} {contentLength}");
+			WebConnection.Debug ($"{ME} READ ASYNC #2");
 
 			int nbytes = 0;
 			Exception throwMe = null;
@@ -152,7 +142,7 @@ namespace System.Net
 				throwMe = GetReadException (WebExceptionStatus.ReceiveFailure, e, "ReadAsync");
 			}
 
-			WebConnection.Debug ($"{ME} READ ASYNC #3: {totalRead} {contentLength} - {nbytes} {throwMe?.Message}");
+			WebConnection.Debug ($"{ME} READ ASYNC #3: {nbytes} {throwMe?.Message}");
 
 			if (throwMe != null) {
 				lock (locker) {
@@ -167,139 +157,86 @@ namespace System.Net
 			}
 
 			lock (locker) {
-				pendingRead.TrySetCompleted ();
+				completion.TrySetCompleted ();
 				pendingRead = null;
 				nestedRead = 0;
 			}
 
-			if (totalRead >= contentLength && !nextReadCalled) {
-				WebConnection.Debug ($"{ME} READ ASYNC - READ COMPLETE: {nbytes} - {totalRead} {contentLength} {nextReadCalled}");
+			if (nbytes <= 0 && !read_eof) {
+				read_eof = true;
+
 				if (!nextReadCalled) {
-					nextReadCalled = true;
-					Operation.Finish (true);
+					WebConnection.Debug ($"{ME} READ ASYNC - READ COMPLETE: {nbytes} - {nextReadCalled}");
+					if (!nextReadCalled) {
+						nextReadCalled = true;
+						Operation.Finish (true);
+					}
 				}
 			}
 
 			return nbytes;
 		}
 
-		async Task<int> ProcessRead (byte[] buffer, int offset, int size, CancellationToken cancellationToken)
+		Task<int> ProcessRead (byte[] buffer, int offset, int size, CancellationToken cancellationToken)
 		{
-			WebConnection.Debug ($"{ME} PROCESS READ: {totalRead} {contentLength}");
+			if (read_eof)
+				return Task.FromResult (0);
+			if (cancellationToken.IsCancellationRequested)
+				return Task.FromCanceled<int> (cancellationToken);
+			return HttpWebRequest.RunWithTimeout (
+				async ct => {
+					var ret = await ProcessReadInner (buffer, offset, size, cancellationToken).ConfigureAwait (false);
+					if (ret != 0)
+						return ret;
 
-			cancellationToken.ThrowIfCancellationRequested ();
-			if (read_eof || totalRead >= contentLength) {
-				read_eof = true;
-				contentLength = totalRead;
-				return 0;
-			}
-
-			int remaining = readBuffer?.Size ?? 0;
-			if (remaining > 0) {
-				int copy = (remaining > size) ? size : remaining;
-				Buffer.BlockCopy (readBuffer.Buffer, readBuffer.Offset, buffer, offset, copy);
-				readBuffer.Offset += copy;
-				readBuffer.Size -= copy;
-				offset += copy;
-				size -= copy;
-				totalRead += copy;
-				if (size == 0 || totalRead >= contentLength) {
-					read_eof = true;
-					contentLength = totalRead;
-				}
-				return copy;
-			}
-
-			if (contentLength != Int64.MaxValue && contentLength - totalRead < size)
-				size = (int)(contentLength - totalRead);
-
-			WebConnection.Debug ($"{ME} PROCESS READ #1: {size} {read_eof}");
-
-			var ret = await InnerReadAsync (buffer, offset, size, cancellationToken).ConfigureAwait (false);
-
-			if (ret <= 0) {
-				read_eof = true;
-				contentLength = totalRead;
-				return ret;
-			}
-
-			totalRead += ret;
-			return ret;
+					await ProcessReadFinished (cancellationToken).ConfigureAwait (false);
+					return ret;
+				},
+				ReadTimeout,
+				() => {
+					Operation.Abort ();
+					innerStreamWrapper.Dispose ();
+				}, cancellationToken);
 		}
 
-		async Task<int> InnerReadAsync (byte[] buffer, int offset, int size, CancellationToken cancellationToken)
+		async Task ProcessReadFinished (CancellationToken cancellationToken)
 		{
-			WebConnection.Debug ($"{ME} INNER READ ASYNC");
+			if (innerChunkStream == null || innerChunkStream == innerStreamWrapper)
+				return;
 
+			/*
+			 * We only get here when using GZip/Deflate decompression with
+			 * chunked encoding.  Since the GZipStream/DeflateStream knows
+			 * about the size of the content, it may not have read the
+			 * chunk trailer.
+			 */
+
+			WebConnection.Debug ($"{ME} INNER READ - READ CHUNK TRAILER");
+			await innerChunkStream.ReadChunkTrailer (cancellationToken).ConfigureAwait (false);
+			WebConnection.Debug ($"{ME} INNER READ - READ CHUNK TRAILER DONE");
+		}
+
+		async Task<int> ProcessReadInner (byte[] buffer, int offset, int size, CancellationToken cancellationToken)
+		{
 			Operation.ThrowIfDisposed (cancellationToken);
 
-			int nbytes = 0;
-			bool done = false;
-
-			if (!ChunkedRead || (!ChunkStream.DataAvailable && ChunkStream.WantMore)) {
-				nbytes = await InnerStream.ReadAsync (buffer, offset, size, cancellationToken).ConfigureAwait (false);
-				WebConnection.Debug ($"{ME} INNER READ ASYNC #1: {nbytes} {ChunkedRead}");
-				if (!ChunkedRead)
-					return nbytes;
-				done = nbytes == 0;
-			}
+			WebConnection.Debug ($"{ME} INNER READ ASYNC: stream={innerStreamWrapper}");
 
 			try {
-				ChunkStream.WriteAndReadBack (buffer, offset, size, ref nbytes);
-				WebConnection.Debug ($"{ME} INNER READ ASYNC #1: {done} {nbytes} {ChunkStream.WantMore}");
-				if (!done && nbytes == 0 && ChunkStream.WantMore)
-					nbytes = await EnsureReadAsync (buffer, offset, size, cancellationToken).ConfigureAwait (false);
-			} catch (Exception e) {
-				if (e is WebException || e is OperationCanceledException)
-					throw;
-				throw new WebException ("Invalid chunked data.", e, WebExceptionStatus.ServerProtocolViolation, null);
+				var ret = await innerStreamWrapper.ReadAsync (
+					buffer, offset, size, cancellationToken).ConfigureAwait (false);
+				WebConnection.Debug ($"{ME} INNER READ ASYNC DONE: {ret}");
+				return ret;
+			} catch (Exception ex) {
+				WebConnection.Debug ($"{ME} INNER READ ASYNC EX: {ex.Message}");
+				throw;
 			}
-
-			if ((done || nbytes == 0) && ChunkStream.ChunkLeft != 0) {
-				// HandleError (WebExceptionStatus.ReceiveFailure, null, "chunked EndRead");
-				throw new WebException ("Read error", null, WebExceptionStatus.ReceiveFailure, null);
-			}
-
-			return nbytes;
-		}
-
-		async Task<int> EnsureReadAsync (byte[] buffer, int offset, int size, CancellationToken cancellationToken)
-		{
-			byte[] morebytes = null;
-			int nbytes = 0;
-			while (nbytes == 0 && ChunkStream.WantMore && !cancellationToken.IsCancellationRequested) {
-				int localsize = ChunkStream.ChunkLeft;
-				if (localsize <= 0) // not read chunk size yet
-					localsize = 1024;
-				else if (localsize > 16384)
-					localsize = 16384;
-
-				if (morebytes == null || morebytes.Length < localsize)
-					morebytes = new byte[localsize];
-
-				int nread = await InnerStream.ReadAsync (morebytes, 0, localsize, cancellationToken).ConfigureAwait (false);
-				if (nread <= 0)
-					return 0; // Error
-
-				ChunkStream.Write (morebytes, 0, nread);
-				nbytes += ChunkStream.Read (buffer, offset + nbytes, size - nbytes);
-			}
-
-			return nbytes;
 		}
 
 		bool CheckAuthHeader (string headerName)
 		{
 			var authHeader = Headers[headerName];
 			return (authHeader != null && authHeader.IndexOf ("NTLM", StringComparison.Ordinal) != -1);
-		}
-
-		bool IsNtlmAuth ()
-		{
-			bool isProxy = (Request.Proxy != null && !Request.Proxy.IsBypassed (Request.Address));
-			if (isProxy && CheckAuthHeader ("Proxy-Authenticate"))
-				return true;
-			return CheckAuthHeader ("WWW-Authenticate");
 		}
 
 		bool ExpectContent {
@@ -310,10 +247,11 @@ namespace System.Net
 			}
 		}
 
-		async Task Initialize (BufferOffsetSize buffer, CancellationToken cancellationToken)
+		void Initialize (BufferOffsetSize buffer)
 		{
 			WebConnection.Debug ($"{ME} INIT: status={(int)StatusCode} bos={buffer.Offset}/{buffer.Size}");
 
+			long contentLength;
 			string contentType = Headers["Transfer-Encoding"];
 			bool chunkedRead = (contentType != null && contentType.IndexOf ("chunked", StringComparison.OrdinalIgnoreCase) != -1);
 			string clength = Headers["Content-Length"];
@@ -324,6 +262,12 @@ namespace System.Net
 				contentLength = Int64.MaxValue;
 			}
 
+			string tencoding = null;
+			if (ExpectContent)
+				tencoding = Headers["Transfer-Encoding"];
+
+			ChunkedRead = (tencoding != null && tencoding.IndexOf ("chunked", StringComparison.OrdinalIgnoreCase) != -1);
+
 			if (Version == HttpVersion.Version11 && RequestStream.KeepAlive) {
 				KeepAlive = true;
 				var cncHeader = Headers[ServicePoint.UsesProxy ? "Proxy-Connection" : "Connection"];
@@ -333,53 +277,97 @@ namespace System.Net
 					if (cncHeader.IndexOf ("close", StringComparison.Ordinal) != -1)
 						KeepAlive = false;
 				}
+
+				if (!ChunkedRead && contentLength == Int64.MaxValue) {
+					/*
+					 * This is a violation of the HTTP Spec - the server neither send a
+					 * "Content-Length:" nor a "Transfer-Encoding: chunked" header.
+					 * The only way to recover from this is to keep reading until the
+					 * remote closes the connection, so we can't reuse it.
+					 */
+					KeepAlive = false;
+				}
 			}
 
-			// Negative numbers?
-			if (!Int32.TryParse (clength, out stream_length))
-				stream_length = -1;
-
-			string me = "WebResponseStream.Initialize()";
-			string tencoding = null;
-			if (ExpectContent)
-				tencoding = Headers["Transfer-Encoding"];
-
-			ChunkedRead = (tencoding != null && tencoding.IndexOf ("chunked", StringComparison.OrdinalIgnoreCase) != -1);
-			if (!ChunkedRead) {
-				readBuffer = buffer;
-				try {
-					if (contentLength > 0 && readBuffer.Size >= contentLength) {
-						if (!IsNtlmAuth ())
-							await ReadAllAsync (false, cancellationToken).ConfigureAwait (false);
-					}
-				} catch (Exception e) {
-					throw GetReadException (WebExceptionStatus.ReceiveFailure, e, me);
-				}
+			/*
+			 * Inner layer:
+			 * We may have read a few extra bytes while parsing the headers, these will be
+			 * passed to us in the @buffer parameter and we need to read these before
+			 * reading from the `InnerStream`.
+			 */
+			if (!ExpectContent || (!ChunkedRead && buffer.Size >= contentLength)) {
+				bufferedEntireContent = true;
+				innerStreamWrapper = new BufferedReadStream (Operation, null, buffer);
+			} else if (buffer.Size > 0) {
+				innerStreamWrapper = new BufferedReadStream (Operation, InnerStream, buffer);
 			} else {
-				try {
-					ChunkStream = new MonoChunkStream (buffer.Buffer, buffer.Offset, buffer.Offset + buffer.Size, Headers);
-				} catch (Exception e) {
-					throw GetReadException (WebExceptionStatus.ServerProtocolViolation, e, me);
-				}
+				innerStreamWrapper = InnerStream;
+			}
+
+			/*
+			 * Intermediate layer:
+			 * - Wrap with MonoChunkStream when using chunked encoding.
+			 * - Otherwise, we should have a Content-Length, wrap with
+			 *   FixedSizeReadStream to read exactly that many bytes.
+			 */
+			if (ChunkedRead) {
+				innerStreamWrapper = innerChunkStream = new MonoChunkStream (
+					Operation, innerStreamWrapper, Headers);
+			} else if (!bufferedEntireContent && contentLength != Int64.MaxValue) {
+				innerStreamWrapper = new FixedSizeReadStream (Operation, innerStreamWrapper, contentLength);
+			}
+
+			/*
+			 * Outer layer:
+			 * - Decode gzip/deflate if requested.
+			 */
+			string content_encoding = Headers["Content-Encoding"];
+			if (content_encoding == "gzip" && (Request.AutomaticDecompression & DecompressionMethods.GZip) != 0) {
+				innerStreamWrapper = new GZipStream (innerStreamWrapper, CompressionMode.Decompress);
+				Headers.Remove (HttpRequestHeader.ContentEncoding);
+			} else if (content_encoding == "deflate" && (Request.AutomaticDecompression & DecompressionMethods.Deflate) != 0) {
+				innerStreamWrapper = new DeflateStream (innerStreamWrapper, CompressionMode.Decompress);
+				Headers.Remove (HttpRequestHeader.ContentEncoding);
 			}
 
 			WebConnection.Debug ($"{ME} INIT #1: - {ExpectContent} {closed} {nextReadCalled}");
 
 			if (!ExpectContent) {
-				if (!closed && !nextReadCalled) {
-					if (contentLength == Int64.MaxValue)
-						contentLength = 0;
-					nextReadCalled = true;
-				}
+				nextReadCalled = true;
 				Operation.Finish (true);
+			}
+		}
+
+		Stream CreateStreamWrapper (BufferOffsetSize buffer)
+		{
+			if (buffer == null || buffer.Size == 0)
+				return InnerStream;
+			return new BufferedReadStream (Operation, InnerStream, buffer);
+		}
+
+		async Task<byte[]> ReadAllAsyncInner (CancellationToken cancellationToken)
+		{
+			var maximumSize = (long)HttpWebRequest.DefaultMaximumErrorResponseLength << 16;
+			using (var ms = new MemoryStream ()) {
+				while (ms.Position < maximumSize) {
+					cancellationToken.ThrowIfCancellationRequested ();
+					var buffer = new byte[16384];
+					var ret = await ProcessRead (buffer, 0, buffer.Length, cancellationToken).ConfigureAwait (false);
+					if (ret < 0)
+						throw new IOException ();
+					if (ret == 0)
+						break;
+					ms.Write (buffer, 0, ret);
+				}
+				return ms.GetBuffer ();
 			}
 		}
 
 		internal async Task ReadAllAsync (bool resending, CancellationToken cancellationToken)
 		{
-			WebConnection.Debug ($"{ME} READ ALL ASYNC: resending={resending} eof={read_eof} total={totalRead} " +
-			                     "length={contentLength} nextReadCalled={nextReadCalled}");
-			if (read_eof || totalRead >= contentLength || nextReadCalled) {
+			WebConnection.Debug ($"{ME} READ ALL ASYNC: resending={resending} eof={read_eof} " +
+					     "nextReadCalled={nextReadCalled}");
+			if (read_eof || bufferedEntireContent || nextReadCalled) {
 				if (!nextReadCalled) {
 					nextReadCalled = true;
 					Operation.Finish (true);
@@ -407,77 +395,28 @@ namespace System.Net
 
 			WebConnection.Debug ($"{ME} READ ALL ASYNC #1");
 
-			cancellationToken.ThrowIfCancellationRequested ();
-
 			try {
-				if (totalRead >= contentLength)
+				cancellationToken.ThrowIfCancellationRequested ();
+
+				/*
+				 * We may have awaited on the 'readTcs', so check
+				 * for eof again as ReadAsync() may have set it.
+				 */
+				if (read_eof || bufferedEntireContent)
 					return;
-
-				byte[] b = null;
-				int new_size;
-
-				if (contentLength == Int64.MaxValue && !ChunkedRead) {
-					WebConnection.Debug ($"{ME} READ ALL ASYNC - NEITHER LENGTH NOR CHUNKED");
-					/*
-					 * This is a violation of the HTTP Spec - the server neither send a
-					 * "Content-Length:" nor a "Transfer-Encoding: chunked" header.
-					 *
-					 * When we're redirecting or resending for NTLM, then we can simply close
-					 * the connection here.
-					 *
-					 * However, if it's the final reply, then we need to try our best to read it.
-					 */
-					if (resending) {
-						Close ();
-						return;
-					}
-					KeepAlive = false;
+				/*
+				 * Simplify: if we're resending on a new connection,
+				 * then we can simply close the connection here.
+				 */
+				if (resending && !KeepAlive) {
+					Close ();
+					return;
 				}
 
-				if (contentLength == Int64.MaxValue) {
-					MemoryStream ms = new MemoryStream ();
-					BufferOffsetSize buffer = null;
-					if (readBuffer != null && readBuffer.Size > 0) {
-						ms.Write (readBuffer.Buffer, readBuffer.Offset, readBuffer.Size);
-						readBuffer.Offset = 0;
-						readBuffer.Size = readBuffer.Buffer.Length;
-						if (readBuffer.Buffer.Length >= 8192)
-							buffer = readBuffer;
-					}
+				var buffer = await ReadAllAsyncInner (cancellationToken).ConfigureAwait (false);
+				var bos = new BufferOffsetSize (buffer, 0, buffer.Length, false);
+				innerStreamWrapper = new BufferedReadStream (Operation, null, bos);
 
-					if (buffer == null)
-						buffer = new BufferOffsetSize (new byte[8192], false);
-
-					int read;
-					while ((read = await InnerReadAsync (buffer.Buffer, buffer.Offset, buffer.Size, cancellationToken)) != 0)
-						ms.Write (buffer.Buffer, buffer.Offset, read);
-
-					new_size = (int)ms.Length;
-					contentLength = new_size;
-					readBuffer = new BufferOffsetSize (ms.GetBuffer (), 0, new_size, false);
-				} else {
-					new_size = (int)(contentLength - totalRead);
-					b = new byte[new_size];
-					int readSize = 0;
-					if (readBuffer != null && readBuffer.Size > 0) {
-						readSize = readBuffer.Size;
-						if (readSize > new_size)
-							readSize = new_size;
-
-						Buffer.BlockCopy (readBuffer.Buffer, readBuffer.Offset, b, 0, readSize);
-					}
-
-					int remaining = new_size - readSize;
-					int r = -1;
-					while (remaining > 0 && r != 0) {
-						r = await InnerReadAsync (b, readSize, remaining, cancellationToken);
-						remaining -= r;
-						readSize += r;
-					}
-				}
-
-				readBuffer = new BufferOffsetSize (b, 0, new_size, false);
-				totalRead = 0;
 				nextReadCalled = true;
 				completion.TrySetCompleted ();
 			} catch (Exception ex) {
@@ -499,10 +438,11 @@ namespace System.Net
 
 		protected override void Close_internal (ref bool disposed)
 		{
-			WebConnection.Debug ($"{ME} CLOSE: {disposed} {closed} {nextReadCalled}");
+			WebConnection.Debug ($"{ME} CLOSE: disposed={disposed} closed={closed} nextReadCalled={nextReadCalled}");
 			if (!closed && !nextReadCalled) {
 				nextReadCalled = true;
-				if (totalRead >= contentLength) {
+				WebConnection.Debug ($"{ME} CLOSE #1: read_eof={read_eof} bufferedEntireContent={bufferedEntireContent}");
+				if (read_eof || bufferedEntireContent) {
 					disposed = true;
 					Operation.Finish (true);
 				} else {
@@ -588,8 +528,7 @@ namespace System.Net
 			WebConnection.Debug ($"{ME} INIT READ ASYNC LOOP DONE: {buffer.Offset} {buffer.Size}");
 
 			try {
-				Operation.ThrowIfDisposed (cancellationToken);
-				await Initialize (buffer, cancellationToken).ConfigureAwait (false);
+				Initialize (buffer);
 			} catch (Exception e) {
 				throw GetReadException (WebExceptionStatus.ReceiveFailure, e, "ReadDoneAsync6");
 			}
@@ -710,7 +649,5 @@ namespace System.Net
 
 			throw GetReadException (WebExceptionStatus.ServerProtocolViolation, null, "GetResponse");
 		}
-
-
 	}
 }
