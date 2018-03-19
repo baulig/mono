@@ -164,7 +164,13 @@ namespace System.Net
 				nread = await ProcessReadAsync (
 					buffer, offset, size, cancellationToken).ConfigureAwait (false);
 				WebConnection.Debug ($"{ME} READ DONE: nread={nread}");
-				return nread;
+
+				if (nread != 0)
+					return nread;
+
+				await FinishReading (cancellationToken).ConfigureAwait (false);
+
+				return 0;
 			} catch (OperationCanceledException) {
 				WebConnection.Debug ($"{ME} READ CANCELED");
 				throw;
@@ -179,6 +185,13 @@ namespace System.Net
 		protected abstract Task<int> ProcessReadAsync (
 			byte[] buffer, int offset, int size,
 			CancellationToken cancellationToken);
+
+		protected virtual Task FinishReading (CancellationToken cancellationToken)
+		{
+			if (InnerStream is WebReadStream innerReadStream)
+				return innerReadStream.FinishReading (cancellationToken);
+			return Task.CompletedTask;
+		}
 
 		bool disposed;
 

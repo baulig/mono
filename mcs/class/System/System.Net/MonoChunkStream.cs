@@ -92,6 +92,12 @@ namespace System.Net
 			return ret;
 		}
 
+		protected override Task FinishReading (CancellationToken cancellationToken)
+		{
+			WebConnection.Debug ($"{ME} FINISH READING!");
+			return Task.CompletedTask;
+		}
+
 		public async Task ReadChunkTrailer (CancellationToken cancellationToken)
 		{
 			cancellationToken.ThrowIfCancellationRequested ();
