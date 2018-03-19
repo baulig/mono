@@ -131,13 +131,7 @@ namespace System.Net
 			Exception throwMe = null;
 
 			try {
-				// FIXME: NetworkStream.ReadAsync() does not support cancellation.
-				nbytes = await HttpWebRequest.RunWithTimeout (
-					ct => ProcessRead (buffer, offset, count, ct),
-					ReadTimeout, () => {
-						Operation.Abort ();
-						InnerStream.Dispose ();
-					}).ConfigureAwait (false);
+				nbytes = await ProcessRead (buffer, offset, count, cancellationToken).ConfigureAwait (false);
 			} catch (Exception e) {
 				throwMe = GetReadException (WebExceptionStatus.ReceiveFailure, e, "ReadAsync");
 			}
@@ -184,14 +178,7 @@ namespace System.Net
 			if (cancellationToken.IsCancellationRequested)
 				return Task.FromCanceled<int> (cancellationToken);
 			return HttpWebRequest.RunWithTimeout (
-				async ct => {
-					var ret = await ProcessReadInner (buffer, offset, size, cancellationToken).ConfigureAwait (false);
-					if (ret != 0)
-						return ret;
-
-					await ProcessReadFinished (cancellationToken).ConfigureAwait (false);
-					return ret;
-				},
+				ct => ProcessReadInner (buffer, offset, size, ct),
 				ReadTimeout,
 				() => {
 					Operation.Abort ();
@@ -199,37 +186,49 @@ namespace System.Net
 				}, cancellationToken);
 		}
 
-		async Task ProcessReadFinished (CancellationToken cancellationToken)
-		{
-			if (innerChunkStream == null || innerChunkStream == innerStreamWrapper)
-				return;
-
-			/*
-			 * We only get here when using GZip/Deflate decompression with
-			 * chunked encoding.  Since the GZipStream/DeflateStream knows
-			 * about the size of the content, it may not have read the
-			 * chunk trailer.
-			 */
-
-			WebConnection.Debug ($"{ME} INNER READ - READ CHUNK TRAILER");
-			await innerChunkStream.ReadChunkTrailer (cancellationToken).ConfigureAwait (false);
-			WebConnection.Debug ($"{ME} INNER READ - READ CHUNK TRAILER DONE");
-		}
-
 		async Task<int> ProcessReadInner (byte[] buffer, int offset, int size, CancellationToken cancellationToken)
 		{
 			Operation.ThrowIfDisposed (cancellationToken);
 
-			WebConnection.Debug ($"{ME} INNER READ ASYNC: stream={innerStreamWrapper}");
+#if MONO_WEB_DEBUG
+			var me = $"{ME} INNER READ ASYNC ({innerStreamWrapper})";
+#else
+			string me = null;
+#endif
+
+			WebConnection.Debug ($"{me}");
+
+			int nread;
 
 			try {
-				var ret = await innerStreamWrapper.ReadAsync (
+				nread = await innerStreamWrapper.ReadAsync (
 					buffer, offset, size, cancellationToken).ConfigureAwait (false);
-				WebConnection.Debug ($"{ME} INNER READ ASYNC DONE: {ret}");
-				return ret;
+				WebConnection.Debug ($"{me}: nread={nread}");
+				if (nread != 0)
+					return nread;
+
+				if (innerChunkStream == null || innerChunkStream == innerStreamWrapper)
+					return 0;
+
+				/*
+				 * We only get here when using GZip/Deflate decompression with
+				 * chunked encoding.  Since the GZipStream/DeflateStream knows
+				 * about the size of the content, it may not have read the
+				 * chunk trailer.
+				 */
+
+				WebConnection.Debug ($"{me}: READ CHUNK TRAILER");
+				await innerChunkStream.ReadChunkTrailer (cancellationToken).ConfigureAwait (false);
+				WebConnection.Debug ($"{me}: READ CHUNK TRAILER DONE");
+
+				return 0;
 			} catch (Exception ex) {
-				WebConnection.Debug ($"{ME} INNER READ ASYNC EX: {ex.Message}");
+				WebConnection.Debug ($"{me}: ERROR {ex.Message}");
 				throw;
+#if MONO_WEB_DEBUG
+			} finally {
+				WebConnection.Debug ($"{me}: FINISHED");
+#endif
 			}
 		}
 
