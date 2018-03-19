@@ -38,17 +38,11 @@ namespace System.Net
 
 		long position;
 
-		internal readonly string ME;
-
 		public FixedSizeReadStream (WebOperation operation, Stream innerStream,
 		                            long contentLength)
 			: base (operation, innerStream)
 		{
 			ContentLength = contentLength;
-
-#if MONO_WEB_DEBUG
-			ME = $"FSRS(Op={Operation.ID})";
-#endif
 		}
 
 		protected override async Task<int> ProcessReadAsync (

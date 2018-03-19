@@ -40,10 +40,16 @@ namespace System.Net
 			get;
 		}
 
+		protected readonly string ME;
+
 		public WebReadStream (WebOperation operation, Stream innerStream)
 		{
 			Operation = operation;
 			InnerStream = innerStream;
+
+#if MONO_WEB_DEBUG
+			ME = $"WRS({GetType ().Name}:Op={operation.ID})";
+#endif
 		}
 
 		Exception NotSupported => new NotSupportedException ();
@@ -145,11 +151,29 @@ namespace System.Net
 			}
 		}
 
-		public sealed override Task<int> ReadAsync (
+		public sealed override async Task<int> ReadAsync (
 			byte[] buffer, int offset, int size,
 			CancellationToken cancellationToken)
 		{
-			return ProcessReadAsync (buffer, offset, size, cancellationToken);
+			Operation.ThrowIfDisposed (cancellationToken);
+
+			WebConnection.Debug ($"{ME} READ");
+
+			int nread;
+			try {
+				nread = await ProcessReadAsync (
+					buffer, offset, size, cancellationToken).ConfigureAwait (false);
+				WebConnection.Debug ($"{ME} READ DONE: nread={nread}");
+				return nread;
+			} catch (OperationCanceledException) {
+				WebConnection.Debug ($"{ME} READ CANCELED");
+				throw;
+			} catch (Exception ex) {
+				WebConnection.Debug ($"{ME} READ ERROR: {ex.GetType ().Name}");
+				throw;
+			} finally {
+				WebConnection.Debug ($"{ME} READ FINISHED");
+			}
 		}
 
 		protected abstract Task<int> ProcessReadAsync (
