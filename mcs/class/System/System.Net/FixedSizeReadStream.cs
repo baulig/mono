@@ -51,8 +51,9 @@ namespace System.Net
 #endif
 		}
 
-		public override async Task<int> ReadAsync (byte[] buffer, int offset, int size,
-							   CancellationToken cancellationToken)
+		protected override async Task<int> ProcessReadAsync (
+			byte[] buffer, int offset, int size,
+			CancellationToken cancellationToken)
 		{
 			cancellationToken.ThrowIfCancellationRequested ();
 

@@ -145,6 +145,17 @@ namespace System.Net
 			}
 		}
 
+		public sealed override Task<int> ReadAsync (
+			byte[] buffer, int offset, int size,
+			CancellationToken cancellationToken)
+		{
+			return ProcessReadAsync (buffer, offset, size, cancellationToken);
+		}
+
+		protected abstract Task<int> ProcessReadAsync (
+			byte[] buffer, int offset, int size,
+			CancellationToken cancellationToken);
+
 		bool disposed;
 
 		protected override void Dispose (bool disposing)
