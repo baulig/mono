@@ -55,10 +55,16 @@ namespace System.Net
 		}
 
 		ContentDecodeStream (WebOperation operation, Stream decodeStream,
-		                     Stream innerStream)
+		                     Stream originalInnerStream)
 			: base (operation, decodeStream)
 		{
-			OriginalInnerStream = innerStream;
+			/*
+			 * We pass the GZipStream/DeflateStream to the base .ctor,
+			 * so it can Dispose() it when we're done.
+			 * 
+			 * Save the original inner stream here for FinishReading().
+			 */
+			OriginalInnerStream = originalInnerStream;
 		}
 
 		protected override Task<int> ProcessReadAsync (
@@ -70,6 +76,13 @@ namespace System.Net
 
 		internal override Task FinishReading (CancellationToken cancellationToken)
 		{
+			/*
+			 * Call FinishReading() on the original inner stream.
+			 * 
+			 * Since GZipStream/DeflateStream knows the exact number of
+			 * bytes that it wants to receive from it, it may not have
+			 * read the chunk trailer yet.
+			 */
 			if (OriginalInnerStream is WebReadStream innerReadStream)
 				return innerReadStream.FinishReading (cancellationToken);
 			return Task.CompletedTask;
