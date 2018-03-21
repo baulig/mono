@@ -199,7 +199,7 @@ namespace System.Net
 		{
 			Operation.ThrowIfDisposed (cancellationToken);
 
-			WebConnection.Debug ($"{ME} FINISH READING: InnerStream={InnerStream.GetType ().Name}!");
+			WebConnection.Debug ($"{ME} FINISH READING: InnerStream={InnerStream?.GetType ()?.Name}!");
 
 			if (InnerStream is WebReadStream innerReadStream)
 				return innerReadStream.FinishReading (cancellationToken);

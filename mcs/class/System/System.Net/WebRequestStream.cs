@@ -50,8 +50,10 @@ namespace System.Net
 
 		public WebRequestStream (WebConnection connection, WebOperation operation,
 					 Stream stream, WebConnectionTunnel tunnel)
-			: base (connection, operation, stream)
+			: base (connection, operation)
 		{
+			InnerStream = stream;
+
 			allowBuffering = operation.Request.InternalAllowBuffering;
 			sendChunked = operation.Request.SendChunked && operation.WriteBuffer == null;
 			if (!sendChunked && allowBuffering && operation.WriteBuffer == null)
@@ -64,6 +66,10 @@ namespace System.Net
 #if MONO_WEB_DEBUG
 			ME = $"WRQ(Cnc={Connection.ID}, Op={Operation.ID})";
 #endif
+		}
+
+		internal Stream InnerStream {
+			get;
 		}
 
 		public bool KeepAlive {

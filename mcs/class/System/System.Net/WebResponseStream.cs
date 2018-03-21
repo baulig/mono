@@ -36,7 +36,7 @@ namespace System.Net
 {
 	class WebResponseStream : WebConnectionStream
 	{
-		Stream innerStreamWrapper;
+		WebReadStream innerStream;
 		bool nextReadCalled;
 		bool bufferedEntireContent;
 		WebCompletionSource pendingRead;
@@ -76,7 +76,7 @@ namespace System.Net
 		internal readonly string ME;
 
 		public WebResponseStream (WebRequestStream request)
-			: base (request.Connection, request.Operation, request.InnerStream)
+			: base (request.Connection, request.Operation)
 		{
 			RequestStream = request;
 
@@ -176,44 +176,12 @@ namespace System.Net
 			if (cancellationToken.IsCancellationRequested)
 				return Task.FromCanceled<int> (cancellationToken);
 			return HttpWebRequest.RunWithTimeout (
-				ct => ProcessReadInner (buffer, offset, size, ct),
+				ct => innerStream.ReadAsync (buffer, offset, size, ct),
 				ReadTimeout,
 				() => {
 					Operation.Abort ();
-					innerStreamWrapper.Dispose ();
+					innerStream.Dispose ();
 				}, cancellationToken);
-		}
-
-		async Task<int> ProcessReadInner (byte[] buffer, int offset, int size, CancellationToken cancellationToken)
-		{
-			Operation.ThrowIfDisposed (cancellationToken);
-
-#if MONO_WEB_DEBUG
-			var me = $"{ME} INNER READ ASYNC ({innerStreamWrapper})";
-#else
-			string me = null;
-#endif
-
-			WebConnection.Debug ($"{me}");
-
-			int nread;
-
-			try {
-				nread = await innerStreamWrapper.ReadAsync (
-					buffer, offset, size, cancellationToken).ConfigureAwait (false);
-				WebConnection.Debug ($"{me}: nread={nread}");
-				if (nread != 0)
-					return nread;
-
-				return 0;
-			} catch (Exception ex) {
-				WebConnection.Debug ($"{me}: ERROR {ex.Message}");
-				throw;
-#if MONO_WEB_DEBUG
-			} finally {
-				WebConnection.Debug ($"{me}: FINISHED");
-#endif
-			}
 		}
 
 		bool CheckAuthHeader (string headerName)
@@ -278,13 +246,15 @@ namespace System.Net
 			 * passed to us in the @buffer parameter and we need to read these before
 			 * reading from the `InnerStream`.
 			 */
+			Stream networkStream;
 			if (!ExpectContent || (!ChunkedRead && buffer.Size >= contentLength)) {
 				bufferedEntireContent = true;
-				innerStreamWrapper = new BufferedReadStream (Operation, null, buffer);
+				innerStream = new BufferedReadStream (Operation, null, buffer);
+				networkStream = innerStream;
 			} else if (buffer.Size > 0) {
-				innerStreamWrapper = new BufferedReadStream (Operation, InnerStream, buffer);
+				networkStream = new BufferedReadStream (Operation, RequestStream.InnerStream, buffer);
 			} else {
-				innerStreamWrapper = InnerStream;
+				networkStream = RequestStream.InnerStream;
 			}
 
 			/*
@@ -294,10 +264,14 @@ namespace System.Net
 			 *   FixedSizeReadStream to read exactly that many bytes.
 			 */
 			if (ChunkedRead) {
-				innerStreamWrapper = new MonoChunkStream (
-					Operation, innerStreamWrapper, Headers);
-			} else if (!bufferedEntireContent && contentLength != Int64.MaxValue) {
-				innerStreamWrapper = new FixedSizeReadStream (Operation, innerStreamWrapper, contentLength);
+				innerStream = new MonoChunkStream (Operation, networkStream, Headers);
+			} else if (bufferedEntireContent) {
+				// 'innerStream' has already been set above.
+			} else if (contentLength != Int64.MaxValue) {
+				innerStream = new FixedSizeReadStream (Operation, networkStream, contentLength);
+			} else {
+				// Violation of the HTTP Spec - neither chunked nor length.
+				innerStream = new BufferedReadStream (Operation, networkStream, null);
 			}
 
 			/*
@@ -306,10 +280,10 @@ namespace System.Net
 			 */
 			string content_encoding = Headers["Content-Encoding"];
 			if (content_encoding == "gzip" && (Request.AutomaticDecompression & DecompressionMethods.GZip) != 0) {
-				innerStreamWrapper = ContentDecodeStream.Create (Operation, innerStreamWrapper, ContentDecodeStream.Mode.GZip);
+				innerStream = ContentDecodeStream.Create (Operation, innerStream, ContentDecodeStream.Mode.GZip);
 				Headers.Remove (HttpRequestHeader.ContentEncoding);
 			} else if (content_encoding == "deflate" && (Request.AutomaticDecompression & DecompressionMethods.Deflate) != 0) {
-				innerStreamWrapper = ContentDecodeStream.Create (Operation, innerStreamWrapper, ContentDecodeStream.Mode.Deflate);
+				innerStream = ContentDecodeStream.Create (Operation, innerStream, ContentDecodeStream.Mode.Deflate);
 				Headers.Remove (HttpRequestHeader.ContentEncoding);
 			}
 
@@ -319,13 +293,6 @@ namespace System.Net
 				nextReadCalled = true;
 				Operation.Finish (true);
 			}
-		}
-
-		Stream CreateStreamWrapper (BufferOffsetSize buffer)
-		{
-			if (buffer == null || buffer.Size == 0)
-				return InnerStream;
-			return new BufferedReadStream (Operation, InnerStream, buffer);
 		}
 
 		async Task<byte[]> ReadAllAsyncInner (CancellationToken cancellationToken)
@@ -398,7 +365,7 @@ namespace System.Net
 
 				var buffer = await ReadAllAsyncInner (cancellationToken).ConfigureAwait (false);
 				var bos = new BufferOffsetSize (buffer, 0, buffer.Length, false);
-				innerStreamWrapper = new BufferedReadStream (Operation, null, bos);
+				innerStream = new BufferedReadStream (Operation, null, bos);
 
 				nextReadCalled = true;
 				completion.TrySetCompleted ();
@@ -464,7 +431,7 @@ namespace System.Net
 
 				WebConnection.Debug ($"{ME} INIT READ ASYNC LOOP: {state} {position} - {buffer.Offset}/{buffer.Size}");
 
-				var nread = await InnerStream.ReadAsync (
+				var nread = await RequestStream.InnerStream.ReadAsync (
 					buffer.Buffer, buffer.Offset, buffer.Size, cancellationToken).ConfigureAwait (false);
 
 				WebConnection.Debug ($"{ME} INIT READ ASYNC LOOP #1: {state} {position} - {buffer.Offset}/{buffer.Size} - {nread}");
