@@ -64,24 +64,17 @@ namespace System.Net
 			}
 		}
 
-		internal WebHeaderCollection headers;
+		WebHeaderCollection headers;
 		int chunkSize;
 		int chunkRead;
 		int totalWritten;
 		State state;
-		//byte [] waitBuffer;
 		StringBuilder saved;
 		bool sawCR;
 		bool gotit;
 		int trailerState;
 		ArrayList chunks;
 		
-		public MonoChunkParser (byte [] buffer, int offset, int size, WebHeaderCollection headers)
-					: this (headers)
-		{
-			Write (buffer, offset, size);
-		}
-
 		public MonoChunkParser (WebHeaderCollection headers)
 		{
 			this.headers = headers;
@@ -91,14 +84,6 @@ namespace System.Net
 			totalWritten = 0;
 		}
 
-		public void ResetBuffer ()
-		{
-			chunkSize = -1;
-			chunkRead = 0;
-			totalWritten = 0;
-			chunks.Clear ();
-		}
-		
 		public void WriteAndReadBack (byte [] buffer, int offset, int size, ref int read)
 		{
 			if (offset + read > 0)

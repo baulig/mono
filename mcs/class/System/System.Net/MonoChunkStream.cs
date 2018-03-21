@@ -41,7 +41,7 @@ namespace System.Net
 		}
 
 		public MonoChunkStream (WebOperation operation, Stream innerStream,
-		                         WebHeaderCollection headers)
+		                        WebHeaderCollection headers)
 			: base (operation, innerStream)
 		{
 			Headers = headers;
@@ -100,6 +100,9 @@ namespace System.Net
 
 		public async Task ReadChunkTrailer (CancellationToken cancellationToken)
 		{
+			WebConnection.Debug ($"{ME} READ CHUNK TRAILER!");
+			return;
+		
 			cancellationToken.ThrowIfCancellationRequested ();
 
 			/*
