@@ -157,6 +157,15 @@ namespace System.Net
 		{
 			Operation.ThrowIfDisposed (cancellationToken);
 
+			if (buffer == null)
+				throw new ArgumentNullException (nameof (buffer));
+
+			int length = buffer.Length;
+			if (offset < 0 || length < offset)
+				throw new ArgumentOutOfRangeException (nameof (offset));
+			if (size < 0 || (length - offset) < size)
+				throw new ArgumentOutOfRangeException (nameof (size));
+
 			WebConnection.Debug ($"{ME} READ");
 
 			int nread;

@@ -47,15 +47,6 @@ namespace System.Net
 		{
 			cancellationToken.ThrowIfCancellationRequested ();
 
-			if (buffer == null)
-				throw new ArgumentNullException (nameof (buffer));
-
-			int length = buffer.Length;
-			if (offset < 0 || length < offset)
-				throw new ArgumentOutOfRangeException (nameof (offset));
-			if (size < 0 || (length - offset) < size)
-				throw new ArgumentOutOfRangeException (nameof (size));
-
 			var remaining = readBuffer?.Size ?? 0;
 			if (remaining > 0) {
 				int copy = (remaining > size) ? size : remaining;
