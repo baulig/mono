@@ -310,7 +310,6 @@ namespace System.Net
 			}
 			
 			int st = trailerState;
-			string stString = "\r\n\r";
 			while (offset < size && st < 4) {
 				c = (char) buffer [offset++];
 				if ((st == 0 || st == 2) && c == '\r') {
@@ -323,8 +322,8 @@ namespace System.Net
 					continue;
 				}
 
-				if (st > 0) {
-					saved.Append (stString.Substring (0, saved.Length == 0? st-2: st));
+				if (st >= 0) {
+					saved.Append (c);
 					st = 0;
 					if (saved.Length > 4196)
 						ThrowProtocolViolation ("Error reading trailer (too long).");
