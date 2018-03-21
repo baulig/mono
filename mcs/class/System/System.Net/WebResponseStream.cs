@@ -37,7 +37,6 @@ namespace System.Net
 	class WebResponseStream : WebConnectionStream
 	{
 		Stream innerStreamWrapper;
-		MonoChunkStream innerChunkStream;
 		bool nextReadCalled;
 		bool bufferedEntireContent;
 		WebCompletionSource pendingRead;
@@ -206,20 +205,6 @@ namespace System.Net
 				if (nread != 0)
 					return nread;
 
-				if (innerChunkStream == null || innerChunkStream == innerStreamWrapper)
-					return 0;
-
-				/*
-				 * We only get here when using GZip/Deflate decompression with
-				 * chunked encoding.  Since the GZipStream/DeflateStream knows
-				 * about the size of the content, it may not have read the
-				 * chunk trailer.
-				 */
-
-				WebConnection.Debug ($"{me}: READ CHUNK TRAILER");
-				await innerChunkStream.ReadChunkTrailer (cancellationToken).ConfigureAwait (false);
-				WebConnection.Debug ($"{me}: READ CHUNK TRAILER DONE");
-
 				return 0;
 			} catch (Exception ex) {
 				WebConnection.Debug ($"{me}: ERROR {ex.Message}");
@@ -309,7 +294,7 @@ namespace System.Net
 			 *   FixedSizeReadStream to read exactly that many bytes.
 			 */
 			if (ChunkedRead) {
-				innerStreamWrapper = innerChunkStream = new MonoChunkStream (
+				innerStreamWrapper = new MonoChunkStream (
 					Operation, innerStreamWrapper, Headers);
 			} else if (!bufferedEntireContent && contentLength != Int64.MaxValue) {
 				innerStreamWrapper = new FixedSizeReadStream (Operation, innerStreamWrapper, contentLength);

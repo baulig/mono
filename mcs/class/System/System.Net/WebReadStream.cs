@@ -188,6 +188,8 @@ namespace System.Net
 
 		internal virtual Task FinishReading (CancellationToken cancellationToken)
 		{
+			Operation.ThrowIfDisposed (cancellationToken);
+
 			if (InnerStream is WebReadStream innerReadStream)
 				return innerReadStream.FinishReading (cancellationToken);
 			return Task.CompletedTask;

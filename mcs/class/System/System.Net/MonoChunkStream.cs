@@ -92,17 +92,11 @@ namespace System.Net
 			return ret;
 		}
 
-		internal override Task FinishReading (CancellationToken cancellationToken)
+		internal override async Task FinishReading (CancellationToken cancellationToken)
 		{
 			WebConnection.Debug ($"{ME} FINISH READING!");
-			return Task.CompletedTask;
-		}
+			await base.FinishReading (cancellationToken).ConfigureAwait (false);
 
-		public async Task ReadChunkTrailer (CancellationToken cancellationToken)
-		{
-			WebConnection.Debug ($"{ME} READ CHUNK TRAILER!");
-			return;
-		
 			cancellationToken.ThrowIfCancellationRequested ();
 
 			/*
