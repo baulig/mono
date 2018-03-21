@@ -53,6 +53,7 @@ System.Net/WebResponseStream.cs
 System.Net/MonoChunkStream.cs
 System.Net/WebReadStream.cs
 System.Net/BufferedReadStream.cs
+System.Net/ContentDecodeStream.cs
 System.Net/FixedSizeReadStream.cs
 
 ../referencesource/System/net/System/Net/Sockets/TCPClient.cs

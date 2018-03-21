@@ -92,7 +92,7 @@ namespace System.Net
 			return ret;
 		}
 
-		protected override Task FinishReading (CancellationToken cancellationToken)
+		internal override Task FinishReading (CancellationToken cancellationToken)
 		{
 			WebConnection.Debug ($"{ME} FINISH READING!");
 			return Task.CompletedTask;

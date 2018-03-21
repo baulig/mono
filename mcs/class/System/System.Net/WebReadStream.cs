@@ -186,7 +186,7 @@ namespace System.Net
 			byte[] buffer, int offset, int size,
 			CancellationToken cancellationToken);
 
-		protected virtual Task FinishReading (CancellationToken cancellationToken)
+		internal virtual Task FinishReading (CancellationToken cancellationToken)
 		{
 			if (InnerStream is WebReadStream innerReadStream)
 				return innerReadStream.FinishReading (cancellationToken);

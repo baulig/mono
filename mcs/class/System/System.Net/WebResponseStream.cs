@@ -24,7 +24,6 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 using System.IO;
-using System.IO.Compression;
 using System.Text;
 using System.Collections;
 using System.Collections.Generic;
@@ -322,10 +321,10 @@ namespace System.Net
 			 */
 			string content_encoding = Headers["Content-Encoding"];
 			if (content_encoding == "gzip" && (Request.AutomaticDecompression & DecompressionMethods.GZip) != 0) {
-				innerStreamWrapper = new GZipStream (innerStreamWrapper, CompressionMode.Decompress);
+				innerStreamWrapper = ContentDecodeStream.Create (Operation, innerStreamWrapper, ContentDecodeStream.Mode.GZip);
 				Headers.Remove (HttpRequestHeader.ContentEncoding);
 			} else if (content_encoding == "deflate" && (Request.AutomaticDecompression & DecompressionMethods.Deflate) != 0) {
-				innerStreamWrapper = new DeflateStream (innerStreamWrapper, CompressionMode.Decompress);
+				innerStreamWrapper = ContentDecodeStream.Create (Operation, innerStreamWrapper, ContentDecodeStream.Mode.Deflate);
 				Headers.Remove (HttpRequestHeader.ContentEncoding);
 			}
 
