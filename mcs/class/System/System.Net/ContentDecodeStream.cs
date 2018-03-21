@@ -61,19 +61,11 @@ namespace System.Net
 			OriginalInnerStream = innerStream;
 		}
 
-		protected override async Task<int> ProcessReadAsync (
+		protected override Task<int> ProcessReadAsync (
 			byte[] buffer, int offset, int size,
 			CancellationToken cancellationToken)
 		{
-			WebConnection.Debug ($"{ME} READ");
-
-			var ret = await InnerStream.ReadAsync (
-				buffer, offset, size, cancellationToken).ConfigureAwait (false);
-			WebConnection.Debug ($"{ME} READ #1: ret={ret}");
-			if (ret <= 0)
-				return ret;
-
-			return ret;
+			return InnerStream.ReadAsync (buffer, offset, size, cancellationToken);
 		}
 
 		internal override Task FinishReading (CancellationToken cancellationToken)

@@ -199,6 +199,8 @@ namespace System.Net
 		{
 			Operation.ThrowIfDisposed (cancellationToken);
 
+			WebConnection.Debug ($"{ME} FINISH READING: InnerStream={InnerStream.GetType ().Name}!");
+
 			if (InnerStream is WebReadStream innerReadStream)
 				return innerReadStream.FinishReading (cancellationToken);
 			return Task.CompletedTask;

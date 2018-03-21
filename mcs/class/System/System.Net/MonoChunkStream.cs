@@ -85,7 +85,6 @@ namespace System.Net
 
 		internal override async Task FinishReading (CancellationToken cancellationToken)
 		{
-			WebConnection.Debug ($"{ME} FINISH READING!");
 			await base.FinishReading (cancellationToken).ConfigureAwait (false);
 
 			cancellationToken.ThrowIfCancellationRequested ();
