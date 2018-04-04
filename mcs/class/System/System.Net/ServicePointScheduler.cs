@@ -602,9 +602,11 @@ namespace System.Net
 
 			public async Task<bool> WaitAsync (int millisecondTimeout)
 			{
-				var timeoutTask = Task.Delay (millisecondTimeout);
-				var ret = await Task.WhenAny (m_tcs.Task, timeoutTask).ConfigureAwait (false);
-				return ret != timeoutTask;
+				using (var cts = new CancellationTokenSource ()) {
+					var timeoutTask = Task.Delay (millisecondTimeout, cts.Token);
+					var ret = await Task.WhenAny (m_tcs.Task, timeoutTask).ConfigureAwait (false);
+					return ret != timeoutTask;
+				}
 			}
 
 			public void Set ()

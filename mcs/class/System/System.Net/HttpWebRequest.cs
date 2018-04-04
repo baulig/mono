@@ -939,7 +939,7 @@ namespace System.Net
 			CancellationTokenSource cts)
 		{
 			try {
-				var timeoutTask = Task.Delay (timeout);
+				var timeoutTask = Task.Delay (timeout, cts.Token);
 				var ret = await Task.WhenAny (workerTask, timeoutTask).ConfigureAwait (false);
 				if (ret == timeoutTask) {
 					try {

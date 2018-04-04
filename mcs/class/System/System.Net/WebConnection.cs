@@ -50,6 +50,14 @@ namespace System.Net
 		Aborted
 	}
 
+	public static class MartinTest
+	{
+		public static void Run ()
+		{
+			Console.WriteLine ($"WC: {WebConnection.totalCount}");
+		}
+	}
+
 	class WebConnection : IDisposable
 	{
 		NetworkCredential ntlm_credentials;
@@ -60,6 +68,8 @@ namespace System.Net
 		MonoTlsStream monoTlsStream;
 		WebConnectionTunnel tunnel;
 		int disposed;
+
+		internal static int totalCount;
 
 		public ServicePoint ServicePoint {
 			get;
@@ -73,6 +83,7 @@ namespace System.Net
 		public WebConnection (ServicePoint sPoint)
 		{
 			ServicePoint = sPoint;
+			++totalCount;
 		}
 
 #if MONO_WEB_DEBUG
@@ -489,6 +500,7 @@ namespace System.Net
 			if (Interlocked.CompareExchange (ref disposed, 1, 0) != 0)
 				return;
 			Debug ($"WC DISPOSE: Cnc={ID}");
+			--totalCount;
 			Close (true);
 		}
 
