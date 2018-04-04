@@ -371,6 +371,7 @@ namespace System.Net
 
 		async Task WriteChunkTrailer ()
 		{
+			throw new NotImplementedException ("MARTIN DISABLED FOR TESTING");
 			using (var cts = new CancellationTokenSource ()) {
 				cts.CancelAfter (WriteTimeout);
 				var timeoutTask = Task.Delay (WriteTimeout);

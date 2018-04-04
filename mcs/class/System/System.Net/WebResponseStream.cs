@@ -405,24 +405,25 @@ namespace System.Net
 			}
 
 			var completion = new WebCompletionSource ();
-			using (var timeoutCts = new CancellationTokenSource ()) {
-				var timeoutTask = Task.Delay (ReadTimeout, timeoutCts.Token);
-				while (true) {
-					/*
-					 * 'currentRead' is set by ReadAsync().
-					 */
-					cancellationToken.ThrowIfCancellationRequested ();
-					var oldCompletion = Interlocked.CompareExchange (ref pendingRead, completion, null);
-					if (oldCompletion == null)
-						break;
+			// using (var timeoutCts = new CancellationTokenSource ()) {
+			// var timeoutTask = Task.Delay (ReadTimeout, timeoutCts.Token);
+			while (true) {
+				/*
+				 * 'currentRead' is set by ReadAsync().
+				 */
+				cancellationToken.ThrowIfCancellationRequested ();
+				var oldCompletion = Interlocked.CompareExchange (ref pendingRead, completion, null);
+				if (oldCompletion == null)
+					break;
 
-					// ReadAsync() is in progress.
-					var oldReadTask = oldCompletion.WaitForCompletion ();
-					var anyTask = await Task.WhenAny (oldReadTask, timeoutTask).ConfigureAwait (false);
-					if (anyTask == timeoutTask)
-						throw new WebException ("The operation has timed out.", WebExceptionStatus.Timeout);
-				}
+				// ReadAsync() is in progress.
+				var oldReadTask = oldCompletion.WaitForCompletion ();
+				// var anyTask = await Task.WhenAny (oldReadTask, timeoutTask).ConfigureAwait (false);
+				// if (anyTask == timeoutTask)
+				//	throw new WebException ("The operation has timed out.", WebExceptionStatus.Timeout);
+				await oldReadTask.ConfigureAwait (false);
 			}
+			// }
 
 			WebConnection.Debug ($"{ME} READ ALL ASYNC #1");
 
