@@ -939,7 +939,6 @@ namespace System.Net
 			CancellationTokenSource cts)
 		{
 			try {
-#if FIXME
 				var timeoutTask = Task.Delay (timeout, cts.Token);
 				var ret = await Task.WhenAny (workerTask, timeoutTask).ConfigureAwait (false);
 				if (ret == timeoutTask) {
@@ -951,13 +950,11 @@ namespace System.Net
 					}
 					throw new WebException (SR.net_timeout, WebExceptionStatus.Timeout);
 				}
-#else
-				await workerTask.ConfigureAwait (false);
-#endif
 				return workerTask.Result;
 			} catch (Exception ex) {
 				throw FlattenException (ex);
 			} finally {
+				cts.Cancel ();
 				cts.Dispose ();
 			}
 		}
