@@ -56,6 +56,7 @@ namespace System.Net
 		{
 			Console.WriteLine ($"WC: {WebConnection.totalCount}");
 			ServicePointManager.MartinTest ();
+			ServicePointScheduler.MartinTest ();
 		}
 	}
 

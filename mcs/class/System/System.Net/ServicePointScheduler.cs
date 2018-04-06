@@ -79,6 +79,7 @@ namespace System.Net
 			operations = new LinkedList<(ConnectionGroup, WebOperation)> ();
 			idleConnections = new LinkedList<(ConnectionGroup, WebConnection, Task)> ();
 			idleSince = DateTime.UtcNow;
+			Interlocked.Increment (ref countInstances);
 		}
 
 		[Conditional ("MONO_WEB_DEBUG")]
@@ -134,7 +135,20 @@ namespace System.Net
 			}
 		}
 
+		static int countInstances;
+		static int countRunning;
+
 		async void StartScheduler ()
+		{
+			Interlocked.Increment (ref countRunning);
+			try {
+				await RunScheduler ().ConfigureAwait (false);
+			} finally {
+				Interlocked.Decrement (ref countRunning);
+			}
+		}
+
+		async Task RunScheduler ()
 		{
 			idleSince = DateTime.UtcNow + TimeSpan.FromDays (3650);
 
@@ -403,6 +417,13 @@ namespace System.Net
 
 			ServicePointManager.RemoveServicePoint (ServicePoint);
 			ServicePoint = null;
+
+			Interlocked.Decrement (ref countInstances);
+		}
+
+		internal static void MartinTest ()
+		{
+			Console.WriteLine ($"SPS: {countInstances} / {countRunning}");
 		}
 
 		public void SendRequest (WebOperation operation, string groupName)
