@@ -55,6 +55,7 @@ namespace System.Net
 		public static void Run ()
 		{
 			Console.WriteLine ($"WC: {WebConnection.totalCount}");
+			ServicePointManager.MartinTest ();
 		}
 	}
 

@@ -405,6 +405,11 @@ namespace System.Net
 		{
 			servicePoints.TryRemove (sp.Key, out var value);
 		}
+
+		internal static void MartinTest ()
+		{
+			Console.WriteLine ($"SP: {servicePoints.Count}");
+		}
 	}
 }
 
