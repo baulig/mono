@@ -90,7 +90,7 @@ namespace System.Net
 		[Conditional ("MONO_WEB_DEBUG")]
 		void Debug (string message)
 		{
-			WebConnection.Debug ($"SPS({ID}): {message}");
+			WebConnection.Debug ($"SPS({ID}:{Thread.CurrentThread.ManagedThreadId}): {message}");
 		}
 
 		int running;
@@ -125,6 +125,7 @@ namespace System.Net
 
 		public void Run ()
 		{
+			Debug ($"RUN");
 			lock (ServicePoint) {
 				if (Interlocked.CompareExchange (ref running, 1, 0) == 0)
 					StartScheduler ();
@@ -159,9 +160,7 @@ namespace System.Net
 
 					if (groups == null && defaultGroup.IsEmpty () && operations.Count == 0 && idleConnections.Count == 0) {
 						Debug ($"MAIN LOOP DONE");
-						running = 0;
 						idleSince = DateTime.UtcNow;
-						schedulerEvent.Reset ();
 						finalCleanup = true;
 					} else {
 						foreach (var item in operationArray)
@@ -402,6 +401,7 @@ namespace System.Net
 			idleConnections = null;
 			defaultGroup = null;
 
+			ServicePointManager.RemoveServicePoint (ServicePoint);
 			ServicePoint = null;
 		}
 
