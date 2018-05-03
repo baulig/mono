@@ -121,12 +121,10 @@ namespace System.Net
 		public void Run ()
 		{
 			Debug ($"RUN");
-			lock (ServicePoint) {
-				if (Interlocked.CompareExchange (ref running, 1, 0) == 0)
-					Task.Run (() => StartScheduler ());
+			if (Interlocked.CompareExchange (ref running, 1, 0) == 0)
+				Task.Run (() => StartScheduler ());
 
-				schedulerEvent.Set ();
-			}
+			schedulerEvent.Set ();
 		}
 
 		static int countInstances;
