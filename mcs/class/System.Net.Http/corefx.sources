@@ -51,7 +51,7 @@
 ../../../external/corefx/src/System.Net.Http/src/System/Net/Http/Headers/ViaHeaderValue.cs
 ../../../external/corefx/src/System.Net.Http/src/System/Net/Http/Headers/WarningHeaderValue.cs
 ../../../external/corefx/src/System.Net.Http/src/System/Net/Http/HttpClient.cs
-../../../external/corefx/src/System.Net.Http/src/System/Net/Http/HttpClientHandler.Unix.cs
+../../../external/corefx/src/System.Net.Http/src/System/Net/Http/HttpClientHandler.Core.cs
 ../../../external/corefx/src/System.Net.Http/src/System/Net/Http/HttpClientHandler.cs
 ../../../external/corefx/src/System.Net.Http/src/System/Net/Http/HttpCompletionOption.cs
 ../../../external/corefx/src/System.Net.Http/src/System/Net/Http/HttpContent.cs
@@ -67,7 +67,6 @@
 ../../../external/corefx/src/System.Net.Http/src/System/Net/Http/MessageProcessingHandler.cs
 ../../../external/corefx/src/System.Net.Http/src/System/Net/Http/MultipartContent.cs
 ../../../external/corefx/src/System.Net.Http/src/System/Net/Http/MultipartFormDataContent.cs
-../../../external/corefx/src/System.Net.Http/src/System/Net/Http/NetEventSource.Http.cs
 ../../../external/corefx/src/System.Net.Http/src/System/Net/Http/ReadOnlyMemoryContent.cs
 ../../../external/corefx/src/System.Net.Http/src/System/Net/Http/SocketsHttpHandler/AuthenticationHelper.Digest.cs
 ../../../external/corefx/src/System.Net.Http/src/System/Net/Http/SocketsHttpHandler/AuthenticationHelper.NtAuth.cs
@@ -95,7 +94,6 @@
 ../../../external/corefx/src/System.Net.Http/src/System/Net/Http/SocketsHttpHandler/HttpContentStream.cs
 ../../../external/corefx/src/System.Net.Http/src/System/Net/Http/SocketsHttpHandler/HttpContentWriteStream.cs
 ../../../external/corefx/src/System.Net.Http/src/System/Net/Http/SocketsHttpHandler/HttpEnvironmentProxy.cs
-../../../external/corefx/src/System.Net.Http/src/System/Net/Http/SocketsHttpHandler/HttpSystemProxy.cs
 ../../../external/corefx/src/System.Net.Http/src/System/Net/Http/SocketsHttpHandler/RawConnectionStream.cs
 ../../../external/corefx/src/System.Net.Http/src/System/Net/Http/SocketsHttpHandler/RedirectHandler.cs
 ../../../external/corefx/src/System.Net.Http/src/System/Net/Http/SocketsHttpHandler/SocketsHttpHandler.cs
