@@ -908,3 +908,13 @@ corefx/SR.cs
 
 ../../../external/corefx/src/System.Text.RegularExpressions/src/System/Collections/Generic/ValueListBuilder.Pop.cs
 ../../../external/corefx/src/System.Text.RegularExpressions/src/System/Collections/HashtableExtensions.cs
+
+../../../external/corefx/src/System.Diagnostics.DiagnosticSource/src/System/Diagnostics/Activity.cs
+../../../external/corefx/src/System.Diagnostics.DiagnosticSource/src/System/Diagnostics/Activity.Current.net46.cs
+../../../external/corefx/src/System.Diagnostics.DiagnosticSource/src/System/Diagnostics/Activity.DateTime.corefx.cs
+
+../../../external/corefx/src/System.Diagnostics.DiagnosticSource/src/System/Diagnostics/DiagnosticListener.cs
+../../../external/corefx/src/System.Diagnostics.DiagnosticSource/src/System/Diagnostics/DiagnosticSource.cs
+../../../external/corefx/src/System.Diagnostics.DiagnosticSource/src/System/Diagnostics/DiagnosticSourceActivity.cs
+../../../external/corefx/src/System.Diagnostics.DiagnosticSource/src/System/Diagnostics/DiagnosticSourceEventSource.cs
+../../../external/corefx/src/System.Diagnostics.DiagnosticSource/src/System/Diagnostics/HttpHandlerDiagnosticListener.cs
