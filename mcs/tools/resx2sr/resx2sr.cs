@@ -164,6 +164,7 @@ public class Program
 
 				if (ExistingKeys.ContainsKey (node.Name))
 					continue;
+				ExistingKeys.Add (node.Name, null);
 
 				resourcesStrings.Add (Tuple.Create (node.Name, (string) node.GetValue ((ITypeResolutionService)null), node.Comment));				
 			}
