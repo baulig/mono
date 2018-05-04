@@ -918,3 +918,9 @@ corefx/SR.cs
 ../../../external/corefx/src/System.Diagnostics.DiagnosticSource/src/System/Diagnostics/DiagnosticSourceActivity.cs
 ../../../external/corefx/src/System.Diagnostics.DiagnosticSource/src/System/Diagnostics/DiagnosticSourceEventSource.cs
 ../../../external/corefx/src/System.Diagnostics.DiagnosticSource/src/System/Diagnostics/HttpHandlerDiagnosticListener.cs
+
+../../../external/corefx/src/System.Net.Http/src/System/Net/Http/NetEventSource.Http.cs
+
+../../../external/corefx/src/Common/src/System/Net/Security/SslClientAuthenticationOptionsExtensions.cs
+../../../external/corefx/src/System.Net.Security/src/System/Net/Security/SslClientAuthenticationOptions.cs
+../../../external/corefx/src/System.Net.Security/src/System/Net/Security/SslApplicationProtocol.cs
