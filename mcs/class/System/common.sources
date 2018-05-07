@@ -261,6 +261,7 @@ ReferenceSources/AssertWrapper.cs
 ReferenceSources/CAPI.cs
 ReferenceSources/EnvironmentHelpers.cs
 ReferenceSources/HttpApi.cs
+ReferenceSources/Interop.cs
 ReferenceSources/LocalAppContextSwitches.cs
 ReferenceSources/HttpSysSettings.cs
 ReferenceSources/Logging.cs
@@ -943,3 +944,4 @@ corefx/SR.cs
 ../../../external/corefx/src/System.Net.Mail/src/System/Net/Mail/MailAddress.cs
 ../../../external/corefx/src/System.Net.Mail/src/System/Net/Mail/MailAddressCollection.cs
 
+../../../external/corefx/src/Common/src/CoreLib/System/HashCode.cs
