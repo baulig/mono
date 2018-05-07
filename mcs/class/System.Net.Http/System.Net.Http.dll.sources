@@ -8,6 +8,8 @@ MartinTest.cs
 
 ConcurrentQueue_Segment.cs
 
+HttpClientHandler.Sockets.cs
+
 ../../../external/corefx/src/Common/src/System/Net/Http/HttpHandlerDefaults.cs
 ../../../external/corefx/src/Common/src/System/Threading/Tasks/TaskToApm.cs
 

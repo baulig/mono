@@ -3,14 +3,6 @@ using System.Threading.Tasks;
 
 namespace System.Net.Http
 {
-	partial class HttpClientHandler
-	{
-		protected internal override Task<HttpResponseMessage> SendAsync (HttpRequestMessage request, CancellationToken cancellationToken)
-		{
-			throw new NotImplementedException ();
-		}
-	}
-
 	partial class AuthenticationHelper
 	{
 		static Task<HttpResponseMessage> SendWithNtAuthAsync (HttpRequestMessage request, Uri authUri, ICredentials credentials, bool isProxyAuth, HttpConnection connection, CancellationToken cancellationToken)
