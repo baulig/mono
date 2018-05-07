@@ -2,6 +2,7 @@
 Assembly/AssemblyInfo.cs
 
 #include corefx.sources
+#include socketshandler.sources
 
 MartinTest.cs
 

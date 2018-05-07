@@ -10,6 +10,24 @@ namespace System.Net.Http
 			throw new NotImplementedException ();
 		}
 	}
+
+	partial class AuthenticationHelper
+	{
+		static Task<HttpResponseMessage> SendWithNtAuthAsync (HttpRequestMessage request, Uri authUri, ICredentials credentials, bool isProxyAuth, HttpConnection connection, CancellationToken cancellationToken)
+		{
+			throw new NotImplementedException ();
+		}
+
+		public static Task<HttpResponseMessage> SendWithNtProxyAuthAsync (HttpRequestMessage request, Uri proxyUri, ICredentials proxyCredentials, HttpConnection connection, CancellationToken cancellationToken)
+		{
+			return SendWithNtAuthAsync (request, proxyUri, proxyCredentials, isProxyAuth: true, connection, cancellationToken);
+		}
+
+		public static Task<HttpResponseMessage> SendWithNtConnectionAuthAsync (HttpRequestMessage request, ICredentials credentials, HttpConnection connection, CancellationToken cancellationToken)
+		{
+			return SendWithNtAuthAsync (request, request.RequestUri, credentials, isProxyAuth: false, connection, cancellationToken);
+		}
+	}
 }
 
 namespace System.Buffers.Text
@@ -17,6 +35,20 @@ namespace System.Buffers.Text
 	class Utf8Formatter
 	{
 		public static bool TryFormat (bool value, Span<byte> destination, out int bytesWritten)
+		{
+			throw new NotImplementedException ();
+		}
+
+		public static bool TryFormat (int value, Span<byte> destination, out int bytesWritten)
+		{
+			throw new NotImplementedException ();
+		}
+
+	}
+
+	class Utf8Parser
+	{
+		public static bool TryParse ()
 		{
 			throw new NotImplementedException ();
 		}

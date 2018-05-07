@@ -1,5 +1,4 @@
 ../../../external/corefx/src/System.Net.Http/src/System/Net/Http/SocketsHttpHandler/AuthenticationHelper.Digest.cs
-../../../external/corefx/src/System.Net.Http/src/System/Net/Http/SocketsHttpHandler/AuthenticationHelper.NtAuth.cs
 ../../../external/corefx/src/System.Net.Http/src/System/Net/Http/SocketsHttpHandler/AuthenticationHelper.cs
 ../../../external/corefx/src/System.Net.Http/src/System/Net/Http/SocketsHttpHandler/CancellationHelper.cs
 ../../../external/corefx/src/System.Net.Http/src/System/Net/Http/SocketsHttpHandler/ChunkedEncodingReadStream.cs
