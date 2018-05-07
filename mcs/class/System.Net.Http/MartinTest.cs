@@ -27,6 +27,21 @@ namespace System.Net.Http
 		{
 			return SendWithNtAuthAsync (request, request.RequestUri, credentials, isProxyAuth: false, connection, cancellationToken);
 		}
+
+		public static Task<string> GetDigestTokenForCredential (NetworkCredential credential, HttpRequestMessage request, DigestResponse digestResponse)
+		{
+			throw new NotImplementedException ();
+		}
+
+		public static bool IsServerNonceStale (DigestResponse digestResponse)
+		{
+			throw new NotImplementedException ();
+		}
+
+		internal class DigestResponse
+		{
+			internal DigestResponse (string challenge) => throw new NotImplementedException ();
+		}
 	}
 }
 
