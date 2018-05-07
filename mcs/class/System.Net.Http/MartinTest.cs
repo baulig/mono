@@ -11,3 +11,14 @@ namespace System.Net.Http
 		}
 	}
 }
+
+namespace System.Buffers.Text
+{
+	class Utf8Formatter
+	{
+		public static bool TryFormat (bool value, Span<byte> destination, out int bytesWritten)
+		{
+			return false;
+		}
+	}
+}
