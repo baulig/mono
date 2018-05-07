@@ -492,6 +492,15 @@ namespace System {
 	        return Unsafe.ReadUnaligned<uint>(ref value.DangerousGetPinnableReference());
         }
 
+        // Converts a Span into an unsigned long
+        [CLSCompliant(false)]
+        public static ulong ToUInt64(ReadOnlySpan<byte> value)
+        {
+            if (value.Length < sizeof(ulong))
+                ThrowHelper.ThrowArgumentOutOfRangeException(ExceptionArgument.value);
+            return Unsafe.ReadUnaligned<ulong>(ref value.DangerousGetPinnableReference());
+        }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static unsafe int SingleToInt32Bits(float value)
         {
