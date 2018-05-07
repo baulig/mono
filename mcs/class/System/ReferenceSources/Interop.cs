@@ -4,6 +4,5 @@ static partial class Interop
 {
 	internal static unsafe void GetRandomBytes (byte* buffer, int length)
 	{
-		throw new NotImplementedException ();
 	}
 }
