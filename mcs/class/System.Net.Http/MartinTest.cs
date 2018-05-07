@@ -18,7 +18,29 @@ namespace System.Buffers.Text
 	{
 		public static bool TryFormat (bool value, Span<byte> destination, out int bytesWritten)
 		{
-			return false;
+			throw new NotImplementedException ();
+		}
+	}
+}
+
+namespace System.IO
+{
+	static class StreamExtensions
+	{
+		public static Task CopyToAsync (this Stream stream, Stream destination, CancellationToken cancellationToken)
+		{
+			return stream.CopyToAsync (destination, 81920, cancellationToken);
+		}
+	}
+}
+
+namespace System.Text
+{
+	static class EncodingHelper
+	{
+		public static int GetBytes (this Encoding encoding, string s, byte[] bytes)
+		{
+			return encoding.GetBytes (s, 0, s.Length, bytes, 0);
 		}
 	}
 }
