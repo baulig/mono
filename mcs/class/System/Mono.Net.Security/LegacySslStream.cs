@@ -67,6 +67,7 @@ using System.Security.Cryptography.X509Certificates;
 using System.Security.Principal;
 using System.Security.Cryptography;
 
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Mono.Net.Security.Private
@@ -77,14 +78,14 @@ namespace Mono.Net.Security.Private
 	[MonoTODO ("Non-X509Certificate2 certificate is not supported")]
 	internal class LegacySslStream : AuthenticatedStream, IMonoSslStream
 	{
-		#region Fields
+#region Fields
 
 		SslStreamBase ssl_stream;
 		ICertificateValidator certificateValidator;
 
-		#endregion // Fields
+#endregion // Fields
 
-		#region Constructors
+#region Constructors
 
 		public LegacySslStream (Stream innerStream, bool leaveInnerStreamOpen, SslStream owner, MonoTlsProvider provider, MonoTlsSettings settings)
 			: base (innerStream, leaveInnerStreamOpen)
@@ -93,9 +94,9 @@ namespace Mono.Net.Security.Private
 			Provider = provider;
 			certificateValidator = ChainValidationHelper.GetInternalValidator (provider, settings);
 		}
-		#endregion // Constructors
+#endregion // Constructors
 
-		#region Properties
+#region Properties
 
 		public override bool CanRead {
 			get { return InnerStream.CanRead; }
@@ -302,9 +303,9 @@ namespace Mono.Net.Security.Private
 			}
 		}
 
-		#endregion // Properties
+#endregion // Properties
 
-		#region Methods
+#region Methods
 
 /*
 		AsymmetricAlgorithm GetPrivateKey (X509Certificate cert, string targetHost)
@@ -329,6 +330,11 @@ namespace Mono.Net.Security.Private
 		public virtual IAsyncResult BeginAuthenticateAsClient (string targetHost, AsyncCallback asyncCallback, object asyncState)
 		{
 			return BeginAuthenticateAsClient (targetHost, new X509CertificateCollection (), SslProtocols.Tls, false, asyncCallback, asyncState);
+		}
+
+		public virtual IAsyncResult BeginAuthenticateAsClient (string targetHost, X509CertificateCollection clientCertificates, bool checkCertificateRevocation, AsyncCallback asyncCallback, object asyncState)
+		{
+			return BeginAuthenticateAsClient (targetHost, clientCertificates, SecurityProtocol.SystemDefaultSecurityProtocols, checkCertificateRevocation, asyncCallback, asyncState);
 		}
 
 		public virtual IAsyncResult BeginAuthenticateAsClient (string targetHost, X509CertificateCollection clientCertificates, SslProtocols enabledSslProtocols, bool checkCertificateRevocation, AsyncCallback asyncCallback, object asyncState)
@@ -388,6 +394,11 @@ namespace Mono.Net.Security.Private
 			return BeginAuthenticateAsServer (serverCertificate, false, SslProtocols.Tls, false, asyncCallback, asyncState);
 		}
 
+		public virtual IAsyncResult BeginAuthenticateAsServer (X509Certificate serverCertificate, bool clientCertificateRequired, bool checkCertificateRevocation, AsyncCallback asyncCallback, object asyncState)
+		{
+			return BeginAuthenticateAsServer (serverCertificate, clientCertificateRequired, SecurityProtocol.SystemDefaultSecurityProtocols, checkCertificateRevocation, asyncCallback, asyncState);
+		}
+
 		public virtual IAsyncResult BeginAuthenticateAsServer (X509Certificate serverCertificate, bool clientCertificateRequired, SslProtocols enabledSslProtocols, bool checkCertificateRevocation, AsyncCallback asyncCallback, object asyncState)
 		{
 			if (IsAuthenticated)
@@ -442,6 +453,11 @@ namespace Mono.Net.Security.Private
 			AuthenticateAsClient (targetHost, new X509CertificateCollection (), SslProtocols.Tls, false);
 		}
 
+		public virtual void AuthenticateAsClient (string targetHost, X509CertificateCollection clientCertificates, bool checkCertificateRevocation)
+		{
+			AuthenticateAsClient (targetHost, clientCertificates, SecurityProtocol.SystemDefaultSecurityProtocols, checkCertificateRevocation);
+		}
+
 		public virtual void AuthenticateAsClient (string targetHost, X509CertificateCollection clientCertificates, SslProtocols enabledSslProtocols, bool checkCertificateRevocation)
 		{
 			EndAuthenticateAsClient (BeginAuthenticateAsClient (
@@ -451,6 +467,11 @@ namespace Mono.Net.Security.Private
 		public virtual void AuthenticateAsServer (X509Certificate serverCertificate)
 		{
 			AuthenticateAsServer (serverCertificate, false, SslProtocols.Tls, false);
+		}
+
+		public virtual void AuthenticateAsServer (X509Certificate serverCertificate, bool clientCertificateRequired, bool checkCertificateRevocation)
+		{
+			AuthenticateAsServer (serverCertificate, clientCertificateRequired, SecurityProtocol.SystemDefaultSecurityProtocols, checkCertificateRevocation);
 		}
 
 		public virtual void AuthenticateAsServer (X509Certificate serverCertificate, bool clientCertificateRequired, SslProtocols enabledSslProtocols, bool checkCertificateRevocation)
@@ -546,6 +567,11 @@ namespace Mono.Net.Security.Private
 			return Task.Factory.FromAsync (BeginAuthenticateAsClient, EndAuthenticateAsClient, targetHost, null);
 		}
 
+		public virtual Task AuthenticateAsClientAsync (string targetHost, X509CertificateCollection clientCertificates, bool checkCertificateRevocation)
+		{
+			return AuthenticateAsClientAsync (targetHost, clientCertificates, SecurityProtocol.SystemDefaultSecurityProtocols, checkCertificateRevocation);
+		}
+
 		public virtual Task AuthenticateAsClientAsync (string targetHost, X509CertificateCollection clientCertificates, SslProtocols enabledSslProtocols, bool checkCertificateRevocation)
 		{
 			var t = Tuple.Create (targetHost, clientCertificates, enabledSslProtocols, checkCertificateRevocation, this);
@@ -556,9 +582,19 @@ namespace Mono.Net.Security.Private
 			}, EndAuthenticateAsClient, t);
 		}
 
+		Task IMonoSslStream.AuthenticateAsClientAsync (IMonoSslClientAuthenticationOptions sslClientAuthenticationOptions, CancellationToken cancellationToken)
+		{
+			throw new NotImplementedException ();
+		}
+
 		public virtual Task AuthenticateAsServerAsync (X509Certificate serverCertificate)
 		{
 			return Task.Factory.FromAsync (BeginAuthenticateAsServer, EndAuthenticateAsServer, serverCertificate, null);
+		}
+
+		public virtual Task AuthenticateAsServerAsync (X509Certificate serverCertificate, bool clientCertificateRequired, bool checkCertificateRevocation)
+		{
+			return AuthenticateAsServerAsync (serverCertificate, clientCertificateRequired, SecurityProtocol.SystemDefaultSecurityProtocols, checkCertificateRevocation);
 		}
 
 		public virtual Task AuthenticateAsServerAsync (X509Certificate serverCertificate, bool clientCertificateRequired, SslProtocols enabledSslProtocols, bool checkCertificateRevocation)
@@ -571,9 +607,14 @@ namespace Mono.Net.Security.Private
 			}, EndAuthenticateAsServer, t);
 		}
 
-		#endregion // Methods
+		Task IMonoSslStream.AuthenticateAsServerAsync (IMonoSslServerAuthenticationOptions sslServerAuthenticationOptions, CancellationToken cancellationToken)
+		{
+			throw new NotImplementedException ();
+		}
 
-		#region IMonoSslStream
+#endregion // Methods
+
+#region IMonoSslStream
 
 		Task IMonoSslStream.ShutdownAsync ()
 		{
@@ -601,7 +642,7 @@ namespace Mono.Net.Security.Private
 			return null;
 		}
 
-		#endregion
+#endregion
 	}
 }
 

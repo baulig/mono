@@ -116,10 +116,6 @@ namespace Mono.Net.Security
 			return old ?? info;
 		}
 
-		SslProtocols DefaultProtocols {
-			get { return SslProtocols.Tls12 | SslProtocols.Tls11 | SslProtocols.Tls; }
-		}
-
 		enum OperationType {
 			Read,
 			Write,
@@ -128,7 +124,13 @@ namespace Mono.Net.Security
 
 		public void AuthenticateAsClient (string targetHost)
 		{
-			AuthenticateAsClient (targetHost, new X509CertificateCollection (), DefaultProtocols, false);
+			AuthenticateAsClient (targetHost, new X509CertificateCollection (), SecurityProtocol.SystemDefaultSecurityProtocols, false);
+		}
+
+		public void AuthenticateAsClient (string targetHost, X509CertificateCollection clientCertificates, bool checkCertificateRevocation)
+		{
+			var task = ProcessAuthentication (true, false, targetHost, SecurityProtocol.SystemDefaultSecurityProtocols, null, clientCertificates, false);
+			task.Wait ();
 		}
 
 		public void AuthenticateAsClient (string targetHost, X509CertificateCollection clientCertificates, SslProtocols enabledSslProtocols, bool checkCertificateRevocation)
@@ -139,7 +141,13 @@ namespace Mono.Net.Security
 
 		public IAsyncResult BeginAuthenticateAsClient (string targetHost, AsyncCallback asyncCallback, object asyncState)
 		{
-			return BeginAuthenticateAsClient (targetHost, new X509CertificateCollection (), DefaultProtocols, false, asyncCallback, asyncState);
+			return BeginAuthenticateAsClient (targetHost, new X509CertificateCollection (), SecurityProtocol.SystemDefaultSecurityProtocols, false, asyncCallback, asyncState);
+		}
+
+		public IAsyncResult BeginAuthenticateAsClient (string targetHost, X509CertificateCollection clientCertificates, bool checkCertificateRevocation, AsyncCallback asyncCallback, object asyncState)
+		{
+			var task = ProcessAuthentication (false, false, targetHost, SecurityProtocol.SystemDefaultSecurityProtocols, null, clientCertificates, false);
+			return TaskToApm.Begin (task, asyncCallback, asyncState);
 		}
 
 		public IAsyncResult BeginAuthenticateAsClient (string targetHost, X509CertificateCollection clientCertificates, SslProtocols enabledSslProtocols, bool checkCertificateRevocation, AsyncCallback asyncCallback, object asyncState)
@@ -155,7 +163,13 @@ namespace Mono.Net.Security
 
 		public void AuthenticateAsServer (X509Certificate serverCertificate)
 		{
-			AuthenticateAsServer (serverCertificate, false, DefaultProtocols, false);
+			AuthenticateAsServer (serverCertificate, false, SecurityProtocol.SystemDefaultSecurityProtocols, false);
+		}
+
+		public void AuthenticateAsServer (X509Certificate serverCertificate, bool clientCertificateRequired, bool checkCertificateRevocation)
+		{
+			var task = ProcessAuthentication (true, true, string.Empty, SecurityProtocol.SystemDefaultSecurityProtocols, serverCertificate, null, clientCertificateRequired);
+			task.Wait ();
 		}
 
 		public void AuthenticateAsServer (X509Certificate serverCertificate, bool clientCertificateRequired, SslProtocols enabledSslProtocols, bool checkCertificateRevocation)
@@ -166,7 +180,13 @@ namespace Mono.Net.Security
 
 		public IAsyncResult BeginAuthenticateAsServer (X509Certificate serverCertificate, AsyncCallback asyncCallback, object asyncState)
 		{
-			return BeginAuthenticateAsServer (serverCertificate, false, DefaultProtocols, false, asyncCallback, asyncState);
+			return BeginAuthenticateAsServer (serverCertificate, false, SecurityProtocol.SystemDefaultSecurityProtocols, false, asyncCallback, asyncState);
+		}
+
+		public IAsyncResult BeginAuthenticateAsServer (X509Certificate serverCertificate, bool clientCertificateRequired, bool checkCertificateRevocation, AsyncCallback asyncCallback, object asyncState)
+		{
+			var task = ProcessAuthentication (false, true, string.Empty, SecurityProtocol.SystemDefaultSecurityProtocols, serverCertificate, null, clientCertificateRequired);
+			return TaskToApm.Begin (task, asyncCallback, asyncState);
 		}
 
 		public IAsyncResult BeginAuthenticateAsServer (X509Certificate serverCertificate, bool clientCertificateRequired, SslProtocols enabledSslProtocols, bool checkCertificateRevocation, AsyncCallback asyncCallback, object asyncState)
@@ -182,7 +202,12 @@ namespace Mono.Net.Security
 
 		public Task AuthenticateAsClientAsync (string targetHost)
 		{
-			return ProcessAuthentication (false, false, targetHost, DefaultProtocols, null, null, false);
+			return ProcessAuthentication (false, false, targetHost, SecurityProtocol.SystemDefaultSecurityProtocols, null, null, false);
+		}
+
+		public Task AuthenticateAsClientAsync (string targetHost, X509CertificateCollection clientCertificates, bool checkCertificateRevocation)
+		{
+			return ProcessAuthentication (false, false, targetHost, SecurityProtocol.SystemDefaultSecurityProtocols, null, clientCertificates, false);
 		}
 
 		public Task AuthenticateAsClientAsync (string targetHost, X509CertificateCollection clientCertificates, SslProtocols enabledSslProtocols, bool checkCertificateRevocation)
@@ -190,14 +215,29 @@ namespace Mono.Net.Security
 			return ProcessAuthentication (false, false, targetHost, enabledSslProtocols, null, clientCertificates, false);
 		}
 
+		public Task AuthenticateAsClientAsync (MSI.IMonoSslClientAuthenticationOptions sslClientAuthenticationOptions, CancellationToken cancellationToken)
+		{
+			throw new NotImplementedException ();
+		}
+
 		public Task AuthenticateAsServerAsync (X509Certificate serverCertificate)
 		{
-			return AuthenticateAsServerAsync (serverCertificate, false, DefaultProtocols, false);
+			return AuthenticateAsServerAsync (serverCertificate, false, SecurityProtocol.SystemDefaultSecurityProtocols, false);
+		}
+
+		public Task AuthenticateAsServerAsync (X509Certificate serverCertificate, bool clientCertificateRequired, bool checkCertificateRevocation)
+		{
+			return ProcessAuthentication (false, true, string.Empty, SecurityProtocol.SystemDefaultSecurityProtocols, serverCertificate, null, clientCertificateRequired);
 		}
 
 		public Task AuthenticateAsServerAsync (X509Certificate serverCertificate, bool clientCertificateRequired, SslProtocols enabledSslProtocols, bool checkCertificateRevocation)
 		{
 			return ProcessAuthentication (false, true, string.Empty, enabledSslProtocols, serverCertificate, null, clientCertificateRequired);
+		}
+
+		public Task AuthenticateAsServerAsync (MSI.IMonoSslServerAuthenticationOptions sslServerAuthenticationOptions, CancellationToken cancellationToken)
+		{
+			throw new NotImplementedException ();
 		}
 
 		public Task ShutdownAsync ()
