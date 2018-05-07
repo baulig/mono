@@ -209,9 +209,19 @@ namespace System.Net.Security
 			return Impl.AuthenticateAsClientAsync (targetHost);
 		}
 
+		public virtual Task AuthenticateAsClientAsync (string targetHost, X509CertificateCollection clientCertificates, bool checkCertificateRevocation)
+		{
+			return Impl.AuthenticateAsClientAsync (targetHost, clientCertificates, SslProtocols.Default, checkCertificateRevocation);
+		}
+
 		public virtual Task AuthenticateAsClientAsync (string targetHost, X509CertificateCollection clientCertificates, SslProtocols enabledSslProtocols, bool checkCertificateRevocation)
 		{
 			return Impl.AuthenticateAsClientAsync (targetHost, clientCertificates, enabledSslProtocols, checkCertificateRevocation);
+		}
+
+		public Task AuthenticateAsClientAsync (SslClientAuthenticationOptions sslClientAuthenticationOptions, CancellationToken cancellationToken)
+		{
+			throw new NotImplementedException ();
 		}
 
 		public virtual Task AuthenticateAsServerAsync (X509Certificate serverCertificate)
