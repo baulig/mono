@@ -259,6 +259,31 @@ namespace Mono.Net.Security
 			get { return this; }
 		}
 
+		SslAuthenticationOptions CreateAuthenticationOptions (SslClientAuthenticationOptions sslClientAuthenticationOptions)
+		{
+			var remoteCallback = Private.CallbackHelpers.MonoToInternal (Settings.RemoteCertificateValidationCallback);
+			var authOptions = new SslAuthenticationOptions (sslClientAuthenticationOptions, remoteCallback, null);
+
+			return authOptions;
+		}
+
+
+		async Task ProcessAuthenticationX (
+			bool runSynchronously, bool serverMode, string targetHost, SslProtocols enabledProtocols,
+			X509Certificate serverCertificate, X509CertificateCollection clientCertificates, bool clientCertRequired,
+			bool checkCertificateRevocation)
+		{
+			var options = new SslClientAuthenticationOptions {
+				TargetHost = targetHost,
+				ClientCertificates = clientCertificates,
+				EnabledSslProtocols = enabledProtocols,
+				CertificateRevocationCheckMode = checkCertificateRevocation ? X509RevocationMode.Online : X509RevocationMode.NoCheck,
+				EncryptionPolicy = EncryptionPolicy.RequireEncryption
+			};
+
+			// return BeginAuthenticateAsClient(options, CancellationToken.None, asyncCallback, asyncState);
+		}
+
 		async Task ProcessAuthentication (
 			bool runSynchronously, bool serverMode, string targetHost, SslProtocols enabledProtocols,
 			X509Certificate serverCertificate, X509CertificateCollection clientCertificates, bool clientCertRequired)

@@ -75,6 +75,9 @@ namespace System.Net.Security
 
 	public delegate X509Certificate ServerCertificateSelectionCallback (object sender, string hostName);
 
+	// Internal versions of the above delegates.
+	internal delegate X509Certificate ServerCertSelectionCallback (string hostName);
+
 	public class SslStream : AuthenticatedStream
 	{
 #if SECURITY_DEP
