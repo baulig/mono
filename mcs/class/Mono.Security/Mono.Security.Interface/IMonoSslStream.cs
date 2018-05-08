@@ -36,14 +36,6 @@ using System.Security.Cryptography;
 
 namespace Mono.Security.Interface
 {
-	public interface IMonoSslClientAuthenticationOptions
-	{
-	}
-
-	public interface IMonoSslServerAuthenticationOptions
-	{
-	}
-
 	public interface IMonoSslStream : IDisposable
 	{
 		SslStream SslStream {

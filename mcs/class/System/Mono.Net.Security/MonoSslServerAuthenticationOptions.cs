@@ -1,5 +1,5 @@
 //
-// MonoAuthenticationOptions.cs
+// MonoSslServerAuthenticationOptions.cs
 //
 // Author:
 //       Martin Baulig <mabaul@microsoft.com>
@@ -43,38 +43,7 @@ using System.Security.Authentication;
 
 namespace Mono.Net.Security
 {
-	abstract class MonoAuthenticationOptions : IMonoAuthenticationOptions
+	sealed class MonoSslServerAuthenticationOptions : MonoAuthenticationOptions
 	{
-		public static IMonoSslClientAuthenticationOptions Wrap (SslClientAuthenticationOptions options)
-		{
-			return options != null ? new MonoSslClientAuthenticationOptions (options) : null;
-		}
-
-		public static SslClientAuthenticationOptions Unwrap (IMonoSslClientAuthenticationOptions options)
-		{
-			return options != null ? ((MonoSslClientAuthenticationOptions)options).Options : null;
-		}
-
-		public static IMonoSslServerAuthenticationOptions Wrap (SslServerAuthenticationOptions options)
-		{
-			return options != null ? new ServerWrapper (options) : null;
-		}
-
-		public static SslServerAuthenticationOptions Unwrap (IMonoSslServerAuthenticationOptions options)
-		{
-			return options != null ? ((ServerWrapper)options).Options : null;
-		}
-
-		class ServerWrapper : IMonoSslServerAuthenticationOptions
-		{
-			public SslServerAuthenticationOptions Options {
-				get;
-			}
-
-			public ServerWrapper (SslServerAuthenticationOptions options)
-			{
-				Options = options;
-			}
-		}
 	}
 }
