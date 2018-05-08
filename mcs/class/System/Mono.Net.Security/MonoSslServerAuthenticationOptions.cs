@@ -39,11 +39,61 @@ using Mono.Security.Interface;
 
 using System;
 using System.Net.Security;
+using System.Security.Cryptography.X509Certificates;
 using System.Security.Authentication;
 
 namespace Mono.Net.Security
 {
-	sealed class MonoSslServerAuthenticationOptions : MonoAuthenticationOptions
+	sealed class MonoSslServerAuthenticationOptions : MonoAuthenticationOptions, IMonoSslServerAuthenticationOptions
 	{
+		public SslServerAuthenticationOptions Options {
+			get;
+		}
+
+		public MonoSslServerAuthenticationOptions (SslServerAuthenticationOptions options)
+		{
+			Options = options;
+		}
+
+		public override bool AllowRenegotiation {
+			get => Options.AllowRenegotiation;
+			set => Options.AllowRenegotiation = value;
+		}
+
+		public override RemoteCertificateValidationCallback RemoteCertificateValidationCallback {
+			get => Options.RemoteCertificateValidationCallback;
+			set => Options.RemoteCertificateValidationCallback = value;
+		}
+
+
+		public override X509RevocationMode CertificateRevocationCheckMode {
+			get => Options.CertificateRevocationCheckMode;
+			set => Options.CertificateRevocationCheckMode = value;
+		}
+
+		public override EncryptionPolicy EncryptionPolicy {
+			get => Options.EncryptionPolicy;
+			set => Options.EncryptionPolicy = value;
+		}
+
+		public override SslProtocols EnabledSslProtocols {
+			get => Options.EnabledSslProtocols;
+			set => Options.EnabledSslProtocols = value;
+		}
+
+		public bool ClientCertificateRequired {
+			get => Options.ClientCertificateRequired;
+			set => Options.ClientCertificateRequired = value;
+		}
+
+		public ServerCertificateSelectionCallback ServerCertificateSelectionCallback {
+			get => Options.ServerCertificateSelectionCallback;
+			set => Options.ServerCertificateSelectionCallback = value;
+		}
+
+		public X509Certificate ServerCertificate {
+			get => Options.ServerCertificate;
+			set => Options.ServerCertificate = value;
+		}
 	}
 }

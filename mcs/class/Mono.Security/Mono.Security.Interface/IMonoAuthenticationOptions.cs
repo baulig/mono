@@ -27,33 +27,24 @@ using System;
 using System.IO;
 using System.Net;
 using System.Net.Security;
-using SSA = System.Security.Authentication;
+using System.Security.Authentication;
 using System.Security.Cryptography.X509Certificates;
 using System.Security.Principal;
 using System.Security.Cryptography;
 
 namespace Mono.Security.Interface
 {
-	public interface IMonoAuthenticationOptions
-	{
-		
-	}
+	public delegate X509Certificate ServerCertificateSelectionCallback (object sender, string hostName);
 
-	public interface IMonoSslClientAuthenticationOptions : IMonoAuthenticationOptions
+	public interface IMonoAuthenticationOptions
 	{
 		bool AllowRenegotiation {
 			get; set;
 		}
 
-		LocalCertificateSelectionCallback LocalCertificateSelectionCallback { get; set; }
-
 		RemoteCertificateValidationCallback RemoteCertificateValidationCallback { get; set; }
 
-		string TargetHost { get; set; }
-
-		X509CertificateCollection ClientCertificates { get; set; }
-
-		X509RevocationMode CertificateRevocationCheckMode {
+		SslProtocols EnabledSslProtocols {
 			get; set;
 		}
 
@@ -61,12 +52,26 @@ namespace Mono.Security.Interface
 			get; set;
 		}
 
-		SSA.SslProtocols EnabledSslProtocols {
+		X509RevocationMode CertificateRevocationCheckMode {
 			get; set;
 		}
 	}
 
-	public interface IMonoSslServerAuthenticationOptions
+	public interface IMonoSslClientAuthenticationOptions : IMonoAuthenticationOptions
 	{
+		LocalCertificateSelectionCallback LocalCertificateSelectionCallback { get; set; }
+
+		string TargetHost { get; set; }
+
+		X509CertificateCollection ClientCertificates { get; set; }
+	}
+
+	public interface IMonoSslServerAuthenticationOptions : IMonoAuthenticationOptions
+	{
+		bool ClientCertificateRequired { get; set; }
+
+		ServerCertificateSelectionCallback ServerCertificateSelectionCallback { get; set; }
+
+		X509Certificate ServerCertificate { get; set; }
 	}
 }

@@ -39,12 +39,31 @@ using Mono.Security.Interface;
 
 using System;
 using System.Net.Security;
+using System.Security.Cryptography.X509Certificates;
 using System.Security.Authentication;
 
 namespace Mono.Net.Security
 {
 	abstract class MonoAuthenticationOptions : IMonoAuthenticationOptions
 	{
+		public abstract bool AllowRenegotiation {
+			get; set;
+		}
+
+		public abstract RemoteCertificateValidationCallback RemoteCertificateValidationCallback { get; set; }
+
+		public abstract SslProtocols EnabledSslProtocols {
+			get; set;
+		}
+
+		public abstract EncryptionPolicy EncryptionPolicy {
+			get; set;
+		}
+
+		public abstract X509RevocationMode CertificateRevocationCheckMode {
+			get; set;
+		}
+	
 		public static IMonoSslClientAuthenticationOptions Wrap (SslClientAuthenticationOptions options)
 		{
 			return options != null ? new MonoSslClientAuthenticationOptions (options) : null;
@@ -57,24 +76,12 @@ namespace Mono.Net.Security
 
 		public static IMonoSslServerAuthenticationOptions Wrap (SslServerAuthenticationOptions options)
 		{
-			return options != null ? new ServerWrapper (options) : null;
+			return options != null ? new MonoSslServerAuthenticationOptions (options) : null;
 		}
 
 		public static SslServerAuthenticationOptions Unwrap (IMonoSslServerAuthenticationOptions options)
 		{
-			return options != null ? ((ServerWrapper)options).Options : null;
-		}
-
-		class ServerWrapper : IMonoSslServerAuthenticationOptions
-		{
-			public SslServerAuthenticationOptions Options {
-				get;
-			}
-
-			public ServerWrapper (SslServerAuthenticationOptions options)
-			{
-				Options = options;
-			}
+			return options != null ? ((MonoSslServerAuthenticationOptions)options).Options : null;
 		}
 	}
 }

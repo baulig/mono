@@ -55,19 +55,35 @@ namespace Mono.Net.Security
 			Options = options;
 		}
 
-		public bool AllowRenegotiation {
+		public override bool AllowRenegotiation {
 			get => Options.AllowRenegotiation;
 			set => Options.AllowRenegotiation = value;
+		}
+
+		public override RemoteCertificateValidationCallback RemoteCertificateValidationCallback {
+			get => Options.RemoteCertificateValidationCallback;
+			set => Options.RemoteCertificateValidationCallback = value;
+		}
+
+
+		public override X509RevocationMode CertificateRevocationCheckMode {
+			get => Options.CertificateRevocationCheckMode;
+			set => Options.CertificateRevocationCheckMode = value;
+		}
+
+		public override EncryptionPolicy EncryptionPolicy {
+			get => Options.EncryptionPolicy;
+			set => Options.EncryptionPolicy = value;
+		}
+
+		public override SslProtocols EnabledSslProtocols {
+			get => Options.EnabledSslProtocols;
+			set => Options.EnabledSslProtocols = value;
 		}
 
 		public LocalCertificateSelectionCallback LocalCertificateSelectionCallback {
 			get => Options.LocalCertificateSelectionCallback;
 			set => Options.LocalCertificateSelectionCallback = value;
-		}
-
-		public RemoteCertificateValidationCallback RemoteCertificateValidationCallback {
-			get => Options.RemoteCertificateValidationCallback;
-			set => Options.RemoteCertificateValidationCallback = value;
 		}
 
 		public string TargetHost {
@@ -78,21 +94,6 @@ namespace Mono.Net.Security
 		public X509CertificateCollection ClientCertificates {
 			get => Options.ClientCertificates;
 			set => Options.ClientCertificates = value;
-		}
-
-		public X509RevocationMode CertificateRevocationCheckMode {
-			get => Options.CertificateRevocationCheckMode;
-			set => Options.CertificateRevocationCheckMode = value;
-		}
-
-		public EncryptionPolicy EncryptionPolicy {
-			get => Options.EncryptionPolicy;
-			set => Options.EncryptionPolicy = value;
-		}
-
-		public SslProtocols EnabledSslProtocols {
-			get => Options.EnabledSslProtocols;
-			set => Options.EnabledSslProtocols = value;
 		}
 	}
 }
