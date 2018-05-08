@@ -34,7 +34,7 @@ using System.Security.Cryptography;
 
 namespace Mono.Security.Interface
 {
-	public delegate X509Certificate ServerCertificateSelectionCallback (object sender, string hostName);
+	public delegate X509Certificate MonoServerCertificateSelectionCallback (object sender, string hostName);
 
 	public interface IMonoAuthenticationOptions
 	{
@@ -70,7 +70,7 @@ namespace Mono.Security.Interface
 	{
 		bool ClientCertificateRequired { get; set; }
 
-		ServerCertificateSelectionCallback ServerCertificateSelectionCallback { get; set; }
+		MonoServerCertificateSelectionCallback ServerCertificateSelectionCallback { get; set; }
 
 		X509Certificate ServerCertificate { get; set; }
 	}

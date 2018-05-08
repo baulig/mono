@@ -91,6 +91,11 @@ namespace Mono.Net.Security
 			set => Options.ServerCertificateSelectionCallback = value;
 		}
 
+		MonoServerCertificateSelectionCallback IMonoSslServerAuthenticationOptions.ServerCertificateSelectionCallback {
+			get => Private.CallbackHelpers.PublicToMono (ServerCertificateSelectionCallback);
+			set => ServerCertificateSelectionCallback = Private.CallbackHelpers.MonoToPublic (value);
+		}
+
 		public X509Certificate ServerCertificate {
 			get => Options.ServerCertificate;
 			set => Options.ServerCertificate = value;
