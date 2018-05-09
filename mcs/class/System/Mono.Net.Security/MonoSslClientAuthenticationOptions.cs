@@ -103,7 +103,12 @@ namespace Mono.Net.Security
 			set => Options.TargetHost = value;
 		}
 
-		public X509CertificateCollection ClientCertificates {
+		public override bool ClientCertificateRequired {
+			get => throw new NotSupportedException ();
+			set => throw new NotSupportedException ();
+		}
+
+		public override X509CertificateCollection ClientCertificates {
 			get => Options.ClientCertificates;
 			set => Options.ClientCertificates = value;
 		}

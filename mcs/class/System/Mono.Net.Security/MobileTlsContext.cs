@@ -32,56 +32,62 @@ namespace Mono.Net.Security
 {
 	abstract class MobileTlsContext : IDisposable
 	{
-		MobileAuthenticatedStream parent;
-		bool serverMode;
-		string targetHost;
-		string serverName;
-		SslProtocols enabledProtocols;
-		X509Certificate serverCertificate;
-		X509CertificateCollection clientCertificates;
-		bool askForClientCert;
 		ICertificateValidator2 certificateValidator;
 
-		public MobileTlsContext (
+		protected MobileTlsContext (
 			MobileAuthenticatedStream parent, bool serverMode, string targetHost,
 			SslProtocols enabledProtocols, X509Certificate serverCertificate,
 			X509CertificateCollection clientCertificates, bool askForClientCert)
 		{
-			this.parent = parent;
-			this.serverMode = serverMode;
-			this.targetHost = targetHost;
-			this.enabledProtocols = enabledProtocols;
-			this.serverCertificate = serverCertificate;
-			this.clientCertificates = clientCertificates;
-			this.askForClientCert = askForClientCert;
+			Parent = parent;
+			IsServer = serverMode;
+			TargetHost = targetHost;
+			EnabledProtocols = enabledProtocols;
+			LocalServerCertificate = serverCertificate;
+			ClientCertificates = clientCertificates;
+			AskForClientCertificate = askForClientCert;
 
-			serverName = targetHost;
-			if (!string.IsNullOrEmpty (serverName)) {
-				var pos = serverName.IndexOf (':');
+			ServerName = targetHost;
+			if (!string.IsNullOrEmpty (ServerName)) {
+				var pos = ServerName.IndexOf (':');
 				if (pos > 0)
-					serverName = serverName.Substring (0, pos);
+					ServerName = ServerName.Substring (0, pos);
 			}
 
 			certificateValidator = CertificateValidationHelper.GetInternalValidator (
 				parent.Settings, parent.Provider);
 		}
 
+		protected MobileTlsContext (MobileAuthenticatedStream parent, MonoSslAuthenticationOptions options)
+		{
+			Parent = parent;
+			IsServer = options.ServerMode;
+			TargetHost = options.TargetHost;
+			EnabledProtocols = options.EnabledSslProtocols;
+			LocalServerCertificate = options.ServerCertificate;
+			ClientCertificates = options.ClientCertificates;
+			AskForClientCertificate = options.ClientCertificateRequired;
+
+			ServerName = options.TargetHost;
+			if (!string.IsNullOrEmpty (ServerName)) {
+				var pos = ServerName.IndexOf (':');
+				if (pos > 0)
+					ServerName = ServerName.Substring (0, pos);
+			}
+		}
+
 		internal MobileAuthenticatedStream Parent {
-			get { return parent; }
+			get;
 		}
 
-		public MonoTlsSettings Settings {
-			get { return parent.Settings; }
-		}
+		public MonoTlsSettings Settings => Parent.Settings;
 
-		public MonoTlsProvider Provider {
-			get { return parent.Provider; }
-		}
+		public MonoTlsProvider Provider => Parent.Provider;
 
 		[SD.Conditional ("MONO_TLS_DEBUG")]
 		protected void Debug (string message, params object[] args)
 		{
-			parent.Debug ("{0}: {1}", GetType ().Name, string.Format (message, args));
+			Parent.Debug ("{0}: {1}", GetType ().Name, string.Format (message, args));
 		}
 
 		public abstract bool HasContext {
@@ -93,45 +99,45 @@ namespace Mono.Net.Security
 		}
 
 		public bool IsServer {
-			get { return serverMode; }
+			get;
 		}
 
 		protected string TargetHost {
-			get { return targetHost; }
+			get;
 		}
 
 		protected string ServerName {
-			get { return serverName; }
+			get;
 		}
 
 		protected bool AskForClientCertificate {
-			get { return askForClientCert; }
+			get;
 		}
 
 		protected SslProtocols EnabledProtocols {
-			get { return enabledProtocols; }
+			get;
 		}
 
 		protected X509CertificateCollection ClientCertificates {
-			get { return clientCertificates; }
+			get;
 		}
 
 		protected void GetProtocolVersions (out TlsProtocolCode? min, out TlsProtocolCode? max)
 		{
-			if ((enabledProtocols & SslProtocols.Tls) != 0)
+			if ((EnabledProtocols & SslProtocols.Tls) != 0)
 				min = TlsProtocolCode.Tls10;
-			else if ((enabledProtocols & SslProtocols.Tls11) != 0)
+			else if ((EnabledProtocols & SslProtocols.Tls11) != 0)	
 				min = TlsProtocolCode.Tls11;
-			else if ((enabledProtocols & SslProtocols.Tls12) != 0)
+			else if ((EnabledProtocols & SslProtocols.Tls12) != 0)
 				min = TlsProtocolCode.Tls12;
 			else
 				min = null;
 
-			if ((enabledProtocols & SslProtocols.Tls12) != 0)
+			if ((EnabledProtocols & SslProtocols.Tls12) != 0)
 				max = TlsProtocolCode.Tls12;
-			else if ((enabledProtocols & SslProtocols.Tls11) != 0)
+			else if ((EnabledProtocols & SslProtocols.Tls11) != 0)
 				max = TlsProtocolCode.Tls11;
-			else if ((enabledProtocols & SslProtocols.Tls) != 0)
+			else if ((EnabledProtocols & SslProtocols.Tls) != 0)
 				max = TlsProtocolCode.Tls10;
 			else
 				max = null;
@@ -148,7 +154,7 @@ namespace Mono.Net.Security
 		}
 
 		internal X509Certificate LocalServerCertificate {
-			get { return serverCertificate; }
+			get;
 		}
 
 		internal abstract bool IsRemoteCertificateAvailable {
@@ -195,11 +201,11 @@ namespace Mono.Net.Security
 			if (selected)
 				return certificate;
 
-			if (clientCertificates == null || clientCertificates.Count == 0)
+			if (ClientCertificates == null || ClientCertificates.Count == 0)
 				return null;
 
-			if (clientCertificates.Count == 1)
-				return clientCertificates [0];
+			if (ClientCertificates.Count == 1)
+				return ClientCertificates [0];
 
 			// FIXME: select onne.
 			throw new NotImplementedException ();

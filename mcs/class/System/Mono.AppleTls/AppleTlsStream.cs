@@ -47,6 +47,11 @@ namespace Mono.AppleTls
 				enabledProtocols, serverCertificate,
 				clientCertificates, askForClientCert);
 		}
+
+		protected override MNS.MobileTlsContext CreateContext (MNS.MonoSslAuthenticationOptions options)
+		{
+			throw new NotImplementedException ();
+		}
 	}
 }
 #endif

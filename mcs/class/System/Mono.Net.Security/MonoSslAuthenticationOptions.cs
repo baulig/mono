@@ -76,6 +76,14 @@ namespace Mono.Net.Security
 			get; set;
 		}
 	
+		public abstract X509CertificateCollection ClientCertificates {
+			get; set;
+		}
+
+		public abstract bool ClientCertificateRequired {
+			get; set;
+		}
+
 		public static IMonoSslClientAuthenticationOptions Wrap (SslClientAuthenticationOptions options)
 		{
 			return options != null ? new MonoSslClientAuthenticationOptions (options) : null;

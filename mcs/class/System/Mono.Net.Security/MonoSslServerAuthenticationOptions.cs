@@ -93,7 +93,7 @@ namespace Mono.Net.Security
 			set => Options.EnabledSslProtocols = value;
 		}
 
-		public bool ClientCertificateRequired {
+		public override bool ClientCertificateRequired {
 			get => Options.ClientCertificateRequired;
 			set => Options.ClientCertificateRequired = value;
 		}
@@ -114,6 +114,11 @@ namespace Mono.Net.Security
 		}
 
 		public override X509Certificate ServerCertificate {
+			get => throw new NotSupportedException ();
+			set => throw new NotSupportedException ();
+		}
+
+		public override X509CertificateCollection ClientCertificates {
 			get => throw new NotSupportedException ();
 			set => throw new NotSupportedException ();
 		}
