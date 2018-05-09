@@ -64,9 +64,12 @@ namespace Mono.Net.Security
 			IsServer = options.ServerMode;
 			TargetHost = options.TargetHost;
 			EnabledProtocols = options.EnabledSslProtocols;
-			LocalServerCertificate = options.ServerCertificate;
-			ClientCertificates = options.ClientCertificates;
-			AskForClientCertificate = options.ClientCertificateRequired;
+
+			if (options.ServerMode) {
+				LocalServerCertificate = options.ServerCertificate;
+				ClientCertificates = options.ClientCertificates;
+				AskForClientCertificate = options.ClientCertificateRequired;
+			}
 
 			ServerName = options.TargetHost;
 			if (!string.IsNullOrEmpty (ServerName)) {
@@ -74,6 +77,9 @@ namespace Mono.Net.Security
 				if (pos > 0)
 					ServerName = ServerName.Substring (0, pos);
 			}
+
+			certificateValidator = CertificateValidationHelper.GetInternalValidator (
+				parent.Settings, parent.Provider);
 		}
 
 		internal MobileAuthenticatedStream Parent {

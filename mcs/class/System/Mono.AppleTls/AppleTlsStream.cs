@@ -50,7 +50,7 @@ namespace Mono.AppleTls
 
 		protected override MNS.MobileTlsContext CreateContext (MNS.MonoSslAuthenticationOptions options)
 		{
-			throw new NotImplementedException ();
+			return new AppleTlsContext (this, options);
 		}
 	}
 }
