@@ -34,30 +34,6 @@ namespace Mono.Net.Security
 	{
 		ICertificateValidator2 certificateValidator;
 
-		protected MobileTlsContext (
-			MobileAuthenticatedStream parent, bool serverMode, string targetHost,
-			SslProtocols enabledProtocols, X509Certificate serverCertificate,
-			X509CertificateCollection clientCertificates, bool askForClientCert)
-		{
-			Parent = parent;
-			IsServer = serverMode;
-			TargetHost = targetHost;
-			EnabledProtocols = enabledProtocols;
-			LocalServerCertificate = serverCertificate;
-			ClientCertificates = clientCertificates;
-			AskForClientCertificate = askForClientCert;
-
-			ServerName = targetHost;
-			if (!string.IsNullOrEmpty (ServerName)) {
-				var pos = ServerName.IndexOf (':');
-				if (pos > 0)
-					ServerName = ServerName.Substring (0, pos);
-			}
-
-			certificateValidator = CertificateValidationHelper.GetInternalValidator (
-				parent.Settings, parent.Provider);
-		}
-
 		protected MobileTlsContext (MobileAuthenticatedStream parent, MonoSslAuthenticationOptions options)
 		{
 			Parent = parent;

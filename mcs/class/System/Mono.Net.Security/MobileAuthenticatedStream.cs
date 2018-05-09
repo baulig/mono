@@ -358,76 +358,7 @@ namespace Mono.Net.Security
 				result.Error.Throw ();
 		}
 
-		[Obsolete ("KILL")]
-		async Task ProcessAuthentication (
-			bool runSynchronously, bool serverMode, string targetHost, SslProtocols enabledProtocols,
-			X509Certificate serverCertificate, X509CertificateCollection clientCertificates, bool clientCertRequired)
-		{
-			if (serverMode) {
-				if (serverCertificate == null)
-					throw new ArgumentException (nameof (serverCertificate));
-			} else {
-				if (targetHost == null)
-					throw new ArgumentException (nameof (targetHost));
-				if (targetHost.Length == 0)
-					targetHost = "?" + Interlocked.Increment (ref uniqueNameInteger).ToString (NumberFormatInfo.InvariantInfo);
-			}
-
-			if (lastException != null)
-				lastException.Throw ();
-
-			var asyncRequest = new AsyncHandshakeRequest (this, runSynchronously);
-			if (Interlocked.CompareExchange (ref asyncHandshakeRequest, asyncRequest, null) != null)
-				throw new InvalidOperationException ("Invalid nested call.");
-			// Make sure no other async requests can be started during the handshake.
-			if (Interlocked.CompareExchange (ref asyncReadRequest, asyncRequest, null) != null)
-				throw new InvalidOperationException ("Invalid nested call.");
-			if (Interlocked.CompareExchange (ref asyncWriteRequest, asyncRequest, null) != null)
-				throw new InvalidOperationException ("Invalid nested call.");
-
-			AsyncProtocolResult result;
-
-			try {
-				lock (ioLock) {
-					if (xobileTlsContext != null)
-						throw new InvalidOperationException ();
-					readBuffer.Reset ();
-					writeBuffer.Reset ();
-
-					xobileTlsContext = CreateContext (
-						serverMode, targetHost, enabledProtocols, serverCertificate,
-						clientCertificates, clientCertRequired);
-				}
-
-				try {
-					result = await asyncRequest.StartOperation (CancellationToken.None).ConfigureAwait (false);
-				} catch (Exception ex) {
-					result = new AsyncProtocolResult (SetException (GetSSPIException (ex)));
-				}
-			} finally {
-				lock (ioLock) {
-					readBuffer.Reset ();
-					writeBuffer.Reset ();
-					asyncWriteRequest = null;
-					asyncReadRequest = null;
-					asyncHandshakeRequest = null;
-				}
-			}
-
-			if (result.Error != null)
-				result.Error.Throw ();
-		}
-
-		protected virtual MobileTlsContext CreateContext (MonoSslAuthenticationOptions options)
-		{
-			throw new NotImplementedException ();
-		}
-
-		[Obsolete ("KILL")]
-		protected abstract MobileTlsContext CreateContext (
-			bool serverMode, string targetHost, SSA.SslProtocols enabledProtocols,
-			X509Certificate serverCertificate, X509CertificateCollection clientCertificates,
-			bool askForClientCert);
+		protected abstract MobileTlsContext CreateContext (MonoSslAuthenticationOptions options);
 
 		public override IAsyncResult BeginRead (byte[] buffer, int offset, int count, AsyncCallback asyncCallback, object asyncState)
 		{

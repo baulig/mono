@@ -37,17 +37,6 @@ namespace Mono.AppleTls
 		{
 		}
 
-		protected override MNS.MobileTlsContext CreateContext (
-			bool serverMode, string targetHost, SslProtocols enabledProtocols,
-			X509Certificate serverCertificate, X509CertificateCollection clientCertificates,
-			bool askForClientCert)
-		{
-			return new AppleTlsContext (
-				this, serverMode, targetHost,
-				enabledProtocols, serverCertificate,
-				clientCertificates, askForClientCert);
-		}
-
 		protected override MNS.MobileTlsContext CreateContext (MNS.MonoSslAuthenticationOptions options)
 		{
 			return new AppleTlsContext (this, options);

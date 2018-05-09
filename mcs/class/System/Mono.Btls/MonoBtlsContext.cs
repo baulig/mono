@@ -62,18 +62,6 @@ namespace Mono.Btls
 		bool isAuthenticated;
 		bool connected;
 
-		public MonoBtlsContext (
-			MNS.MobileAuthenticatedStream parent,
-			bool serverMode, string targetHost,
-			SslProtocols enabledProtocols, X509Certificate serverCertificate,
-			X509CertificateCollection clientCertificates, bool askForClientCert)
-			: base (parent, serverMode, targetHost, enabledProtocols,
-			        serverCertificate, clientCertificates, askForClientCert)
-		{
-			if (serverMode)
-				nativeServerCertificate = GetPrivateCertificate (serverCertificate);
-		}
-
 		public MonoBtlsContext (MNS.MobileAuthenticatedStream parent, MNS.MonoSslAuthenticationOptions options)
 			: base (parent, options)
 		{
