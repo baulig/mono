@@ -62,6 +62,11 @@ namespace Mono.Btls
 				enabledProtocols, serverCertificate,
 				clientCertificates, askForClientCert);
 		}
+
+		protected override MNS.MobileTlsContext CreateContext (MNS.MonoSslAuthenticationOptions options)
+		{
+			return new MonoBtlsContext (this, options);
+		}
 	}
 }
 #endif

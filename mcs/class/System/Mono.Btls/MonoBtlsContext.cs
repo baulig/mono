@@ -74,6 +74,13 @@ namespace Mono.Btls
 				nativeServerCertificate = GetPrivateCertificate (serverCertificate);
 		}
 
+		public MonoBtlsContext (MNS.MobileAuthenticatedStream parent, MNS.MonoSslAuthenticationOptions options)
+			: base (parent, options)
+		{
+			if (IsServer)
+				nativeServerCertificate = GetPrivateCertificate (LocalServerCertificate);
+		}
+
 		static X509CertificateImplBtls GetPrivateCertificate (X509Certificate certificate)
 		{
 			var impl = certificate.Impl as X509CertificateImplBtls;
