@@ -57,6 +57,11 @@ namespace Mono.Net.Security
 			Options = options;
 		}
 
+		public MonoSslClientAuthenticationOptions (IMonoSslClientAuthenticationOptions options)
+		{
+			Options = Unwrap (options);
+		}
+
 		public MonoSslClientAuthenticationOptions ()
 		{
 			Options = new SslClientAuthenticationOptions ();

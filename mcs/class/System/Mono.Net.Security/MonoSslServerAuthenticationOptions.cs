@@ -57,6 +57,16 @@ namespace Mono.Net.Security
 			Options = options;
 		}
 
+		public MonoSslServerAuthenticationOptions (IMonoSslServerAuthenticationOptions options)
+		{
+			Options = Unwrap (options);
+		}
+
+		public MonoSslServerAuthenticationOptions ()
+		{
+			Options = new SslServerAuthenticationOptions ();
+		}
+
 		public override bool AllowRenegotiation {
 			get => Options.AllowRenegotiation;
 			set => Options.AllowRenegotiation = value;

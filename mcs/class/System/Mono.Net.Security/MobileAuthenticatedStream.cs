@@ -217,7 +217,7 @@ namespace Mono.Net.Security
 
 		public Task AuthenticateAsClientAsync (MSI.IMonoSslClientAuthenticationOptions sslClientAuthenticationOptions, CancellationToken cancellationToken)
 		{
-			throw new NotImplementedException ();
+			return ProcessAuthentication (false, new MonoSslClientAuthenticationOptions (sslClientAuthenticationOptions), cancellationToken);
 		}
 
 		public Task AuthenticateAsServerAsync (X509Certificate serverCertificate)
@@ -268,7 +268,7 @@ namespace Mono.Net.Security
 		}
 
 
-		async Task ProcessAuthenticationX (
+		Task ProcessAuthentication (
 			bool runSynchronously, bool serverMode, string targetHost, SslProtocols enabledProtocols,
 			X509Certificate serverCertificate, X509CertificateCollection clientCertificates, bool clientCertRequired,
 			bool checkCertificateRevocation)
@@ -280,9 +280,11 @@ namespace Mono.Net.Security
 				CertificateRevocationCheckMode = checkCertificateRevocation ? X509RevocationMode.Online : X509RevocationMode.NoCheck,
 				EncryptionPolicy = EncryptionPolicy.RequireEncryption
 			};
+
+			return ProcessAuthentication (runSynchronously, options, CancellationToken.None);
 		}
 
-		async Task ProcessAuthenticationX (bool runSynchronously, MonoSslAuthenticationOptions options)
+		async Task ProcessAuthentication (bool runSynchronously, MonoSslAuthenticationOptions options, CancellationToken cancellationToken)
 		{
 			if (options.ServerMode) {
 				if (options.ServerCertificate == null)
@@ -319,7 +321,7 @@ namespace Mono.Net.Security
 				}
 
 				try {
-					result = await asyncRequest.StartOperation (CancellationToken.None).ConfigureAwait (false);
+					result = await asyncRequest.StartOperation (cancellationToken).ConfigureAwait (false);
 				} catch (Exception ex) {
 					result = new AsyncProtocolResult (SetException (GetSSPIException (ex)));
 				}
@@ -401,6 +403,7 @@ namespace Mono.Net.Security
 			throw new NotImplementedException ();
 		}
 
+		[Obsolete ("KILL")]
 		protected abstract MobileTlsContext CreateContext (
 			bool serverMode, string targetHost, SSA.SslProtocols enabledProtocols,
 			X509Certificate serverCertificate, X509CertificateCollection clientCertificates,
