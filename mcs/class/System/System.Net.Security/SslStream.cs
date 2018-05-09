@@ -243,7 +243,7 @@ namespace System.Net.Security
 
 		public virtual Task AuthenticateAsClientAsync (SslClientAuthenticationOptions sslClientAuthenticationOptions, CancellationToken cancellationToken)
 		{
-			return Impl.AuthenticateAsClientAsync (MNS.MonoAuthenticationOptions.Wrap (sslClientAuthenticationOptions), cancellationToken);
+			return Impl.AuthenticateAsClientAsync (MNS.MonoSslAuthenticationOptions.Wrap (sslClientAuthenticationOptions), cancellationToken);
 		}
 
 		public virtual Task AuthenticateAsServerAsync (X509Certificate serverCertificate)

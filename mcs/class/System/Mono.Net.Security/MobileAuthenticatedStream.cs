@@ -282,7 +282,7 @@ namespace Mono.Net.Security
 			};
 		}
 
-		async Task ProcessAuthenticationX (bool runSynchronously, MonoAuthenticationOptions options)
+		async Task ProcessAuthenticationX (bool runSynchronously, MonoSslAuthenticationOptions options)
 		{
 			if (options.ServerMode) {
 				if (options.ServerCertificate == null)
@@ -396,7 +396,7 @@ namespace Mono.Net.Security
 				result.Error.Throw ();
 		}
 
-		protected virtual MobileTlsContext CreateContext (MonoAuthenticationOptions options)
+		protected virtual MobileTlsContext CreateContext (MonoSslAuthenticationOptions options)
 		{
 			throw new NotImplementedException ();
 		}

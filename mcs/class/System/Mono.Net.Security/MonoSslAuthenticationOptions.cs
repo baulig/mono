@@ -1,5 +1,5 @@
 //
-// MonoAuthenticationOptions.cs
+// MonoSslAuthenticationOptions.cs
 //
 // Author:
 //       Martin Baulig <mabaul@microsoft.com>
@@ -44,7 +44,7 @@ using System.Security.Authentication;
 
 namespace Mono.Net.Security
 {
-	abstract class MonoAuthenticationOptions : IMonoAuthenticationOptions
+	abstract class MonoSslAuthenticationOptions : IMonoAuthenticationOptions
 	{
 		public abstract bool ServerMode {
 			get;

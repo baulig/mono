@@ -44,7 +44,7 @@ using System.Security.Authentication;
 
 namespace Mono.Net.Security
 {
-	sealed class MonoSslServerAuthenticationOptions : MonoAuthenticationOptions, IMonoSslServerAuthenticationOptions
+	sealed class MonoSslServerAuthenticationOptions : MonoSslAuthenticationOptions, IMonoSslServerAuthenticationOptions
 	{
 		public SslServerAuthenticationOptions Options {
 			get;
