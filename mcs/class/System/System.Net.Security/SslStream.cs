@@ -219,11 +219,7 @@ namespace System.Net.Security
 			Impl.EndAuthenticateAsServer (asyncResult);
 		}
 
-		public TransportContext TransportContext {
-			get {
-				throw new NotSupportedException();
-			}
-		}
+		public TransportContext TransportContext => null;
 
 		// [HostProtection (ExternalThreading=true)]
 		public virtual Task AuthenticateAsClientAsync (string targetHost)
