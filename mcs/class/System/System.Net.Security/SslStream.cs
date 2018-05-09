@@ -56,9 +56,10 @@ using MNS = Mono.Net.Security;
 
 namespace System.Net.Security
 {
+	public delegate X509Certificate ServerCertificateSelectionCallback (object sender, string hostName);
+
 	/*
-	 * These two are defined by the referencesource; add them heere to make
-	 * it easy to switch between the two implementations.
+	 * Internal delegates from the referencesource / corefx.
 	 */
 
 	internal delegate bool RemoteCertValidationCallback (
@@ -73,15 +74,15 @@ namespace System.Net.Security
 		X509Certificate remoteCertificate,
 		string[] acceptableIssuers);
 
-	public delegate X509Certificate ServerCertificateSelectionCallback (object sender, string hostName);
-
-	// Internal versions of the above delegates.
 	internal delegate X509Certificate ServerCertSelectionCallback (string hostName);
 
 	public class SslStream : AuthenticatedStream
 	{
 #if SECURITY_DEP
 		MonoTlsProvider provider;
+		MonoTlsSettings settings;
+		RemoteCertificateValidationCallback validationCallback;
+		LocalCertificateSelectionCallback selectionCallback;
 		IMonoSslStream impl;
 
 		internal IMonoSslStream Impl {
@@ -90,6 +91,8 @@ namespace System.Net.Security
 				return impl;
 			}
 		}
+
+		IMonoSslStream2 Impl2 => (IMonoSslStream2)Impl;
 
 		internal MonoTlsProvider Provider {
 			get {
@@ -112,7 +115,8 @@ namespace System.Net.Security
 			: base (innerStream, leaveInnerStreamOpen)
 		{
 			provider = GetProvider ();
-			impl = provider.CreateSslStreamInternal (this, innerStream, leaveInnerStreamOpen, null);
+			settings = MonoTlsSettings.CopyDefaultSettings ();
+			impl = provider.CreateSslStreamInternal (this, innerStream, leaveInnerStreamOpen, settings);
 		}
 
 		public SslStream (Stream innerStream, bool leaveInnerStreamOpen, RemoteCertificateValidationCallback userCertificateValidationCallback)
@@ -124,15 +128,15 @@ namespace System.Net.Security
 			: base (innerStream, leaveInnerStreamOpen)
 		{
 			provider = GetProvider ();
-			var settings = MonoTlsSettings.CopyDefaultSettings ();
-			settings.RemoteCertificateValidationCallback = MNS.Private.CallbackHelpers.PublicToMono (userCertificateValidationCallback);
-			settings.ClientCertificateSelectionCallback = MNS.Private.CallbackHelpers.PublicToMono (userCertificateSelectionCallback);
+			settings = MonoTlsSettings.CopyDefaultSettings ();
+			SetAndVerifyValidationCallback (userCertificateValidationCallback);
+			SetAndVerifySelectionCallback (userCertificateSelectionCallback);
 			impl = provider.CreateSslStream (innerStream, leaveInnerStreamOpen, settings);
 		}
 
 		[MonoLimitation ("encryptionPolicy is ignored")]
 		public SslStream (Stream innerStream, bool leaveInnerStreamOpen, RemoteCertificateValidationCallback userCertificateValidationCallback, LocalCertificateSelectionCallback userCertificateSelectionCallback, EncryptionPolicy encryptionPolicy)
-		: this (innerStream, leaveInnerStreamOpen, userCertificateValidationCallback, userCertificateSelectionCallback)
+			: this (innerStream, leaveInnerStreamOpen, userCertificateValidationCallback, userCertificateSelectionCallback)
 		{
 		}
 
@@ -140,6 +144,7 @@ namespace System.Net.Security
 			: base (innerStream, leaveInnerStreamOpen)
 		{
 			this.provider = provider;
+			this.settings = settings.Clone ();
 			impl = provider.CreateSslStreamInternal (this, innerStream, leaveInnerStreamOpen, settings);
 		}
 
@@ -147,6 +152,26 @@ namespace System.Net.Security
 		{
 			var sslStream = new SslStream (innerStream, leaveInnerStreamOpen, provider, settings);
 			return sslStream.Impl;
+		}
+
+		void SetAndVerifyValidationCallback (RemoteCertificateValidationCallback callback)
+		{
+			if (validationCallback == null) {
+				validationCallback = callback;
+				settings.RemoteCertificateValidationCallback = MNS.Private.CallbackHelpers.PublicToMono (callback);
+			} else if (callback != null && validationCallback != callback) {
+				throw new InvalidOperationException (SR.Format (SR.net_conflicting_options, nameof (RemoteCertificateValidationCallback)));
+			}
+		}
+
+		void SetAndVerifySelectionCallback (LocalCertificateSelectionCallback callback)
+		{
+			if (selectionCallback == null) {
+				selectionCallback = callback;
+				settings.ClientCertificateSelectionCallback = MNS.Private.CallbackHelpers.PublicToMono (callback);
+			} else if (callback != null && selectionCallback != callback) {
+				throw new InvalidOperationException (SR.Format (SR.net_conflicting_options, nameof (LocalCertificateSelectionCallback)));
+			}
 		}
 
 		public virtual void AuthenticateAsClient (string targetHost)
@@ -221,7 +246,6 @@ namespace System.Net.Security
 
 		public TransportContext TransportContext => null;
 
-		// [HostProtection (ExternalThreading=true)]
 		public virtual Task AuthenticateAsClientAsync (string targetHost)
 		{
 			return Impl.AuthenticateAsClientAsync (targetHost);
@@ -237,9 +261,11 @@ namespace System.Net.Security
 			return Impl.AuthenticateAsClientAsync (targetHost, clientCertificates, enabledSslProtocols, checkCertificateRevocation);
 		}
 
-		public virtual Task AuthenticateAsClientAsync (SslClientAuthenticationOptions sslClientAuthenticationOptions, CancellationToken cancellationToken)
+		public Task AuthenticateAsClientAsync (SslClientAuthenticationOptions sslClientAuthenticationOptions, CancellationToken cancellationToken)
 		{
-			return Impl.AuthenticateAsClientAsync (MNS.MonoSslAuthenticationOptions.Wrap (sslClientAuthenticationOptions), cancellationToken);
+			SetAndVerifyValidationCallback (sslClientAuthenticationOptions.RemoteCertificateValidationCallback);
+			SetAndVerifySelectionCallback (sslClientAuthenticationOptions.LocalCertificateSelectionCallback);
+			return Impl2.AuthenticateAsClientAsync (new MNS.MonoSslClientAuthenticationOptions (sslClientAuthenticationOptions), cancellationToken);
 		}
 
 		public virtual Task AuthenticateAsServerAsync (X509Certificate serverCertificate)
@@ -255,6 +281,11 @@ namespace System.Net.Security
 		public virtual Task AuthenticateAsServerAsync (X509Certificate serverCertificate, bool clientCertificateRequired, SslProtocols enabledSslProtocols, bool checkCertificateRevocation)
 		{
 			return Impl.AuthenticateAsServerAsync (serverCertificate, clientCertificateRequired, enabledSslProtocols, checkCertificateRevocation);
+		}
+
+		public Task AuthenticateAsServerAsync (SslServerAuthenticationOptions sslServerAuthenticationOptions, CancellationToken cancellationToken)
+		{
+			return Impl2.AuthenticateAsServerAsync (new MNS.MonoSslServerAuthenticationOptions (sslServerAuthenticationOptions), cancellationToken);
 		}
 
 		public virtual Task ShutdownAsync ()

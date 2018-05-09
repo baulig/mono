@@ -76,15 +76,11 @@ namespace Mono.Security.Interface
 
 		Task AuthenticateAsClientAsync (string targetHost, X509CertificateCollection clientCertificates, SSA.SslProtocols enabledSslProtocols, bool checkCertificateRevocation);
 
-		Task AuthenticateAsClientAsync (IMonoSslClientAuthenticationOptions sslClientAuthenticationOptions, CancellationToken cancellationToken);
-
 		Task AuthenticateAsServerAsync (X509Certificate serverCertificate);
 
 		Task AuthenticateAsServerAsync (X509Certificate serverCertificate, bool clientCertificateRequired, bool checkCertificateRevocation);
 
 		Task AuthenticateAsServerAsync (X509Certificate serverCertificate, bool clientCertificateRequired, SSA.SslProtocols enabledSslProtocols, bool checkCertificateRevocation);
-
-		Task AuthenticateAsServerAsync (IMonoSslServerAuthenticationOptions sslServerAuthenticationOptions, CancellationToken cancellationToken);
 
 		int Read (byte[] buffer, int offset, int count);
 
@@ -212,6 +208,13 @@ namespace Mono.Security.Interface
 
 
 		MonoTlsConnectionInfo GetConnectionInfo ();
+	}
+
+	interface IMonoSslStream2 : IMonoSslStream
+	{
+		Task AuthenticateAsClientAsync (IMonoSslClientAuthenticationOptions sslClientAuthenticationOptions, CancellationToken cancellationToken);
+
+		Task AuthenticateAsServerAsync (IMonoSslServerAuthenticationOptions sslServerAuthenticationOptions, CancellationToken cancellationToken);
 	}
 }
 

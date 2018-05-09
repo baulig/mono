@@ -78,14 +78,14 @@ namespace Mono.Net.Security.Private
 	[MonoTODO ("Non-X509Certificate2 certificate is not supported")]
 	internal class LegacySslStream : AuthenticatedStream, IMonoSslStream
 	{
-#region Fields
+		#region Fields
 
 		SslStreamBase ssl_stream;
 		ICertificateValidator certificateValidator;
 
-#endregion // Fields
+		#endregion // Fields
 
-#region Constructors
+		#region Constructors
 
 		public LegacySslStream (Stream innerStream, bool leaveInnerStreamOpen, SslStream owner, MonoTlsProvider provider, MonoTlsSettings settings)
 			: base (innerStream, leaveInnerStreamOpen)
@@ -94,9 +94,9 @@ namespace Mono.Net.Security.Private
 			Provider = provider;
 			certificateValidator = ChainValidationHelper.GetInternalValidator (provider, settings);
 		}
-#endregion // Constructors
+		#endregion // Constructors
 
-#region Properties
+		#region Properties
 
 		public override bool CanRead {
 			get { return InnerStream.CanRead; }
@@ -303,9 +303,9 @@ namespace Mono.Net.Security.Private
 			}
 		}
 
-#endregion // Properties
+		#endregion // Properties
 
-#region Methods
+		#region Methods
 
 /*
 		AsymmetricAlgorithm GetPrivateKey (X509Certificate cert, string targetHost)
@@ -582,11 +582,6 @@ namespace Mono.Net.Security.Private
 			}, EndAuthenticateAsClient, t);
 		}
 
-		Task IMonoSslStream.AuthenticateAsClientAsync (IMonoSslClientAuthenticationOptions sslClientAuthenticationOptions, CancellationToken cancellationToken)
-		{
-			throw new NotImplementedException ();
-		}
-
 		public virtual Task AuthenticateAsServerAsync (X509Certificate serverCertificate)
 		{
 			return Task.Factory.FromAsync (BeginAuthenticateAsServer, EndAuthenticateAsServer, serverCertificate, null);
@@ -607,14 +602,9 @@ namespace Mono.Net.Security.Private
 			}, EndAuthenticateAsServer, t);
 		}
 
-		Task IMonoSslStream.AuthenticateAsServerAsync (IMonoSslServerAuthenticationOptions sslServerAuthenticationOptions, CancellationToken cancellationToken)
-		{
-			throw new NotImplementedException ();
-		}
+		#endregion // Methods
 
-#endregion // Methods
-
-#region IMonoSslStream
+		#region IMonoSslStream
 
 		Task IMonoSslStream.ShutdownAsync ()
 		{
@@ -642,7 +632,7 @@ namespace Mono.Net.Security.Private
 			return null;
 		}
 
-#endregion
+		#endregion
 	}
 }
 

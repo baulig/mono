@@ -57,11 +57,6 @@ namespace Mono.Net.Security
 			Options = options;
 		}
 
-		public MonoSslServerAuthenticationOptions (IMonoSslServerAuthenticationOptions options)
-		{
-			Options = Unwrap (options);
-		}
-
 		public MonoSslServerAuthenticationOptions ()
 		{
 			Options = new SslServerAuthenticationOptions ();
@@ -114,8 +109,8 @@ namespace Mono.Net.Security
 		}
 
 		public override X509Certificate ServerCertificate {
-			get => throw new NotSupportedException ();
-			set => throw new NotSupportedException ();
+			get => Options.ServerCertificate;
+			set => Options.ServerCertificate = value;
 		}
 
 		public override X509CertificateCollection ClientCertificates {

@@ -34,9 +34,9 @@ using System.Security.Cryptography;
 
 namespace Mono.Security.Interface
 {
-	public delegate X509Certificate MonoServerCertificateSelectionCallback (object sender, string hostName);
+	delegate X509Certificate MonoServerCertificateSelectionCallback (object sender, string hostName);
 
-	public interface IMonoAuthenticationOptions
+	interface IMonoAuthenticationOptions
 	{
 		bool AllowRenegotiation {
 			get; set;
@@ -57,7 +57,7 @@ namespace Mono.Security.Interface
 		}
 	}
 
-	public interface IMonoSslClientAuthenticationOptions : IMonoAuthenticationOptions
+	interface IMonoSslClientAuthenticationOptions : IMonoAuthenticationOptions
 	{
 		LocalCertificateSelectionCallback LocalCertificateSelectionCallback { get; set; }
 
@@ -66,7 +66,7 @@ namespace Mono.Security.Interface
 		X509CertificateCollection ClientCertificates { get; set; }
 	}
 
-	public interface IMonoSslServerAuthenticationOptions : IMonoAuthenticationOptions
+	interface IMonoSslServerAuthenticationOptions : IMonoAuthenticationOptions
 	{
 		bool ClientCertificateRequired { get; set; }
 

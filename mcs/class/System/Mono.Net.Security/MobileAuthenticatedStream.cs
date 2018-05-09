@@ -35,7 +35,7 @@ using SslProtocols = System.Security.Authentication.SslProtocols;
 
 namespace Mono.Net.Security
 {
-	abstract class MobileAuthenticatedStream : AuthenticatedStream, MSI.IMonoSslStream
+	abstract class MobileAuthenticatedStream : AuthenticatedStream, MSI.IMonoSslStream2
 	{
 		/*
 		 * This is intentionally called `xobileTlsContext'.  It is a "dangerous" object
@@ -253,7 +253,7 @@ namespace Mono.Net.Security
 
 		public Task AuthenticateAsClientAsync (MSI.IMonoSslClientAuthenticationOptions sslClientAuthenticationOptions, CancellationToken cancellationToken)
 		{
-			return ProcessAuthentication (false, new MonoSslClientAuthenticationOptions (sslClientAuthenticationOptions), cancellationToken);
+			return ProcessAuthentication (false, (MonoSslClientAuthenticationOptions)sslClientAuthenticationOptions, cancellationToken);
 		}
 
 		public Task AuthenticateAsServerAsync (X509Certificate serverCertificate)
@@ -281,7 +281,7 @@ namespace Mono.Net.Security
 
 		public Task AuthenticateAsServerAsync (MSI.IMonoSslServerAuthenticationOptions sslServerAuthenticationOptions, CancellationToken cancellationToken)
 		{
-			return ProcessAuthentication (false, new MonoSslServerAuthenticationOptions (sslServerAuthenticationOptions), cancellationToken);
+			return ProcessAuthentication (false, (MonoSslServerAuthenticationOptions)sslServerAuthenticationOptions, cancellationToken);
 		}
 
 		public Task ShutdownAsync ()

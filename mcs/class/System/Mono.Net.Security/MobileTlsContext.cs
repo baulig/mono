@@ -38,20 +38,20 @@ namespace Mono.Net.Security
 		{
 			Parent = parent;
 			IsServer = options.ServerMode;
-			TargetHost = options.TargetHost;
 			EnabledProtocols = options.EnabledSslProtocols;
 
 			if (options.ServerMode) {
 				LocalServerCertificate = options.ServerCertificate;
-				ClientCertificates = options.ClientCertificates;
 				AskForClientCertificate = options.ClientCertificateRequired;
-			}
-
-			ServerName = options.TargetHost;
-			if (!string.IsNullOrEmpty (ServerName)) {
-				var pos = ServerName.IndexOf (':');
-				if (pos > 0)
-					ServerName = ServerName.Substring (0, pos);
+			} else {
+				ClientCertificates = options.ClientCertificates;
+				TargetHost = options.TargetHost;
+				ServerName = options.TargetHost;
+				if (!string.IsNullOrEmpty (ServerName)) {
+					var pos = ServerName.IndexOf (':');
+					if (pos > 0)
+						ServerName = ServerName.Substring (0, pos);
+				}
 			}
 
 			certificateValidator = CertificateValidationHelper.GetInternalValidator (
@@ -108,7 +108,7 @@ namespace Mono.Net.Security
 		{
 			if ((EnabledProtocols & SslProtocols.Tls) != 0)
 				min = TlsProtocolCode.Tls10;
-			else if ((EnabledProtocols & SslProtocols.Tls11) != 0)	
+			else if ((EnabledProtocols & SslProtocols.Tls11) != 0)
 				min = TlsProtocolCode.Tls11;
 			else if ((EnabledProtocols & SslProtocols.Tls12) != 0)
 				min = TlsProtocolCode.Tls12;
