@@ -50,6 +50,8 @@ namespace Mono.Net.Security
 			get;
 		}
 
+		public override bool ServerMode => true;
+
 		public MonoSslServerAuthenticationOptions (SslServerAuthenticationOptions options)
 		{
 			Options = options;
@@ -96,9 +98,14 @@ namespace Mono.Net.Security
 			set => ServerCertificateSelectionCallback = Private.CallbackHelpers.MonoToPublic (value);
 		}
 
-		public X509Certificate ServerCertificate {
-			get => Options.ServerCertificate;
-			set => Options.ServerCertificate = value;
+		public override string TargetHost {
+			get => throw new NotSupportedException ();
+			set => throw new NotSupportedException ();
+		}
+
+		public override X509Certificate ServerCertificate {
+			get => throw new NotSupportedException ();
+			set => throw new NotSupportedException ();
 		}
 	}
 }

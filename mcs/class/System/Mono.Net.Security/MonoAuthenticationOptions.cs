@@ -46,6 +46,10 @@ namespace Mono.Net.Security
 {
 	abstract class MonoAuthenticationOptions : IMonoAuthenticationOptions
 	{
+		public abstract bool ServerMode {
+			get;
+		}
+
 		public abstract bool AllowRenegotiation {
 			get; set;
 		}
@@ -61,6 +65,14 @@ namespace Mono.Net.Security
 		}
 
 		public abstract X509RevocationMode CertificateRevocationCheckMode {
+			get; set;
+		}
+
+		public abstract string TargetHost {
+			get; set;
+		}
+
+		public abstract X509Certificate ServerCertificate {
 			get; set;
 		}
 	

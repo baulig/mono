@@ -273,15 +273,68 @@ namespace Mono.Net.Security
 			X509Certificate serverCertificate, X509CertificateCollection clientCertificates, bool clientCertRequired,
 			bool checkCertificateRevocation)
 		{
-			var options = new SslClientAuthenticationOptions {
+			var options = new MonoSslClientAuthenticationOptions {
 				TargetHost = targetHost,
 				ClientCertificates = clientCertificates,
 				EnabledSslProtocols = enabledProtocols,
 				CertificateRevocationCheckMode = checkCertificateRevocation ? X509RevocationMode.Online : X509RevocationMode.NoCheck,
 				EncryptionPolicy = EncryptionPolicy.RequireEncryption
 			};
+		}
 
-			// return BeginAuthenticateAsClient(options, CancellationToken.None, asyncCallback, asyncState);
+		async Task ProcessAuthenticationX (bool runSynchronously, MonoAuthenticationOptions options)
+		{
+			if (options.ServerMode) {
+				if (options.ServerCertificate == null)
+					throw new ArgumentException (nameof (options.ServerCertificate));
+			} else {
+				if (options.TargetHost == null)
+					throw new ArgumentException (nameof (options.TargetHost));
+				if (options.TargetHost.Length == 0)
+					options.TargetHost = "?" + Interlocked.Increment (ref uniqueNameInteger).ToString (NumberFormatInfo.InvariantInfo);
+			}
+
+			if (lastException != null)
+				lastException.Throw ();
+
+			var asyncRequest = new AsyncHandshakeRequest (this, runSynchronously);
+			if (Interlocked.CompareExchange (ref asyncHandshakeRequest, asyncRequest, null) != null)
+				throw new InvalidOperationException ("Invalid nested call.");
+			// Make sure no other async requests can be started during the handshake.
+			if (Interlocked.CompareExchange (ref asyncReadRequest, asyncRequest, null) != null)
+				throw new InvalidOperationException ("Invalid nested call.");
+			if (Interlocked.CompareExchange (ref asyncWriteRequest, asyncRequest, null) != null)
+				throw new InvalidOperationException ("Invalid nested call.");
+
+			AsyncProtocolResult result;
+
+			try {
+				lock (ioLock) {
+					if (xobileTlsContext != null)
+						throw new InvalidOperationException ();
+					readBuffer.Reset ();
+					writeBuffer.Reset ();
+
+					xobileTlsContext = CreateContext (options);
+				}
+
+				try {
+					result = await asyncRequest.StartOperation (CancellationToken.None).ConfigureAwait (false);
+				} catch (Exception ex) {
+					result = new AsyncProtocolResult (SetException (GetSSPIException (ex)));
+				}
+			} finally {
+				lock (ioLock) {
+					readBuffer.Reset ();
+					writeBuffer.Reset ();
+					asyncWriteRequest = null;
+					asyncReadRequest = null;
+					asyncHandshakeRequest = null;
+				}
+			}
+
+			if (result.Error != null)
+				result.Error.Throw ();
 		}
 
 		async Task ProcessAuthentication (
@@ -341,6 +394,11 @@ namespace Mono.Net.Security
 
 			if (result.Error != null)
 				result.Error.Throw ();
+		}
+
+		protected virtual MobileTlsContext CreateContext (MonoAuthenticationOptions options)
+		{
+			throw new NotImplementedException ();
 		}
 
 		protected abstract MobileTlsContext CreateContext (

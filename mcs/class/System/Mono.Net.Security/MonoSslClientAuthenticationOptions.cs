@@ -50,9 +50,16 @@ namespace Mono.Net.Security
 			get;
 		}
 
+		public override bool ServerMode => false;
+
 		public MonoSslClientAuthenticationOptions (SslClientAuthenticationOptions options)
 		{
 			Options = options;
+		}
+
+		public MonoSslClientAuthenticationOptions ()
+		{
+			Options = new SslClientAuthenticationOptions ();
 		}
 
 		public override bool AllowRenegotiation {
@@ -86,7 +93,7 @@ namespace Mono.Net.Security
 			set => Options.LocalCertificateSelectionCallback = value;
 		}
 
-		public string TargetHost {
+		public override string TargetHost {
 			get => Options.TargetHost;
 			set => Options.TargetHost = value;
 		}
@@ -94,6 +101,11 @@ namespace Mono.Net.Security
 		public X509CertificateCollection ClientCertificates {
 			get => Options.ClientCertificates;
 			set => Options.ClientCertificates = value;
+		}
+
+		public override X509Certificate ServerCertificate {
+			get => throw new NotSupportedException ();
+			set => throw new NotSupportedException ();
 		}
 	}
 }
