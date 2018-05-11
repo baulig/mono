@@ -1768,6 +1768,19 @@ corert/RuntimeAugments.cs
 ../../../external/corefx/src/System.Memory/src/System/Buffers/Text/Utf8Parser/*.cs
 ../../../external/corefx/src/System.Memory/src/System/Number/*.cs
 
+../../../external/corefx/src/System.Runtime.Numerics/src/System/Numerics/BigInteger.cs
+../../../external/corefx/src/System.Runtime.Numerics/src/System/Numerics/BigIntegerCalculator.AddSub.cs
+../../../external/corefx/src/System.Runtime.Numerics/src/System/Numerics/BigIntegerCalculator.BitsBuffer.cs
+../../../external/corefx/src/System.Runtime.Numerics/src/System/Numerics/BigIntegerCalculator.DivRem.cs
+../../../external/corefx/src/System.Runtime.Numerics/src/System/Numerics/BigIntegerCalculator.FastReducer.cs
+../../../external/corefx/src/System.Runtime.Numerics/src/System/Numerics/BigIntegerCalculator.GcdInv.cs
+../../../external/corefx/src/System.Runtime.Numerics/src/System/Numerics/BigIntegerCalculator.PowMod.cs
+../../../external/corefx/src/System.Runtime.Numerics/src/System/Numerics/BigIntegerCalculator.SquMul.cs
+../../../external/corefx/src/System.Runtime.Numerics/src/System/Numerics/BigNumber.cs
+../../../external/corefx/src/System.Runtime.Numerics/src/System/Numerics/NumericsHelpers.cs
+
+../../../external/corefx/src/System.Runtime.Numerics/src/System/Globalization/FormatProvider.BigInteger.cs
+
 ../../../external/corefx/src/System.Runtime.InteropServices.RuntimeInformation/src/System/Runtime/InteropServices/RuntimeInformation/OSPlatform.cs
 ../../../external/corefx/src/System.Runtime.InteropServices.RuntimeInformation/src/System/Runtime/InteropServices/RuntimeInformation/Architecture.cs
 

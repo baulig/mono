@@ -930,6 +930,7 @@ partial class SR
 	public const string ParallelState_Break_InvalidOperationException_BreakAfterStop = "Break was called after Stop was called.";
 	public const string ParallelState_Stop_InvalidOperationException_StopAfterBreak = "Stop was called after Break was called.";
 	public const string ParallelState_NotSupportedException_UnsupportedMethod = "This method is not supported.";
+	public const string InvalidOperation_ConcurrentOperationsNotSupported = "Operations that change non-concurrent collections must have exclusive access. A concurrent update was performed on this collection and corrupted its state. The collection's state is no longer correct.";
 	public const string InvalidOperation_EmptyStack = "Stack empty.";
 	public const string Arg_ArrayLengthsDiffer = "Array lengths must be the same.";
 	public const string Arg_BitArrayTypeUnsupported = "Only supported array types for CopyTo on BitArrays are Boolean[], Int32[] and Byte[].";
@@ -999,4 +1000,12 @@ partial class SR
 	public const string ResetActionRequiresNullItem = "Reset action must be initialized with no changed items.";
 	public const string ResetActionRequiresIndexMinus1 = "Reset action must be initialized with index -1.";
 	public const string Arg_InsufficientNumberOfElements = "At least {0} element(s) are expected in the parameter \"{1}\".";
+	public const string Argument_InvalidHexStyle = "With the AllowHexSpecifier bit set in the enum bit field, the only other valid bits that can be combined into the enum value must be a subset of those in HexNumber.";
+	public const string Argument_MustBeBigInt = "The parameter must be a BigInteger.";
+	public const string Format_TooLarge = "The value is too large to be represented by this format specifier.";
+	public const string ArgumentOutOfRange_MustBeNonNeg = "The number must be greater than or equal to zero.";
+	public const string Overflow_BigIntInfinity = "BigInteger cannot represent infinity.";
+	public const string Overflow_NotANumber = "The value is not a number.";
+	public const string Overflow_ParseBigInteger = "The value could not be parsed.";
+	public const string Overflow_Negative_Unsigned = "Negative values do not have an unsigned representation.";
 }
