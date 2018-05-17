@@ -184,7 +184,7 @@ namespace Mono.Security.Interface
 		 * - 2: the new ServicePointScheduler changes have landed
 		 *
 		 */
-		internal const int InternalVersion = 2;
+		internal const int InternalVersion = 1;
 
 		#endregion
 	}
