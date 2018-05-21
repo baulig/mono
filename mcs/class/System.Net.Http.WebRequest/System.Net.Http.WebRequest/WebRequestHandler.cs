@@ -33,6 +33,7 @@ namespace System.Net.Http
 {
 	public class WebRequestHandler : HttpClientHandler
 	{
+#if FIXME
 		bool allowPipelining;
 		RequestCachePolicy cachePolicy;
 		AuthenticationLevel authenticationLevel;
@@ -160,6 +161,7 @@ namespace System.Net.Http
 
 			return wr;
 		}
+#endif
 	}
 }
 
