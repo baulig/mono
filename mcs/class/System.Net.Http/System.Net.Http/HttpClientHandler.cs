@@ -53,7 +53,8 @@ namespace System.Net.Http
 		bool useCookies;
 		bool useDefaultCredentials;
 		bool useProxy;
-		ClientCertificateOption certificate;
+		ClientCertificateOption certificateOptions;
+		X509CertificateCollection clientCertificates;
 		bool sentRequest;
 		string connectionGroupName;
 		bool disposed;
@@ -98,11 +99,11 @@ namespace System.Net.Http
 
 		public ClientCertificateOption ClientCertificateOptions {
 			get {
-				return certificate;
+				return certificateOptions;
 			}
 			set {
 				EnsureModifiability ();
-				certificate = value;
+				certificateOptions = value;
 			}
 		}
 
@@ -277,6 +278,9 @@ namespace System.Net.Http
 				wr.Proxy = null;
 			}
 
+			if (clientCertificates != null)
+				wr.ClientCertificates = clientCertificates;
+
 			wr.ServicePoint.Expect100Continue = request.Headers.ExpectContinue == true;
 
 			// Add request headers
@@ -428,7 +432,7 @@ namespace System.Net.Http
 
 		public X509CertificateCollection ClientCertificates {
 			get {
-				throw new NotImplementedException ();
+				return clientCertificates ?? (clientCertificates = new X509CertificateCollection ());
 			}
 		}
 
