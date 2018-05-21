@@ -22,6 +22,10 @@ namespace System.Net.Http
 			socketsHttpHandler = new SocketsHttpHandler ();
 			diagnosticsHandler = new DiagnosticsHandler (socketsHttpHandler);
 			clientCertificateOptions = ClientCertificateOption.Manual;
+
+			ServerCertificateCustomValidationCallback = (m, c, ch, e) => {
+				return ServicePointManager.ServerCertificateValidationCallback?.Invoke (m, c, ch, e) ?? e == SslPolicyErrors.None;
+			};
 		}
 
 		protected override void Dispose (bool disposing)
