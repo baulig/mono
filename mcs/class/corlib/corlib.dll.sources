@@ -1427,8 +1427,7 @@ ReferenceSources/AppContextDefaultValues.cs
 
 ../../../external/corefx/src/Common/src/CoreLib/System/ISpanFormattable.cs
 ../../../external/corefx/src/Common/src/CoreLib/System/Text/StringBuilder.cs
-../../../external/corefx/src/Common/src/System/MutableDecimal.cs
-../../../external/corefx/src/Common/src/System/IO/StringBuilderCache.cs
+../../../external/corefx/src/Common/src/CoreLib/System/Text/StringBuilderCache.cs
 
 ../referencesource/mscorlib/system/runtime/remoting/callcontext.cs
 
@@ -1561,6 +1560,7 @@ corert/RuntimeAugments.cs
 ../../../external/corert/src/Common/src/System/Collections/Generic/LowLevelList.cs
 
 ../../../external/corert/src/Common/src/System/Numerics/Hashing/HashHelpers.cs
+../../../external/corefx/src/Common/src/System/MutableDecimal.cs
 
 ../../../external/corert/src/System.Private.CoreLib/shared/System/String.Manipulation.cs
 ../../../external/corert/src/System.Private.CoreLib/shared/System/StringSpanHelpers.cs

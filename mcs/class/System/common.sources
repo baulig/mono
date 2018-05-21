@@ -927,7 +927,6 @@ corefx/SR.cs
 ../../../external/corefx/src/System.Net.Http/src/System/Net/Http/NetEventSource.Http.cs
 
 ../../../external/corefx/src/Common/src/System/Net/HttpVersionInternal.cs
-../../../external/corefx/src/Common/src/System/IO/StringBuilderCache.cs
 ../../../external/corefx/src/Common/src/System/IO/ReadOnlyMemoryStream.cs
 ../../../external/corefx/src/Common/src/CoreLib/System/IO/StreamHelpers.CopyValidation.cs
 
@@ -942,5 +941,4 @@ corefx/SR.cs
 ../../../external/corefx/src/System.Net.Mail/src/System/Net/Mail/MailAddress.cs
 ../../../external/corefx/src/System.Net.Mail/src/System/Net/Mail/MailAddressCollection.cs
 
-../../../external/corefx/src/Common/src/System/IO/StringBuilderCache.cs
 ../../../external/corefx/src/Common/src/CoreLib/System/HashCode.cs
