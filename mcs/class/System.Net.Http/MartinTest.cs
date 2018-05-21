@@ -37,30 +37,6 @@ namespace System.Net.Http
 	}
 }
 
-namespace System.Buffers.Text
-{
-	class Utf8Formatter
-	{
-		public static bool TryFormat (bool value, Span<byte> destination, out int bytesWritten, char standardFormat = default)
-		{
-			throw new NotImplementedException ();
-		}
-
-		public static bool TryFormat (int value, Span<byte> destination, out int bytesWritten, char standardFormat = default)
-		{
-			throw new NotImplementedException ();
-		}
-	}
-
-	class Utf8Parser
-	{
-		public static bool TryParse (ReadOnlySpan<byte> source, out ulong value, out int bytesConsumed, char standardFormat = default)
-		{
-			throw new NotImplementedException ();
-		}
-	}
-}
-
 namespace System.IO
 {
 	static class StreamExtensions

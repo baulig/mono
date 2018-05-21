@@ -68,7 +68,6 @@
 ../../../external/corefx/src/System.Net.Http/src/System/Net/Http/MultipartContent.cs
 ../../../external/corefx/src/System.Net.Http/src/System/Net/Http/MultipartFormDataContent.cs
 ../../../external/corefx/src/System.Net.Http/src/System/Net/Http/ReadOnlyMemoryContent.cs
-
 ../../../external/corefx/src/System.Net.Http/src/System/Net/Http/StreamContent.cs
 ../../../external/corefx/src/System.Net.Http/src/System/Net/Http/StreamToStreamCopy.cs
 ../../../external/corefx/src/System.Net.Http/src/System/Net/Http/StringContent.cs
