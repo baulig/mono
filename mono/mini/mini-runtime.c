@@ -838,8 +838,6 @@ mono_jit_thread_attach (MonoDomain *domain)
 	MonoDomain *orig;
 	gboolean attached;
 
-	g_assert (!mono_threads_is_blocking_transition_enabled ());
-
 	if (!domain) {
 		/* Happens when called from AOTed code which is only used in the root domain. */
 		domain = mono_get_root_domain ();
@@ -3814,25 +3812,20 @@ mini_free_jit_domain_info (MonoDomain *domain)
 		g_hash_table_foreach (info->dynamic_code_hash, dynamic_method_info_free, NULL);
 		g_hash_table_destroy (info->dynamic_code_hash);
 	}
-	if (info->method_code_hash)
-		g_hash_table_destroy (info->method_code_hash);
+	g_hash_table_destroy (info->method_code_hash);
 	g_hash_table_destroy (info->jump_trampoline_hash);
 	g_hash_table_destroy (info->jit_trampoline_hash);
 	g_hash_table_destroy (info->delegate_trampoline_hash);
-	if (info->static_rgctx_trampoline_hash)
-		g_hash_table_destroy (info->static_rgctx_trampoline_hash);
-	if (info->mrgctx_hash)
-		g_hash_table_destroy (info->mrgctx_hash);
-	if (info->method_rgctx_hash)
-		g_hash_table_destroy (info->method_rgctx_hash);
+	g_hash_table_destroy (info->static_rgctx_trampoline_hash);
+	g_hash_table_destroy (info->mrgctx_hash);
+	g_hash_table_destroy (info->method_rgctx_hash);
 	g_hash_table_destroy (info->llvm_vcall_trampoline_hash);
 	mono_conc_hashtable_destroy (info->runtime_invoke_hash);
 	g_hash_table_destroy (info->seq_points);
 	g_hash_table_destroy (info->arch_seq_points);
 	if (info->agent_info)
 		mini_get_dbg_callbacks ()->free_domain_info (domain);
-	if (info->gsharedvt_arg_tramp_hash)
-		g_hash_table_destroy (info->gsharedvt_arg_tramp_hash);
+	g_hash_table_destroy (info->gsharedvt_arg_tramp_hash);
 	if (info->llvm_jit_callees) {
 		g_hash_table_foreach (info->llvm_jit_callees, free_jit_callee_list, NULL);
 		g_hash_table_destroy (info->llvm_jit_callees);
@@ -4044,7 +4037,7 @@ mini_init (const char *filename, const char *runtime_version)
 	callbacks.get_weak_field_indexes = mono_aot_get_weak_field_indexes;
 
 #ifdef TARGET_OSX
-	callbacks.runtime_telemetry_callback = mini_register_sigterm_handler;
+	callbacks.install_state_summarizer = mini_register_sigterm_handler;
 #endif
 
 	mono_install_callbacks (&callbacks);

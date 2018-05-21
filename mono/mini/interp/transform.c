@@ -1183,7 +1183,7 @@ no_intrinsic:
 		return_if_nok (error);
 		int called_inited = vt->initialized;
 
-		if (/*mono_metadata_signature_equal (method->signature, target_method->signature) */ method == target_method && *(td->ip + 5) == CEE_RET) {
+		if (method == target_method && *(td->ip + 5) == CEE_RET && !(csignature->hasthis && m_class_is_valuetype (target_method->klass))) {
 			int offset;
 			if (td->verbose_level)
 				g_print ("Optimize tail call of %s.%s\n", m_class_get_name (target_method->klass), target_method->name);
@@ -1207,8 +1207,7 @@ no_intrinsic:
 				has_vt_arg |= !mini_type_is_reference (csignature->params [i]);
 
 			gboolean empty_callee = mheader && *mheader->code == CEE_RET;
-			if (mheader)
-				mono_metadata_free_mh (mheader);
+			mono_metadata_free_mh (mheader);
 
 			if (empty_callee && called_inited && !has_vt_arg) {
 				if (td->verbose_level)
@@ -2378,48 +2377,56 @@ generate (MonoMethod *method, MonoMethodHeader *header, InterpMethod *rtm, unsig
 		}
 		case CEE_LDIND_I1:
 			CHECK_STACK (td, 1);
+			ADD_CODE (td, MINT_CKNULL);
 			SIMPLE_OP (td, MINT_LDIND_I1);
 			SET_SIMPLE_TYPE(td->sp - 1, STACK_TYPE_I4);
 			BARRIER_IF_VOLATILE (td);
 			break;
 		case CEE_LDIND_U1:
 			CHECK_STACK (td, 1);
+			ADD_CODE (td, MINT_CKNULL);
 			SIMPLE_OP (td, MINT_LDIND_U1);
 			SET_SIMPLE_TYPE(td->sp - 1, STACK_TYPE_I4);
 			BARRIER_IF_VOLATILE (td);
 			break;
 		case CEE_LDIND_I2:
 			CHECK_STACK (td, 1);
+			ADD_CODE (td, MINT_CKNULL);
 			SIMPLE_OP (td, MINT_LDIND_I2);
 			SET_SIMPLE_TYPE(td->sp - 1, STACK_TYPE_I4);
 			BARRIER_IF_VOLATILE (td);
 			break;
 		case CEE_LDIND_U2:
 			CHECK_STACK (td, 1);
+			ADD_CODE (td, MINT_CKNULL);
 			SIMPLE_OP (td, MINT_LDIND_U2);
 			SET_SIMPLE_TYPE(td->sp - 1, STACK_TYPE_I4);
 			BARRIER_IF_VOLATILE (td);
 			break;
 		case CEE_LDIND_I4:
 			CHECK_STACK (td, 1);
+			ADD_CODE (td, MINT_CKNULL);
 			SIMPLE_OP (td, MINT_LDIND_I4);
 			SET_SIMPLE_TYPE(td->sp - 1, STACK_TYPE_I4);
 			BARRIER_IF_VOLATILE (td);
 			break;
 		case CEE_LDIND_U4:
 			CHECK_STACK (td, 1);
+			ADD_CODE (td, MINT_CKNULL);
 			SIMPLE_OP (td, MINT_LDIND_U4);
 			SET_SIMPLE_TYPE(td->sp - 1, STACK_TYPE_I4);
 			BARRIER_IF_VOLATILE (td);
 			break;
 		case CEE_LDIND_I8:
 			CHECK_STACK (td, 1);
+			ADD_CODE (td, MINT_CKNULL);
 			SIMPLE_OP (td, MINT_LDIND_I8);
 			SET_SIMPLE_TYPE(td->sp - 1, STACK_TYPE_I8);
 			BARRIER_IF_VOLATILE (td);
 			break;
 		case CEE_LDIND_I:
 			CHECK_STACK (td, 1);
+			ADD_CODE (td, MINT_CKNULL);
 			SIMPLE_OP (td, MINT_LDIND_I);
 			ADD_CODE (td, 0);
 			SET_SIMPLE_TYPE(td->sp - 1, STACK_TYPE_I);
@@ -2427,18 +2434,21 @@ generate (MonoMethod *method, MonoMethodHeader *header, InterpMethod *rtm, unsig
 			break;
 		case CEE_LDIND_R4:
 			CHECK_STACK (td, 1);
+			ADD_CODE (td, MINT_CKNULL);
 			SIMPLE_OP (td, MINT_LDIND_R4);
 			SET_SIMPLE_TYPE(td->sp - 1, STACK_TYPE_R8);
 			BARRIER_IF_VOLATILE (td);
 			break;
 		case CEE_LDIND_R8:
 			CHECK_STACK (td, 1);
+			ADD_CODE (td, MINT_CKNULL);
 			SIMPLE_OP (td, MINT_LDIND_R8);
 			SET_SIMPLE_TYPE(td->sp - 1, STACK_TYPE_R8);
 			BARRIER_IF_VOLATILE (td);
 			break;
 		case CEE_LDIND_REF:
 			CHECK_STACK (td, 1);
+			ADD_CODE (td, MINT_CKNULL);
 			SIMPLE_OP (td, MINT_LDIND_REF);
 			BARRIER_IF_VOLATILE (td);
 			SET_SIMPLE_TYPE(td->sp - 1, STACK_TYPE_O);

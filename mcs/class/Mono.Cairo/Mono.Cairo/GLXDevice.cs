@@ -1,11 +1,12 @@
+﻿//
+// Mono.Cairo.Device.cs
 //
-// System.Security.Cryptography.CryptographicAttributeObject class
+// Authors:
+//			JP Bruyère (jp_bruyere@hotmail.com)
 //
-// Author:
-//	Sebastien Pouliot  <sebastien@ximian.com>
+// This is an OO wrapper API for the Cairo API
 //
-// (C) 2003 Motus Technologies Inc. (http://www.motus.com)
-// Copyright (C) 2004-2005 Novell Inc. (http://www.novell.com)
+// Copyright (C) 2016 JP Bruyère
 //
 // Permission is hereby granted, free of charge, to any person obtaining
 // a copy of this software and associated documentation files (the
@@ -26,51 +27,23 @@
 // OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 // WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //
+using System;
 
-#if SECURITY_DEP
-
-using System.Collections;
-
-namespace System.Security.Cryptography {
-
-	public sealed class CryptographicAttributeObject {
-
-		private Oid _oid;
-		private AsnEncodedDataCollection _list;
-
-		// constructors
-
-		public CryptographicAttributeObject (Oid oid) 
+namespace Cairo
+{
+	public class GLXDevice : Device
+	{
+		public GLXDevice (IntPtr dpy, IntPtr gl_ctx) : base (NativeMethods.cairo_glx_device_create (dpy, gl_ctx), true)
 		{
-			if (oid == null)
-				throw new ArgumentNullException ("oid");
-
-			_oid = new Oid (oid);
-			_list = new AsnEncodedDataCollection ();
 		}
 
-		public CryptographicAttributeObject (Oid oid,	AsnEncodedDataCollection values)
-		{
-			if (oid == null)
-				throw new ArgumentNullException ("oid");
-
-			_oid = new Oid (oid);
-			if (values == null)
-				_list = new AsnEncodedDataCollection ();
-			else
-				_list = values;
+		public IntPtr Display {
+			get { return NativeMethods.cairo_glx_device_get_display (Handle); }
 		}
 
-		// properties
-
-		public Oid Oid { 
-			get { return _oid; }
-		}
-
-		public AsnEncodedDataCollection Values { 
-			get { return _list; }
+		public IntPtr Context {
+			get { return NativeMethods.cairo_glx_device_get_context (Handle); }
 		}
 	}
 }
 
-#endif

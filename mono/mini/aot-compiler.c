@@ -3117,8 +3117,20 @@ encode_type (MonoAotCompile *acfg, MonoType *t, guint8 *buf, guint8 **endbuf)
 {
 	guint8 *p = buf;
 
-	// Change memory allocation in decode_type if you change
-	g_assert (!t->has_cmods);
+	if (t->has_cmods) {
+		MonoCustomModContainer *cm = mono_type_get_cmods (t);
+
+		*p = MONO_TYPE_CMOD_REQD;
+		++p;
+
+		encode_value (cm->count, p, &p);
+		int iindex = get_image_index (acfg, cm->image);
+		encode_value (iindex, p, &p);
+		for (int i = 0; i < cm->count; ++i) {
+			encode_value (cm->modifiers [i].required, p, &p);
+			encode_value (cm->modifiers [i].token, p, &p);
+		}
+	}
 
 	/* t->attrs can be ignored */
 	//g_assert (t->attrs == 0);
@@ -11895,10 +11907,8 @@ acfg_free (MonoAotCompile *acfg)
 	g_hash_table_destroy (acfg->method_indexes);
 	g_hash_table_destroy (acfg->method_depth);
 	g_hash_table_destroy (acfg->plt_offset_to_entry);
-	for (i = 0; i < MONO_PATCH_INFO_NUM; ++i) {
-		if (acfg->patch_to_plt_entry [i])
-			g_hash_table_destroy (acfg->patch_to_plt_entry [i]);
-	}
+	for (i = 0; i < MONO_PATCH_INFO_NUM; ++i)
+		g_hash_table_destroy (acfg->patch_to_plt_entry [i]);
 	g_free (acfg->patch_to_plt_entry);
 	g_hash_table_destroy (acfg->method_to_cfg);
 	g_hash_table_destroy (acfg->token_info_hash);
@@ -11906,8 +11916,7 @@ acfg_free (MonoAotCompile *acfg)
 	g_hash_table_destroy (acfg->image_hash);
 	g_hash_table_destroy (acfg->unwind_info_offsets);
 	g_hash_table_destroy (acfg->method_label_hash);
-	if (acfg->typespec_classes)
-		g_hash_table_destroy (acfg->typespec_classes);
+	g_hash_table_destroy (acfg->typespec_classes);
 	g_hash_table_destroy (acfg->export_names);
 	g_hash_table_destroy (acfg->plt_entry_debug_sym_cache);
 	g_hash_table_destroy (acfg->klass_blob_hash);

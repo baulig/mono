@@ -40,7 +40,7 @@ MONO_VERSION_BUILD=`echo $VERSION | cut -d . -f 3`
 # This can be reset to 0 when Mono's version number is bumped
 # since it's part of the corlib version (the prefix '1' in the full
 # version number is to ensure the number isn't treated as octal in C)
-MONO_CORLIB_COUNTER=3
+MONO_CORLIB_COUNTER=5
 MONO_CORLIB_VERSION=`printf "1%02d%02d%02d%03d" $MONO_VERSION_MAJOR $MONO_VERSION_MINOR 0 $MONO_CORLIB_COUNTER`
 
 AC_DEFINE_UNQUOTED(MONO_CORLIB_VERSION,$MONO_CORLIB_VERSION,[Version of the corlib-runtime interface])
@@ -974,6 +974,30 @@ AC_SUBST(JEMALLOC_CFLAGS)
 AC_SUBST(JEMALLOC_CPPFLAGS)
 AC_SUBST(JEMALLOC_LDFLAGS)
 AC_SUBST(JEMALLOC_AUTOCONF_FLAGS)
+fi
+
+
+# Terminology:
+# Crash privacy - Attempts to not send identifying information in the crash dump / to protect the obscurity of the program control flow
+# MERP - The MS telemetry profile. Not for general use.
+# Structured crashes - crashes at runtime that trigger a stack walk by mono that happens cooperatively
+
+# Structured crashes are not merp crashes. Structured crashes are json dumps made by mono during crashes. Merp upload is going to use the dumping code is a very specific way, and is enabled at runtime with an icall.
+
+#--with-crash_privacy=yes --with-structured_crashes=no means we don't wanna dump in non-merp-enabled builds, and we want to not send symbol strings. This is going to be the default pair of settings for VS4Mac.
+#--with-crash_privacy=yes --with-structured_crashes=yes means you want to see crashes on your console, and you want to not see unmanaged symbol names. This is an option for proprietary apps that have manual bugs filed.
+#--with-crash_privacy=no --with-structured_crashes=no means you want to see no crash dumps on failure and you don't care about privacy. This is how you'd set a "don't want it, don't care" configuration.
+#--with-crash_privacy=no --with-structured_crashes=yes means you want full crashes and you want to see them in the terminal, not on telemetry. This is going to be how we build for CI.
+
+AC_ARG_WITH(crash-privacy,       [  --with-crash_privacy=yes,no         If you want your crashes to not include names of symbols present in the binary. ], [], [with_crash_privacy=no])
+AC_ARG_WITH(structured-crashes,  [  --with-structured_crashes=yes,no    If you want your unmanaged crashes to result in a small crash dump file. ],        [], [with_structured_crashes=yes])
+
+if test "x$with_crash_privacy" = "xno"; then
+AC_DEFINE(MONO_PRIVATE_CRASHES,1,[Do not include names of unmanaged functions in the crash dump])
+fi
+
+if test "x$with_structured_crashes" = "xno"; then
+AC_DEFINE(DISABLE_STRUCTURED_CRASH,1,[Do not create structured crash files during unmanaged crashes])
 fi
 
 #
@@ -4164,41 +4188,93 @@ AC_CHECK_LIB([iconv], [locale_charset],[],[AC_CHECK_LIB([charset], [locale_chars
 AC_CHECK_HEADER(alloca.h, [HAVE_ALLOCA_H=1], [HAVE_ALLOCA_H=0])
 AC_SUBST(HAVE_ALLOCA_H)
 
-if test $ac_cv_sizeof_void_p = $ac_cv_sizeof_int; then
-   GPOINTER_TO_INT="((gint) (ptr))"
-   GPOINTER_TO_UINT="((guint) (ptr))"
-   GINT_TO_POINTER="((gpointer) (v))"
-   GUINT_TO_POINTER="((gpointer) (v))"
-   GSIZE="int"
-   GSIZE_FORMAT='"u"'
-elif test $ac_cv_sizeof_void_p = $ac_cv_sizeof_long; then
-   GPOINTER_TO_INT="((gint)(long) (ptr))"
-   GPOINTER_TO_UINT="((guint)(long) (ptr))"
-   GINT_TO_POINTER="((gpointer)(glong) (v))"
-   GUINT_TO_POINTER="((gpointer)(gulong) (v))"
-   GSIZE="long"
-   GSIZE_FORMAT='"lu"'
-elif test $ac_cv_sizeof_void_p = $ac_cv_sizeof_long_long; then
-   GPOINTER_TO_INT="((gint)(long long) (ptr))"
-   GPOINTER_TO_UINT="((guint)(unsigned long long) (ptr))"
-   GINT_TO_POINTER="((gpointer)(long long) (v))"
-   GUINT_TO_POINTER="((gpointer)(unsigned long long) (v))"
-   GSIZE="long long"
-   GSIZE_FORMAT='"I64u"'
+# Get the exact type of size_t, not just its size.
+# This is so we can find an exact printf format among u, lu, llu, I64u.
+# To avoid warnings about slight mismatches.
+# C99 runtime "zu" dependency is being avoided here.
+#
+# We have to compile as C++ because C is too lenient
+# and lets the wrong thing compile, with warnings.
+#
+# Note: "zu" or ifdef <something> have the advantage
+# of producing installable "biarch" headers. i.e. one Mac header
+# for Mac/x86 and Mac/amd64.
+
+AC_LANG_PUSH(C++)
+
+# Check long before int because it is the overwhelming Unix answer,
+# across 32bit and 64bit systems -- fewer compiler invocations in autoconf.
+#
+# long ahead of int also tends to produce biarch-compatible headers except Windows.
+#
+AC_MSG_CHECKING(if size_t is unsigned long)
+AC_COMPILE_IFELSE([AC_LANG_SOURCE([
+	#include <stddef.h>
+	unsigned long *a = (size_t*)0;
+])], [
+	AC_MSG_RESULT(yes)
+	AC_SUBST(GSIZE_FORMAT, '"%lu"')
+], [
+	AC_MSG_RESULT(no)
+	AC_MSG_CHECKING(if size_t is unsigned int)
+	AC_COMPILE_IFELSE([AC_LANG_SOURCE([
+		#include <stddef.h>
+		unsigned *a = (size_t*)0;
+	])], [
+		AC_MSG_RESULT(yes)
+		AC_SUBST(GSIZE_FORMAT, '"%u"')
+	], [
+# At this point the majority of systems have their answer,
+# and we descend into non-standard or new-standard territory.
+#
+# Check __int64 first because I64 on some systems predates ll, enabling
+# new compiler/old runtime interop, and the types always have the same size.
+		AC_MSG_RESULT(no)
+		AC_MSG_CHECKING(if size_t is unsigned __int64)
+		AC_COMPILE_IFELSE([AC_LANG_SOURCE([
+			#include <stddef.h>
+			unsigned __int64 *a = (size_t*)0;
+		])], [
+			AC_MSG_RESULT(yes)
+			AC_SUBST(GSIZE_FORMAT, '"%I64u"')
+		], [
+			AC_MSG_RESULT(no)
+			AC_MSG_CHECKING(if size_t is unsigned long long)
+			AC_COMPILE_IFELSE([AC_LANG_SOURCE([
+				#include <stddef.h>
+				unsigned long long *a = (size_t*)0;
+			])], [
+				AC_MSG_RESULT(yes)
+				AC_SUBST(GSIZE_FORMAT, '"%llu"')
+			], [
+				AC_MSG_RESULT(no)
+				AC_MSG_ERROR(Unable to determine size_t among unsigned long, int, __int64, long long)
+			] )
+		] )
+	] )
+] )
+
+AC_LANG_POP
+
+# If size_t/ptrdiff_t is correct, use it. Otherwise C99 [u]intptr_t.
+# This provides for an exact match with functions that
+# take size_t like malloc and pthread_attr_getstacksize, avoiding warnings.
+# uintptr_t is not necessarily the same.
+#
+# ptrdiff_t is preferred over ssize_t as it is C89 vs. new Posix.
+# ssize_t looks nicer but ptrdiff_t is wrapped up as gssize anyway.
+
+if test $ac_cv_sizeof_void_p = $ac_cv_sizeof_size_t; then
+   GSIZE="size_t"
+   GSSIZE="ptrdiff_t"
 else
-   AC_MSG_ERROR([unsupported pointer size])
+   GSIZE="uintptr_t"
+   GSSIZE="intptr_t"
 fi
 
-AC_SUBST(GPOINTER_TO_INT)
-AC_SUBST(GPOINTER_TO_UINT)
-AC_SUBST(GINT_TO_POINTER)
-AC_SUBST(GUINT_TO_POINTER)
 AC_SUBST(GSIZE)
+AC_SUBST(GSSIZE)
 AC_SUBST(GSIZE_FORMAT)
-AC_SUBST(G_GUINT64_FORMAT)
-AC_SUBST(G_GINT64_FORMAT)
-AC_SUBST(G_GUINT32_FORMAT)
-AC_SUBST(G_GINT32_FORMAT)
 
 #
 # END OF EGLIB CHECKS

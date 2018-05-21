@@ -1,11 +1,12 @@
+﻿//
+// Mono.Cairo.Device.cs
 //
-// System.Security.Cryptography.CryptographicAttributeObjectEnumerator class
+// Authors:
+//			JP Bruyère (jp_bruyere@hotmail.com)
 //
-// Author:
-//	Sebastien Pouliot  <sebastien@ximian.com>
+// This is an OO wrapper API for the Cairo API
 //
-// (C) 2003 Motus Technologies Inc. (http://www.motus.com)
-// Copyright (C) 2004-2005 Novell, Inc (http://www.novell.com)
+// Copyright (C) 2016 JP Bruyère
 //
 // Permission is hereby granted, free of charge, to any person obtaining
 // a copy of this software and associated documentation files (the
@@ -26,46 +27,19 @@
 // OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 // WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //
+using System;
 
-#if SECURITY_DEP
-
-using System.Collections;
-
-namespace System.Security.Cryptography {
-
-	public sealed class CryptographicAttributeObjectEnumerator : IEnumerator {
-
-		private IEnumerator enumerator;
-
-		// constructors
-
-		internal CryptographicAttributeObjectEnumerator (IEnumerable enumerable) 
+namespace Cairo
+{
+	public class WGLDevice : Device
+	{
+		public WGLDevice (IntPtr hglrc) : base (NativeMethods.cairo_wgl_device_create (hglrc), true)
 		{
-			enumerator = enumerable.GetEnumerator ();
 		}
 
-		// properties
-
-		public CryptographicAttributeObject Current {
-			get { return (CryptographicAttributeObject) enumerator.Current; }
-		}
-
-		object IEnumerator.Current {
-			get { return enumerator.Current; }
-		}
-
-		// methods
-
-		public bool MoveNext () 
-		{
-			return enumerator.MoveNext ();
-		}
-
-		public void Reset ()
-		{
-			enumerator.Reset ();
+		public IntPtr Context {
+			get { return NativeMethods.cairo_wgl_device_get_context (Handle); }
 		}
 	}
 }
 
-#endif

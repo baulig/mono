@@ -5,7 +5,7 @@ if [[ ${CI_TAGS} == *'win-'* ]] || [[ ${CI_TAGS} == *'ppc64'* ]]
 then ${TESTCMD} --label=aot-test --skip;
 else ${TESTCMD} --label=aot-test --timeout=30m make -w -C mono/tests -j4 -k test-aot
 fi
-${TESTCMD} --label=compile-bcl-tests --timeout=40m make -i -w -C runtime -j4 test
+${TESTCMD} --label=compile-bcl-tests --timeout=40m make -i -w -C runtime -j4 test xunit-test
 ${TESTCMD} --label=compile-runtime-tests --timeout=40m make -w -C mono/tests -j4 tests
 ${TESTCMD} --label=runtime --timeout=160m make -w -C mono/tests -k test-wrench V=1 CI=1 CI_PR=$([[ ${CI_TAGS} == *'pull-request'* ]] && echo 1 || true)
 ${TESTCMD} --label=runtime-unit-tests --timeout=5m make -w -C mono/unit-tests -k check
@@ -21,6 +21,7 @@ if [[ ${CI_TAGS} == *'osx-'* ]]; then ${TESTCMD} --label=System-btls --timeout=1
 ${TESTCMD} --label=System.XML --timeout=5m make -w -C mcs/class/System.XML run-test
 ${TESTCMD} --label=Mono.Security --timeout=5m make -w -C mcs/class/Mono.Security run-test
 ${TESTCMD} --label=System.Security --timeout=5m make -w -C mcs/class/System.Security run-test
+${TESTCMD} --label=System.Security-xunit --timeout=5m make -w -C mcs/class/System.Security run-xunit-test
 if [[ ${CI_TAGS} == *'win-'* ]]
 then ${TESTCMD} --label=System.Drawing --skip;
 else
@@ -70,6 +71,7 @@ ${TESTCMD} --label=System.Web.Extensions --timeout=5m make -w -C mcs/class/Syste
 ${TESTCMD} --label=System.Core --timeout=15m make -w -C mcs/class/System.Core run-test
 ${TESTCMD} --label=System.Core-xunit --timeout=15m make -w -C mcs/class/System.Core run-xunit-test
 ${TESTCMD} --label=System.Xml.Linq --timeout=5m make -w -C mcs/class/System.Xml.Linq run-test
+${TESTCMD} --label=System.Xml.Linq-xunit --timeout=5m make -w -C mcs/class/System.Xml.Linq run-xunit-test
 ${TESTCMD} --label=System.Data.DSE --timeout=5m make -w -C mcs/class/System.Data.DataSetExtensions run-test
 ${TESTCMD} --label=System.Web.Abstractions --timeout=5m make -w -C mcs/class/System.Web.Abstractions run-test
 ${TESTCMD} --label=System.Web.Routing --timeout=5m make -w -C mcs/class/System.Web.Routing run-test
@@ -127,7 +129,7 @@ if [[ $CI_TAGS == *'apidiff'* ]]; then
     source ${MONO_REPO_ROOT}/scripts/ci/util.sh
     if ${TESTCMD} --label=apidiff --timeout=15m --fatal make -w -C mcs -j4 mono-api-diff
     then report_github_status "success" "API Diff" "No public API changes found." || true
-    else report_github_status "error" "API Diff" "The public API changed." "$BUILD_URL/Public_API_Diff/" || true
+    else report_github_status "error" "API Diff" "The public API changed." "$BUILD_URL/Public_20API_20Diff/" || true
     fi
 else ${TESTCMD} --label=apidiff --skip
 fi
@@ -136,7 +138,7 @@ if [[ $CI_TAGS == *'csprojdiff'* ]]; then
     make update-solution-files
     if ${TESTCMD} --label=csprojdiff --timeout=5m --fatal make -w -C mcs mono-csproj-diff
     then report_github_status "success" "Project Files Diff" "No csproj file changes found." || true
-    else report_github_status "error" "Project Files Diff" "The csproj files changed." "$BUILD_URL/Project_Files_Diff/" || true
+    else report_github_status "error" "Project Files Diff" "The csproj files changed." "$BUILD_URL/Project_20Files_20Diff/" || true
     fi
 else ${TESTCMD} --label=csprojdiff --skip
 fi
