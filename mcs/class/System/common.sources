@@ -738,7 +738,15 @@ ReferenceSources/Win32Exception.cs
 ../../../external/corefx/src/System.Net.Mail/src/System/Net/BufferBuilder.cs
 ../../../external/corefx/src/System.Net.Mail/src/System/Net/CloseableStream.cs
 ../../../external/corefx/src/System.Net.Mail/src/System/Net/DelegatedStream.cs
+../../../external/corefx/src/Common/src/System/Net/Mail/DomainLiteralReader.cs
+../../../external/corefx/src/Common/src/System/Net/Mail/DotAtomReader.cs
+../../../external/corefx/src/Common/src/System/Net/Mail/MailAddressParser.cs
 ../../../external/corefx/src/Common/src/System/Net/Mail/MailBnfHelper.cs
+../../../external/corefx/src/Common/src/System/Net/Mail/QuotedPairReader.cs
+../../../external/corefx/src/Common/src/System/Net/Mail/QuotedStringFormatReader.cs
+../../../external/corefx/src/Common/src/System/Net/Mail/WhitespaceReader.cs
+../../../external/corefx/src/System.Net.Mail/src/System/Net/Mail/MailAddress.cs
+../../../external/corefx/src/System.Net.Mail/src/System/Net/Mail/MailAddressCollection.cs
 ../../../external/corefx/src/System.Net.Mail/src/System/Net/Mail/MailHeaderInfo.cs
 ../../../external/corefx/src/System.Net.Mail/src/System/Net/Mail/MailHeaderID.cs
 
