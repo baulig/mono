@@ -124,7 +124,7 @@ namespace Mono.AppleTls
 			}
 		}
 
-#region Handshake
+		#region Handshake
 
 		public override bool IsAuthenticated {
 			get { return isAuthenticated; }
@@ -363,9 +363,9 @@ namespace Mono.AppleTls
 			get { return connectionInfo.ProtocolVersion; }
 		}
 
-#endregion
+		#endregion
 
-#region General P/Invokes
+		#region General P/Invokes
 
 		[DllImport (SecurityLibrary )]
 		extern static /* OSStatus */ SslStatus SSLGetProtocolVersionMax (/* SSLContextRef */ IntPtr context, out SslProtocol maxVersion);
@@ -668,9 +668,9 @@ namespace Mono.AppleTls
 			return (value == IntPtr.Zero) ? null : new SecTrust (value, true);
 		}
 
-#endregion
+		#endregion
 
-#region IO Functions
+		#region IO Functions
 
 		[DllImport (SecurityLibrary)]
 		extern static /* SSLContextRef */ IntPtr SSLCreateContext (/* CFAllocatorRef */ IntPtr alloc, SslProtocolSide protocolSide, SslConnectionType connectionType);
@@ -854,7 +854,7 @@ namespace Mono.AppleTls
 			closed = true;
 		}
 
-#endregion
+		#endregion
 
 		protected override void Dispose (bool disposing)
 		{
