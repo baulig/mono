@@ -4,6 +4,7 @@ Assembly/AssemblyInfo.cs
 corefx/SR.cs
 
 ../../../external/corefx/src/Common/src/CoreLib/System/Runtime/CompilerServices/IntrinsicAttribute.cs
+../../../external/corefx/src/Common/src/CoreLib/System/Text/ValueStringBuilder.cs
 
 ../../../external/corefx/src/Common/src/System/Globalization/FormatProvider.Number.cs
 ../../../external/corefx/src/Common/src/System/Numerics/Hashing/HashHelpers.cs
