@@ -11,238 +11,193 @@ using System.Threading.Tasks;
 
 namespace System.Net.Http
 {
-    // This implementation uses the System.Net.Http.WinHttpHandler class on Windows.  Other platforms will need to use
-    // their own platform specific implementation.
-    public partial class HttpClientHandler : HttpMessageHandler
-    {
-        private readonly SocketsHttpHandler _socketsHttpHandler;
-        private readonly DiagnosticsHandler _diagnosticsHandler;
-        private ClientCertificateOption _clientCertificateOptions;
+	public partial class HttpClientHandler : HttpMessageHandler
+	{
+		readonly SocketsHttpHandler socketsHttpHandler;
+		readonly DiagnosticsHandler diagnosticsHandler;
+		ClientCertificateOption clientCertificateOptions;
 
-        public HttpClientHandler() : this(UseSocketsHttpHandler) { }
-
-		private HttpClientHandler (bool useSocketsHttpHandler) // used by parameterless ctor and as hook for testing
+		public HttpClientHandler ()
 		{
-			_socketsHttpHandler = new SocketsHttpHandler ();
-			_diagnosticsHandler = new DiagnosticsHandler (_socketsHttpHandler);
-			_clientCertificateOptions = ClientCertificateOption.Manual;
+			socketsHttpHandler = new SocketsHttpHandler ();
+			diagnosticsHandler = new DiagnosticsHandler (socketsHttpHandler);
+			clientCertificateOptions = ClientCertificateOption.Manual;
+
+			ServerCertificateCustomValidationCallback = (m, c, ch, e) => {
+				return ServicePointManager.ServerCertificateValidationCallback?.Invoke (m, c, ch, e) ?? e == SslPolicyErrors.None;
+			};
 		}
 
-        protected override void Dispose(bool disposing)
-        {
-            if (disposing && !_disposed)
-            {
-                _disposed = true;
-                _socketsHttpHandler.Dispose();
-            }
+		protected override void Dispose (bool disposing)
+		{
+			if (disposing && !_disposed) {
+				_disposed = true;
+				socketsHttpHandler.Dispose ();
+			}
 
-            base.Dispose(disposing);
-        }
+			base.Dispose (disposing);
+		}
 
-        public virtual bool SupportsAutomaticDecompression => true;
-        public virtual bool SupportsProxy => true;
-        public virtual bool SupportsRedirectConfiguration => true;
+		public virtual bool SupportsAutomaticDecompression => true;
+		public virtual bool SupportsProxy => true;
+		public virtual bool SupportsRedirectConfiguration => true;
 
-        public bool UseCookies
-        {
-            get => _socketsHttpHandler.UseCookies;
-            set
-            {
-                    _socketsHttpHandler.UseCookies = value;
-            }
-        }
+		public bool UseCookies {
+			get => socketsHttpHandler.UseCookies;
+			set {
+				socketsHttpHandler.UseCookies = value;
+			}
+		}
 
-        public CookieContainer CookieContainer
-        {
-            get => _socketsHttpHandler.CookieContainer;
-            set
-            {
-                    _socketsHttpHandler.CookieContainer = value;
-            }
-        }
+		public CookieContainer CookieContainer {
+			get => socketsHttpHandler.CookieContainer;
+			set {
+				socketsHttpHandler.CookieContainer = value;
+			}
+		}
 
-        public DecompressionMethods AutomaticDecompression
-        {
-            get => _socketsHttpHandler.AutomaticDecompression;
-            set
-            {
-                    _socketsHttpHandler.AutomaticDecompression = value;
-            }
-        }
+		public DecompressionMethods AutomaticDecompression {
+			get => socketsHttpHandler.AutomaticDecompression;
+			set {
+				socketsHttpHandler.AutomaticDecompression = value;
+			}
+		}
 
-        public bool UseProxy
-        {
-            get => _socketsHttpHandler.UseProxy;
-            set
-            {
-                    _socketsHttpHandler.UseProxy = value;
-            }
-        }
+		public bool UseProxy {
+			get => socketsHttpHandler.UseProxy;
+			set {
+				socketsHttpHandler.UseProxy = value;
+			}
+		}
 
-        public IWebProxy Proxy
-        {
-            get => _socketsHttpHandler.Proxy;
-            set
-            {
-                    _socketsHttpHandler.Proxy = value;
-            }
-        }
+		public IWebProxy Proxy {
+			get => socketsHttpHandler.Proxy;
+			set {
+				socketsHttpHandler.Proxy = value;
+			}
+		}
 
-        public ICredentials DefaultProxyCredentials
-        {
-            get => _socketsHttpHandler.DefaultProxyCredentials;
-            set
-            {
-                    _socketsHttpHandler.DefaultProxyCredentials = value;
-            }
-        }
+		public ICredentials DefaultProxyCredentials {
+			get => socketsHttpHandler.DefaultProxyCredentials;
+			set {
+				socketsHttpHandler.DefaultProxyCredentials = value;
+			}
+		}
 
-        public bool PreAuthenticate
-        {
-            get =>  _socketsHttpHandler.PreAuthenticate;
-            set
-            {
-                    _socketsHttpHandler.PreAuthenticate = value;
-            }
-        }
+		public bool PreAuthenticate {
+			get => socketsHttpHandler.PreAuthenticate;
+			set {
+				socketsHttpHandler.PreAuthenticate = value;
+			}
+		}
 
-        public bool UseDefaultCredentials
-        {
-            // WinHttpHandler doesn't have a separate UseDefaultCredentials property.  There
-            // is just a ServerCredentials property.  So, we need to map the behavior.
-            // Do the same for SocketsHttpHandler.Credentials.
-            //
-            // This property only affect .ServerCredentials and not .DefaultProxyCredentials.
+		public bool UseDefaultCredentials {
+			// WinHttpHandler doesn't have a separate UseDefaultCredentials property.  There
+			// is just a ServerCredentials property.  So, we need to map the behavior.
+			// Do the same for SocketsHttpHandler.Credentials.
+			//
+			// This property only affect .ServerCredentials and not .DefaultProxyCredentials.
 
-            get => _socketsHttpHandler.Credentials == CredentialCache.DefaultCredentials;
-            set
-            {
-                    if (value)
-                    {
-                        _socketsHttpHandler.Credentials = CredentialCache.DefaultCredentials;
-                    }
-                    else
-                    {
-                        if (_socketsHttpHandler.Credentials == CredentialCache.DefaultCredentials)
-                        {
-                            // Only clear out the Credentials property if it was a DefaultCredentials.
-                            _socketsHttpHandler.Credentials = null;
-                        }
-                    }
-            }
-        }
+			get => socketsHttpHandler.Credentials == CredentialCache.DefaultCredentials;
+			set {
+				if (value) {
+					socketsHttpHandler.Credentials = CredentialCache.DefaultCredentials;
+				} else {
+					if (socketsHttpHandler.Credentials == CredentialCache.DefaultCredentials) {
+						// Only clear out the Credentials property if it was a DefaultCredentials.
+						socketsHttpHandler.Credentials = null;
+					}
+				}
+			}
+		}
 
-        public ICredentials Credentials
-        {
-            get => _socketsHttpHandler.Credentials;
-            set
-            {
-                    _socketsHttpHandler.Credentials = value;
-            }
-        }
+		public ICredentials Credentials {
+			get => socketsHttpHandler.Credentials;
+			set {
+				socketsHttpHandler.Credentials = value;
+			}
+		}
 
-        public bool AllowAutoRedirect
-        {
-            get => _socketsHttpHandler.AllowAutoRedirect;
-            set
-            {
-                    _socketsHttpHandler.AllowAutoRedirect = value;
-            }
-        }
+		public bool AllowAutoRedirect {
+			get => socketsHttpHandler.AllowAutoRedirect;
+			set {
+				socketsHttpHandler.AllowAutoRedirect = value;
+			}
+		}
 
-        public int MaxAutomaticRedirections
-        {
-            get => _socketsHttpHandler.MaxAutomaticRedirections;
-            set
-            {
-                    _socketsHttpHandler.MaxAutomaticRedirections = value;
-            }
-        }
+		public int MaxAutomaticRedirections {
+			get => socketsHttpHandler.MaxAutomaticRedirections;
+			set {
+				socketsHttpHandler.MaxAutomaticRedirections = value;
+			}
+		}
 
-        public int MaxConnectionsPerServer
-        {
-            get => _socketsHttpHandler.MaxConnectionsPerServer;
-            set
-            {
-                    _socketsHttpHandler.MaxConnectionsPerServer = value;
-            }
-        }
+		public int MaxConnectionsPerServer {
+			get => socketsHttpHandler.MaxConnectionsPerServer;
+			set {
+				socketsHttpHandler.MaxConnectionsPerServer = value;
+			}
+		}
 
-        public int MaxResponseHeadersLength
-        {
-            get => _socketsHttpHandler.MaxResponseHeadersLength;
-            set
-            {
-                    _socketsHttpHandler.MaxResponseHeadersLength = value;
-            }
-        }
+		public int MaxResponseHeadersLength {
+			get => socketsHttpHandler.MaxResponseHeadersLength;
+			set {
+				socketsHttpHandler.MaxResponseHeadersLength = value;
+			}
+		}
 
-        public ClientCertificateOption ClientCertificateOptions
-        {
-            get
-            {
-                    return _clientCertificateOptions;
-            }
-            set
-            {
-                            throw new ArgumentOutOfRangeException(nameof(value));
-            }
-        }
+		public ClientCertificateOption ClientCertificateOptions {
+			get {
+				return clientCertificateOptions;
+			}
+			set {
+				throw new ArgumentOutOfRangeException (nameof (value));
+			}
+		}
 
-        public X509CertificateCollection ClientCertificates
-        {
-            get
-            {
-                    if (ClientCertificateOptions != ClientCertificateOption.Manual)
-                    {
-                        throw new InvalidOperationException(SR.Format(SR.net_http_invalid_enable_first, nameof(ClientCertificateOptions), nameof(ClientCertificateOption.Manual)));
-                    }
+		public X509CertificateCollection ClientCertificates {
+			get {
+				if (ClientCertificateOptions != ClientCertificateOption.Manual) {
+					throw new InvalidOperationException (SR.Format (SR.net_http_invalid_enable_first, nameof (ClientCertificateOptions), nameof (ClientCertificateOption.Manual)));
+				}
 
-                    return _socketsHttpHandler.SslOptions.ClientCertificates ??
-                        (_socketsHttpHandler.SslOptions.ClientCertificates = new X509CertificateCollection());
-            }
-        }
+				return socketsHttpHandler.SslOptions.ClientCertificates ??
+				    (socketsHttpHandler.SslOptions.ClientCertificates = new X509CertificateCollection ());
+			}
+		}
 
-        public Func<HttpRequestMessage, X509Certificate2, X509Chain, SslPolicyErrors, bool> ServerCertificateCustomValidationCallback
-        {
-            get
-            {
-                return (_socketsHttpHandler.SslOptions.RemoteCertificateValidationCallback?.Target as ConnectHelper.CertificateCallbackMapper)?.FromHttpClientHandler;
-            }
-            set
-            {
-                    _socketsHttpHandler.SslOptions.RemoteCertificateValidationCallback = value != null ?
-                        new ConnectHelper.CertificateCallbackMapper(value).ForSocketsHttpHandler :
-                        null;
-            }
-        }
+		public Func<HttpRequestMessage, X509Certificate2, X509Chain, SslPolicyErrors, bool> ServerCertificateCustomValidationCallback {
+			get {
+				return (socketsHttpHandler.SslOptions.RemoteCertificateValidationCallback?.Target as ConnectHelper.CertificateCallbackMapper)?.FromHttpClientHandler;
+			}
+			set {
+				socketsHttpHandler.SslOptions.RemoteCertificateValidationCallback = value != null ?
+				    new ConnectHelper.CertificateCallbackMapper (value).ForSocketsHttpHandler :
+				    null;
+			}
+		}
 
-        public bool CheckCertificateRevocationList
-        {
-            get => _socketsHttpHandler.SslOptions.CertificateRevocationCheckMode == X509RevocationMode.Online;
-            set
-            {
-                    _socketsHttpHandler.SslOptions.CertificateRevocationCheckMode = value ? X509RevocationMode.Online : X509RevocationMode.NoCheck;
-            }
-        }
+		public bool CheckCertificateRevocationList {
+			get => socketsHttpHandler.SslOptions.CertificateRevocationCheckMode == X509RevocationMode.Online;
+			set {
+				socketsHttpHandler.SslOptions.CertificateRevocationCheckMode = value ? X509RevocationMode.Online : X509RevocationMode.NoCheck;
+			}
+		}
 
-        public SslProtocols SslProtocols
-        {
-            get => _socketsHttpHandler.SslOptions.EnabledSslProtocols;
-            set
-            {
-                    _socketsHttpHandler.SslOptions.EnabledSslProtocols = value;
-            }
-        }
+		public SslProtocols SslProtocols {
+			get => socketsHttpHandler.SslOptions.EnabledSslProtocols;
+			set {
+				socketsHttpHandler.SslOptions.EnabledSslProtocols = value;
+			}
+		}
 
-        public IDictionary<string, object> Properties => _socketsHttpHandler.Properties;
-        
-        protected internal override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,
-            CancellationToken cancellationToken)
-        {
-              return DiagnosticsHandler.IsEnabled() ?
-                    _diagnosticsHandler.SendAsync(request, cancellationToken) :
-                    _socketsHttpHandler.SendAsync(request, cancellationToken);
-        }
-    }
+		public IDictionary<string, object> Properties => socketsHttpHandler.Properties;
+
+		protected internal override Task<HttpResponseMessage> SendAsync (HttpRequestMessage request, CancellationToken cancellationToken)
+		{
+			return DiagnosticsHandler.IsEnabled () ?
+			      diagnosticsHandler.SendAsync (request, cancellationToken) :
+			      socketsHttpHandler.SendAsync (request, cancellationToken);
+		}
+	}
 }
