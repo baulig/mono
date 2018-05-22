@@ -1770,6 +1770,8 @@ corert/RuntimeAugments.cs
 # Once that's done, we still need these parts here - but their namespace should be changed back to System, to make them become part of the "Number" class.
 ../../../external/corefx/src/System.Memory/src/System/Number/*.cs
 
+../../../external/corefx/src/Common/src/System/MutableDecimal.cs
+
 ../../../external/corefx/src/System.Runtime.InteropServices.RuntimeInformation/src/System/Runtime/InteropServices/RuntimeInformation/OSPlatform.cs
 ../../../external/corefx/src/System.Runtime.InteropServices.RuntimeInformation/src/System/Runtime/InteropServices/RuntimeInformation/Architecture.cs
 
