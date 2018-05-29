@@ -1552,7 +1552,6 @@ corert/EnvironmentAugments.cs
 corert/RelocatedTypeAttribute.cs
 corert/RuntimeThread.cs
 corert/Stream.cs
-corert/ThreadPoolBoundHandle.cs
 corert/Task.cs
 corert/ThreadPool.cs
 corert/RuntimeAugments.cs

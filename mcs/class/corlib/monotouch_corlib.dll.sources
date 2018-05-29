@@ -13,3 +13,5 @@ System.Text/EncodingHelper.MonoTouch.cs
 System/Environment.iOS.cs
 System/Guid.MonoTouch.cs
 System/NotSupportedException.iOS.cs
+corert/ThreadPoolBoundHandle.platformnotsupported.cs
+corert/PreAllocatedOverlapped.platformnotsupported.cs
