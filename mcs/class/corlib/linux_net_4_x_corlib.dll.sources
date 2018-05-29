@@ -1,6 +1,6 @@
 #include net_4_x_corlib.dll.sources
 
-corert/ThreadPoolBoundHandle.cs
+corert/ThreadPoolBoundHandle.platformnotsupported.cs
 corert/PreAllocatedOverlapped.platformnotsupported.cs
 
 ../../../external/corefx/src/Common/src/CoreLib/Interop/Unix/System.Native/Interop.GetRandomBytes.cs

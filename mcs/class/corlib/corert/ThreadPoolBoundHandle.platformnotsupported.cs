@@ -1,5 +1,3 @@
-#if !MULTIPLEX_OS
-
 namespace System.Threading
 {
 	public sealed class ThreadPoolBoundHandle : IDisposable
@@ -62,4 +60,3 @@ namespace System.Threading
 		}
 	}
 }
-#endif
