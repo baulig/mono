@@ -1759,7 +1759,6 @@ corert/RuntimeAugments.cs
 ../../../external/corefx/src/Common/src/CoreLib/System/Buffers/Text/FormattingHelpers.CountDigits.cs
 ../../../external/corefx/src/System.Memory/src/System/Buffers/StandardFormat.cs
 ../../../external/corefx/src/System.Memory/src/System/Buffers/OperationStatus.cs
-../../../external/corefx/src/System.Memory/src/System/Buffers/ReadOnlySequenceSegment.cs
 ../../../external/corefx/src/System.Memory/src/System/Buffers/Text/*.cs
 ../../../external/corefx/src/System.Memory/src/System/Buffers/Text/Utf8Formatter/*.cs
 ../../../external/corefx/src/System.Memory/src/System/Buffers/Text/Utf8Parser/*.cs
