@@ -10,3 +10,6 @@ Mono.AppleTls/SslConnection.cs
 
 Mono.AppleTls/MonoCertificatePal.cs
 Mono.AppleTls/SafeHandles.Mono.cs
+
+Mono.AppleTls/X509CertificateImplApple.cs
+Mono.AppleTls/X509PalImpl.Apple.cs
