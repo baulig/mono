@@ -9,5 +9,4 @@ Mono.AppleTls/Trust.cs
 Mono.AppleTls/SslConnection.cs
 
 Mono.AppleTls/MonoCertificatePal.cs
-Mono.AppleTls/SafeHandles.cs
 Mono.AppleTls/SafeHandles.Mono.cs

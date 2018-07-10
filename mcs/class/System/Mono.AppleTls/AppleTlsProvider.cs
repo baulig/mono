@@ -30,6 +30,11 @@ namespace Mono.AppleTls
 {
 	class AppleTlsProvider : MonoTlsProvider
 	{
+		public AppleTlsProvider ()
+		{
+			MartinTest.Run ();
+		}
+
 		public override string Name {
 			get { return "apple-tls"; }
 		}

@@ -34,6 +34,7 @@ using System.Security.Cryptography;
 using System.Security.Cryptography.Apple;
 using System.Security.Cryptography.X509Certificates;
 using Microsoft.Win32.SafeHandles;
+using ObjCRuntimeInternal;
 using Mono.Net;
 
 #if MONO_FEATURE_BTLS
