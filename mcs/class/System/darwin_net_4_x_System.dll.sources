@@ -12,3 +12,7 @@
 ../../../external/corefx/src/Common/src/Microsoft/Win32/SafeHandles/SafeEventStreamHandle.OSX.cs
 ../../../external/corefx/src/Common/src/System/Net/ContextAwareResult.OSX.cs
 
+Mono.AppleTls/MonoCertificatePal.cs
+Mono.AppleTls/MonoCertificatePal.OSX.cs
+Mono.AppleTls/SafeHandles.cs
+Mono.AppleTls/SafeHandles.Mono.cs
