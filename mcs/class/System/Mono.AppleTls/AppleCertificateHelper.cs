@@ -102,11 +102,8 @@ namespace Mono.AppleTls
 			intermediateCerts = new SafeSecCertificateHandle [impl2.IntermediateCertificates.Count];
 
 			try {
-				for (int i = 0; i < intermediateCerts.Length; i++) {
-					var handle = impl2.IntermediateCertificates [i].GetNativeAppleCertificate ();
-					if (handle != null)
-						intermediateCerts [i] = new SafeSecCertificateHandle (handle, false);
-				}
+				for (int i = 0; i < intermediateCerts.Length; i++)
+					intermediateCerts [i] = MonoCertificatePal.FromOtherCertificate (impl2.IntermediateCertificates[i]);
 
 				return identity;
 			} catch {
