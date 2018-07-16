@@ -2,6 +2,7 @@
 #include appletls.sources
 
 Mono.AppleTls/MonoCertificatePal.Mobile.cs
+Mono.AppleTls/SafeHandles.cs
 
 ../../../external/corefx/src/System.Text.RegularExpressions/src/System/Text/RegularExpressions/RegexCompiler.cs
 ../../../external/corefx/src/System.Text.RegularExpressions/src/System/Text/RegularExpressions/CompiledRegexRunner.cs

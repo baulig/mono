@@ -2,3 +2,4 @@
 #include appletls.sources
 
 Mono.AppleTls/MonoCertificatePal.Mobile.cs
+Mono.AppleTls/SafeHandles.cs

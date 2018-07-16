@@ -3,6 +3,7 @@
 #include appletls.sources
 
 Mono.AppleTls/MonoCertificatePal.OSX.cs
+Mono.AppleTls/SafeHandles.cs
 
 ../../../external/corefx/src/Common/src/Interop/OSX/Interop.Libraries.cs
 ../../../external/corefx/src/Common/src/Interop/OSX/Interop.EventStream.cs
