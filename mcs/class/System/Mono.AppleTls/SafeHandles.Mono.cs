@@ -61,6 +61,10 @@ namespace System.Security.Cryptography.Apple
 
 	partial class SafeSecKeyRefHandle
 	{
+		public SafeSecKeyRefHandle ()
+		{
+		}
+
 		public SafeSecKeyRefHandle (IntPtr handle, bool ownsHandle = false)
 			: base (handle, ownsHandle)
 		{
