@@ -1,5 +1,4 @@
-﻿#if SECURITY_DEP && MONO_FEATURE_APPLETLS
-//
+﻿//
 // AppleCertificateHelper.cs
 //
 // Author:
@@ -160,4 +159,3 @@ namespace Mono.AppleTls
 		}
 	}
 }
-#endif
