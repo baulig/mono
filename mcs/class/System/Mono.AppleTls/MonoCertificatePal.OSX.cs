@@ -29,6 +29,7 @@
 // THE SOFTWARE.
 using System;
 using System.Threading;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Security.Cryptography.Apple;
@@ -45,8 +46,87 @@ using Mono.Security.Cryptography;
 
 namespace Mono.AppleTls
 {
+	using Interop = global::Interop;
+
 	static partial class MonoCertificatePal
 	{
+		public static X509ContentType GetCertContentType (byte[] rawData)
+		{
+			if (rawData == null || rawData.Length == 0)
+				return X509ContentType.Unknown;
+
+			return Interop.AppleCrypto.X509GetContentType (rawData, rawData.Length);
+		}
+
+		public static SafeHandle FromBlob (byte[] rawData, SafePasswordHandle password, X509KeyStorageFlags keyStorageFlags)
+		{
+			Debug.Assert (password != null);
+
+			X509ContentType contentType = GetCertContentType (rawData);
+
+			if (contentType == X509ContentType.Pkcs7) {
+				// In single mode for a PKCS#7 signed or signed-and-enveloped file we're supposed to return
+				// the certificate which signed the PKCS#7 file.
+				// 
+				// X509Certificate2Collection::Export(X509ContentType.Pkcs7) claims to be a signed PKCS#7,
+				// but doesn't emit a signature block. So this is hard to test.
+				//
+				// TODO(2910): Figure out how to extract the signing certificate, when it's present.
+				throw new CryptographicException (SR.Cryptography_X509_PKCS7_NoSigner);
+			}
+
+			bool exportable = true;
+
+			SafeKeychainHandle keychain;
+
+			if (contentType == X509ContentType.Pkcs12) {
+				if ((keyStorageFlags & X509KeyStorageFlags.EphemeralKeySet) == X509KeyStorageFlags.EphemeralKeySet)
+					throw new PlatformNotSupportedException (SR.Cryptography_X509_NoEphemeralPfx);
+
+				exportable = (keyStorageFlags & X509KeyStorageFlags.Exportable) == X509KeyStorageFlags.Exportable;
+
+				bool persist =
+				    (keyStorageFlags & X509KeyStorageFlags.PersistKeySet) == X509KeyStorageFlags.PersistKeySet;
+
+				keychain = persist
+				    ? Interop.AppleCrypto.SecKeychainCopyDefault ()
+				    : Interop.AppleCrypto.CreateTemporaryKeychain ();
+			} else {
+				keychain = SafeTemporaryKeychainHandle.InvalidHandle;
+				password = SafePasswordHandle.InvalidHandle;
+			}
+
+			using (keychain) {
+				SafeSecIdentityHandle identityHandle;
+				SafeSecCertificateHandle certHandle = Interop.AppleCrypto.X509ImportCertificate (
+				    rawData,
+				    contentType,
+				    password,
+				    keychain,
+				    exportable,
+				    out identityHandle);
+
+				if (identityHandle.IsInvalid) {
+					identityHandle.Dispose ();
+					// return new AppleCertificatePal (certHandle);
+					return certHandle;
+				}
+
+				if (contentType != X509ContentType.Pkcs12) {
+					Debug.Fail ("Non-PKCS12 import produced an identity handle");
+
+					identityHandle.Dispose ();
+					certHandle.Dispose ();
+					throw new CryptographicException ();
+				}
+
+				Debug.Assert (certHandle.IsInvalid);
+				certHandle.Dispose ();
+				return identityHandle;
+				// return new AppleCertificatePal (identityHandle);
+			}
+		}
+
 		public static SafeSecIdentityHandle ImportIdentity (X509Certificate2 certificate)
 		{
 			if (certificate == null)
@@ -146,70 +226,8 @@ namespace Mono.AppleTls
 			if (!certificate.HasPrivateKey)
 				throw new NotSupportedException ();
 
-			CFArray items;
-			using (var data = CFData.FromData (ExportKey ((RSA)certificate.PrivateKey)))
-				items = ItemImport (data, SecExternalFormat.OpenSSL, SecExternalItemType.PrivateKey);
-
-			try {
-				if (items.Count != 1)
-					throw new InvalidOperationException ("Private key import failed.");
-
-				var imported = items[0];
-				if (!MonoCertificatePal.IsSecKey (imported))
-					throw new InvalidOperationException ("Private key import doesn't return SecKey.");
-
-				return new SafeSecKeyRefHandle (imported, items.Handle);
-			} finally {
-				items.Dispose ();
-			}
-		}
-
-		const int SEC_KEY_IMPORT_EXPORT_PARAMS_VERSION = 0;
-
-		// Native enum; don't change.
-		enum SecExternalFormat : int
-		{
-			Unknown = 0,
-			OpenSSL = 1,
-			X509Cert = 9,
-			PEMSequence = 10,
-			PKCS7 = 11,
-			PKCS12 = 12
-		}
-
-		// Native enum; don't change.
-		enum SecExternalItemType : int
-		{
-			Unknown = 0,
-			PrivateKey = 1,
-			PublicKey = 2,
-			SessionKey = 3,
-			Certificate = 4,
-			Aggregate = 5
-		}
-
-		// Native enum; don't change
-		enum SecItemImportExportFlags : int
-		{
-			None,
-			PemArmour = 0x00000001,   /* exported blob is PEM formatted */
-		}
-
-		// Native struct; don't change
-		[StructLayout (LayoutKind.Sequential)]
-		struct SecItemImportExportKeyParameters
-		{
-			public int version;            /* SEC_KEY_IMPORT_EXPORT_PARAMS_VERSION */
-			public int flags;              /* SecKeyImportExportFlags bits */
-			public IntPtr passphrase;      /* SecExternalFormat.PKCS12 only.  Legal types are CFStringRef and CFDataRef. */
-
-			IntPtr alertTitle;
-			IntPtr alertPrompt;
-
-			public IntPtr accessRef;       /* SecAccessRef */
-
-			IntPtr keyUsage;
-			IntPtr keyAttributes;
+			var keyBlob = ExportKey ((RSA)certificate.PrivateKey);
+			return Interop.AppleCrypto.ImportEphemeralKey (keyBlob, true);
 		}
 	}
 }
