@@ -26,6 +26,11 @@ Internal.Cryptography/OidLookup.Managed.cs
 ../../../external/corefx/src/Common/src/Interop/OSX/Interop.CoreFoundation.cs
 
 ../../../external/corefx/src/Common/src/System/Security/Cryptography/DerSequenceReader.cs
+../../../external/corefx/src/Common/src/System/Security/Cryptography/SecKeyPair.cs
+
+../../../external/corefx/src/System.Security.Cryptography.X509Certificates/src/Internal/Cryptography/ICertificatePal.cs
+../../../external/corefx/src/System.Security.Cryptography.X509Certificates/src/Internal/Cryptography/Oids.cs
+../../../external/corefx/src/System.Security.Cryptography.X509Certificates/src/Internal/Cryptography/Pal.OSX/CertificateData.cs
 
 ../../../external/corefx/src/Common/src/Interop/OSX/System.Security.Cryptography.Native.Apple/Interop.Err.cs
 ../../../external/corefx/src/Common/src/Interop/OSX/System.Security.Cryptography.Native.Apple/Interop.PAL_HashAlgorithm.cs
