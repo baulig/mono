@@ -23,11 +23,11 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
-#if MONO_FEATURE_APPLETLS || MONO_FEATURE_APPLE_X509
 using System;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using XamMac.CoreFoundation;
+using Microsoft.Win32.SafeHandles;
 
 namespace Mono.AppleTls
 {
@@ -35,6 +35,9 @@ namespace Mono.AppleTls
 	{
 		public override X509CertificateImpl Import (byte[] data)
 		{
+			var type = MonoCertificatePal.GetCertContentType (data);
+			Console.Error.WriteLine ($"IMPORT TYPE: {type}");
+
 			data = ConvertData (data);
 
 			var handle = CFHelpers.CreateCertificateFromData (data);
@@ -47,6 +50,14 @@ namespace Mono.AppleTls
 		public override X509Certificate2Impl Import (
 			byte[] data, string password, X509KeyStorageFlags keyStorageFlags)
 		{
+			var type = MonoCertificatePal.GetCertContentType (data);
+			Console.Error.WriteLine ($"IMPORT TYPE: {type}");
+
+			using (var safePasswordHandle = new SafePasswordHandle (password)) {
+				var result = MonoCertificatePal.FromBlob (data, safePasswordHandle, keyStorageFlags);
+				Console.Error.WriteLine ($"IMPORT #1: {result}");
+			}
+
 			return null;
 		}
 
@@ -56,4 +67,3 @@ namespace Mono.AppleTls
 		}
 	}
 }
-#endif

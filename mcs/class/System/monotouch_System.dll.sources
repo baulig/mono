@@ -1,6 +1,11 @@
 #include mobile_System.dll.sources
 #include appletls.sources
+#include appletls-corefx.sources
 
 Mono.AppleTls/MonoCertificatePal.Mobile.cs
-Mono.AppleTls/MartinTest.cs
-Mono.AppleTls/SafeHandles.cs
+
+../../../external/corefx/src/Common/src/Interop/OSX/Interop.Libraries.cs
+../../../external/corefx/src/Common/src/Interop/OSX/Interop.CoreFoundation.cs
+../../../external/corefx/src/Common/src/Microsoft/Win32/SafeHandles/SafeCreateHandle.OSX.cs
+
+../../../external/corefx/src/Common/src/Interop/IOS/System.Security.Cryptography.Native.Apple/Interop.X509.cs

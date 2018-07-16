@@ -1,4 +1,3 @@
-#if MONO_FEATURE_APPLETLS || MONO_FEATURE_APPLE_X509
 #if MONO_SECURITY_ALIAS
 extern alias MonoSecurity;
 #endif
@@ -209,4 +208,3 @@ namespace Mono.AppleTls
 		}
 	}
 }
-#endif
