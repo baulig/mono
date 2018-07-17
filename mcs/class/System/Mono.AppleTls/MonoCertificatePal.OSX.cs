@@ -138,59 +138,6 @@ namespace Mono.AppleTls
 		}
 
 		[DllImport (AppleTlsContext.SecurityLibrary)]
-		extern static SecStatusCode SecItemImport (
-			/* CFDataRef */ IntPtr importedData,
-			/* CFStringRef */ IntPtr fileNameOrExtension, // optional
-			/* SecExternalFormat* */ ref SecExternalFormat inputFormat, // optional, IN/OUT
-			/* SecExternalItemType* */ ref SecExternalItemType itemType, // optional, IN/OUT
-			/* SecItemImportExportFlags */ SecItemImportExportFlags flags,
-			/* const SecItemImportExportKeyParameters* */ IntPtr keyParams, // optional
-			/* SecKeychainRef */ IntPtr importKeychain, // optional
-			/* CFArrayRef* */ out IntPtr outItems);
-
-		static public CFArray ItemImport (byte[] buffer, string password)
-		{
-			using (var data = CFData.FromData (buffer))
-			using (var pwstring = CFString.Create (password)) {
-				SecItemImportExportKeyParameters keyParams = new SecItemImportExportKeyParameters ();
-				keyParams.passphrase = pwstring.Handle;
-
-				return ItemImport (data, SecExternalFormat.PKCS12, SecExternalItemType.Aggregate, SecItemImportExportFlags.None, keyParams);
-			}
-		}
-
-		static CFArray ItemImport (CFData data, SecExternalFormat format, SecExternalItemType itemType,
-					   SecItemImportExportFlags flags = SecItemImportExportFlags.None,
-					   SecItemImportExportKeyParameters? keyParams = null)
-		{
-			return ItemImport (data, ref format, ref itemType, flags, keyParams);
-		}
-
-		static CFArray ItemImport (CFData data, ref SecExternalFormat format, ref SecExternalItemType itemType,
-					   SecItemImportExportFlags flags = SecItemImportExportFlags.None,
-					   SecItemImportExportKeyParameters? keyParams = null)
-		{
-			IntPtr keyParamsPtr = IntPtr.Zero;
-			if (keyParams != null) {
-				keyParamsPtr = Marshal.AllocHGlobal (Marshal.SizeOf (keyParams.Value));
-				if (keyParamsPtr == IntPtr.Zero)
-					throw new OutOfMemoryException ();
-				Marshal.StructureToPtr (keyParams.Value, keyParamsPtr, false);
-			}
-
-			IntPtr result;
-			var status = SecItemImport (data.Handle, IntPtr.Zero, ref format, ref itemType, flags, keyParamsPtr, IntPtr.Zero, out result);
-
-			if (keyParamsPtr != IntPtr.Zero)
-				Marshal.FreeHGlobal (keyParamsPtr);
-
-			if (status != SecStatusCode.Success)
-				throw new NotSupportedException (status.ToString ());
-
-			return new CFArray (result, true);
-		}
-
-		[DllImport (AppleTlsContext.SecurityLibrary)]
 		extern static /* SecIdentityRef */ IntPtr SecIdentityCreate (
 			/* CFAllocatorRef */ IntPtr allocator,
 			/* SecCertificateRef */ IntPtr certificate,
