@@ -201,15 +201,15 @@ apple_crypto_ios_sources =
 if HOST_DARWIN
 lib_LTLIBRARIES += libmono-apple-crypto.la
 if ENABLE_MONOTOUCH
-apple_crypto_platform_sources = $(apple_crypto_common_sources) $(apple_crypto_ios_sources)
+apple_crypto_sources = $(apple_crypto_common_sources) $(apple_crypto_ios_sources)
 else
-apple_crypto_platform_sources = $(apple_crypto_common_sources) $(apple_crypto_mac_sources)
+apple_crypto_sources = $(apple_crypto_common_sources) $(apple_crypto_mac_sources)
 endif
 else
-apple_crypto_platform_sources =
+apple_crypto_sources =
 endif
 
-libmono_apple_crypto_la_SOURCES = $(apple_crypto_platform_sources)
+libmono_apple_crypto_la_SOURCES = $(apple_crypto_sources)
 
 libmono_apple_crypto_la_CFLAGS = -I$(abs_top_srcdir)/external/corefx/src/Native/Unix/Common \
      -I$(abs_top_srcdir)/external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple -Wno-typedef-redefinition
@@ -436,12 +436,12 @@ sgen_sources = \
 	sgen-mono.h		\
 	sgen-client-mono.h
 
-libmonoruntime_la_SOURCES = $(common_sources) $(icall_tables_sources) $(ilgen_sources) $(gc_dependent_sources) $(null_gc_sources) $(boehm_sources) $(apple_crypto_platform_sources)
-libmonoruntime_la_CFLAGS = $(BOEHM_DEFINES) $(libmono_apple_crypto_la_CFLAGS)
-libmonoruntime_la_LIBADD = libmonoruntime-config.la libmono-apple-crypto.la
+libmonoruntime_la_SOURCES = $(common_sources) $(icall_tables_sources) $(ilgen_sources) $(gc_dependent_sources) $(null_gc_sources) $(boehm_sources)
+libmonoruntime_la_CFLAGS = $(BOEHM_DEFINES)
+libmonoruntime_la_LIBADD = libmonoruntime-config.la
 
-libmonoruntimesgen_la_SOURCES = $(common_sources) $(icall_tables_sources) $(ilgen_sources) $(gc_dependent_sources) $(sgen_sources) $(apple_crypto_platform_sources)
-libmonoruntimesgen_la_CFLAGS = $(SGEN_DEFINES) $(libmono_apple_crypto_la_CFLAGS)
+libmonoruntimesgen_la_SOURCES = $(common_sources) $(icall_tables_sources) $(ilgen_sources) $(gc_dependent_sources) $(sgen_sources)
+libmonoruntimesgen_la_CFLAGS = $(SGEN_DEFINES)
 
 libmonoruntimesgen_la_LIBADD = libmonoruntime-config.la
 
