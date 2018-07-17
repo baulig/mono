@@ -29,7 +29,9 @@
 // THE SOFTWARE.
 using System;
 using System.Threading;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
 using System.Security.Cryptography.Apple;
 using System.Security.Cryptography.X509Certificates;
 using Microsoft.Win32.SafeHandles;
@@ -37,8 +39,88 @@ using Mono.Net;
 
 namespace Mono.AppleTls
 {
+	using Interop = global::Interop;
+
 	static partial class MonoCertificatePal
 	{
+		public static X509ContentType GetCertContentType (byte[] rawData)
+		{
+			if (rawData == null || rawData.Length == 0)
+				return X509ContentType.Unknown;
+
+			return Interop.AppleCrypto.X509GetContentType (rawData, rawData.Length);
+		}
+
+		public static SafeHandle FromBlob (byte[] rawData, SafePasswordHandle password, X509KeyStorageFlags keyStorageFlags)
+		{
+			Debug.Assert (password != null);
+
+			X509ContentType contentType = GetCertContentType (rawData);
+
+			if (contentType == X509ContentType.Pkcs7) {
+				// In single mode for a PKCS#7 signed or signed-and-enveloped file we're supposed to return
+				// the certificate which signed the PKCS#7 file.
+				// 
+				// X509Certificate2Collection::Export(X509ContentType.Pkcs7) claims to be a signed PKCS#7,
+				// but doesn't emit a signature block. So this is hard to test.
+				//
+				// TODO(2910): Figure out how to extract the signing certificate, when it's present.
+				throw new CryptographicException (SR.Cryptography_X509_PKCS7_NoSigner);
+			}
+
+			bool exportable = true;
+
+			SafeKeychainHandle keychain;
+
+			if (contentType == X509ContentType.Pkcs12) {
+				if ((keyStorageFlags & X509KeyStorageFlags.EphemeralKeySet) == X509KeyStorageFlags.EphemeralKeySet)
+					throw new PlatformNotSupportedException (SR.Cryptography_X509_NoEphemeralPfx);
+
+				exportable = (keyStorageFlags & X509KeyStorageFlags.Exportable) == X509KeyStorageFlags.Exportable;
+
+				bool persist =
+				    (keyStorageFlags & X509KeyStorageFlags.PersistKeySet) == X509KeyStorageFlags.PersistKeySet;
+
+				keychain = persist
+				    ? Interop.AppleCrypto.SecKeychainCopyDefault ()
+				    : Interop.AppleCrypto.CreateTemporaryKeychain ();
+			} else {
+				keychain = SafeTemporaryKeychainHandle.InvalidHandle;
+				password = SafePasswordHandle.InvalidHandle;
+			}
+
+			using (keychain) {
+				SafeSecIdentityHandle identityHandle;
+				SafeSecCertificateHandle certHandle = Interop.AppleCrypto.X509ImportCertificate (
+				    rawData,
+				    contentType,
+				    password,
+				    keychain,
+				    exportable,
+				    out identityHandle);
+
+				if (identityHandle.IsInvalid) {
+					identityHandle.Dispose ();
+					// return new AppleCertificatePal (certHandle);
+					return certHandle;
+				}
+
+				if (contentType != X509ContentType.Pkcs12) {
+					Debug.Fail ("Non-PKCS12 import produced an identity handle");
+
+					identityHandle.Dispose ();
+					certHandle.Dispose ();
+					throw new CryptographicException ();
+				}
+
+				Debug.Assert (certHandle.IsInvalid);
+				certHandle.Dispose ();
+				return identityHandle;
+				// return new AppleCertificatePal (identityHandle);
+			}
+		}
+
+
 		static int initialized;
 		static CFString ImportExportPassphase;
 		static CFString ImportItemIdentity;
@@ -74,11 +156,6 @@ namespace Mono.AppleTls
 			} finally {
 				CFObject.dlclose (handle);
 			}
-		}
-
-		public static X509ContentType GetCertContentType (byte[] rawData)
-		{
-			return X509ContentType.Unknown;
 		}
 
 		static SafeSecIdentityHandle ImportIdentity (byte[] data, string password)
