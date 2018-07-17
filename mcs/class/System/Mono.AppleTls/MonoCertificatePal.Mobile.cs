@@ -76,6 +76,11 @@ namespace Mono.AppleTls
 			}
 		}
 
+		public static X509ContentType GetCertContentType (byte[] rawData)
+		{
+			return X509ContentType.Unknown;
+		}
+
 		static SafeSecIdentityHandle ImportIdentity (byte[] data, string password)
 		{
 			if (data == null)
