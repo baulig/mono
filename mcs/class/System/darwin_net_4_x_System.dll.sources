@@ -2,7 +2,6 @@
 #include net_4_x_System.dll.sources
 #include appletls.sources
 
-Mono.AppleTls/MartinTest.cs
 Mono.AppleTls/MonoCertificatePal.OSX.cs
 
 ../../../external/corefx/src/Common/src/Interop/OSX/Interop.Libraries.cs

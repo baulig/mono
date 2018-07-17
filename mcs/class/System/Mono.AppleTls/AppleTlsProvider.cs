@@ -32,7 +32,6 @@ namespace Mono.AppleTls
 	{
 		public AppleTlsProvider ()
 		{
-			MartinTest.Run ();
 		}
 
 		public override string Name {
