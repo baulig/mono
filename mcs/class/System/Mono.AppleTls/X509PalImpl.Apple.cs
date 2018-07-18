@@ -39,13 +39,11 @@ namespace Mono.AppleTls
 			var type = CFX.X509Pal.Instance.GetCertContentType (data);
 			Console.Error.WriteLine ($"IMPORT TYPE: {type}");
 
-			data = ConvertData (data);
+			// data = ConvertData (data);
 
-			var handle = CFHelpers.CreateCertificateFromData (data);
-			if (handle != IntPtr.Zero)
-				return new X509CertificateImplApple (handle, true);
-
-			return null;
+			using (var result = (CFX.AppleCertificatePal)CFX.CertificatePal.FromBlob (data, null, X509KeyStorageFlags.DefaultKeySet)) {
+				return new X509CertificateImplApple (result.CertificateHandle.DangerousGetHandle (), false);
+			}
 		}
 
 		public override X509Certificate2Impl Import (
@@ -55,8 +53,11 @@ namespace Mono.AppleTls
 			Console.Error.WriteLine ($"IMPORT TYPE: {type}");
 
 			using (var safePasswordHandle = new SafePasswordHandle (password)) {
-				var result = CFX.CertificatePal.FromBlob (data, safePasswordHandle, keyStorageFlags);
+				var result = (CFX.AppleCertificatePal)CFX.CertificatePal.FromBlob (data, safePasswordHandle, keyStorageFlags);
 				Console.Error.WriteLine ($"IMPORT #1: {result}");
+
+				var certificate = result.CertificateHandle;
+				Console.Error.WriteLine ($"IMPORT #2: {certificate}");
 			}
 
 			return null;
