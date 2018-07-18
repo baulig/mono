@@ -186,8 +186,6 @@ libmono_system_native_la_SOURCES = \
 libmono_system_native_la_CFLAGS = -I$(abs_top_srcdir)/external/corefx/src/Native/Unix/Common -I$(abs_top_srcdir)/external/corefx/src/Native/Unix/System.Native -Wno-typedef-redefinition
 
 apple_crypto_common_sources = \
-    ../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_seckey.c \
-    ../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_seckey.h \
     ../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_x509.c \
     ../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_x509.h
 
@@ -195,11 +193,17 @@ apple_crypto_mac_sources = \
     ../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_keychain.c \
     ../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_keychain.h \
     ../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_sec.c \
-    ../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_sec.h
+    ../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_sec.h \
+    ../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_seckey.c \
+    ../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_seckey.h \
+    ../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_x509_mac.c \
+    ../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_x509_mac.h
 
 apple_crypto_ios_sources = \
     ../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_random.c \
     ../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_random.h \
+    ../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_sec.c \
+    ../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_sec.h \
     ../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_x509_ios.c \
     ../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_x509_ios.h
 
