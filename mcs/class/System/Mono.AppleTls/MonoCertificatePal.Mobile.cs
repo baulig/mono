@@ -74,7 +74,7 @@ namespace Mono.AppleTls
 				if ((keyStorageFlags & X509KeyStorageFlags.PersistKeySet) == X509KeyStorageFlags.PersistKeySet)
 					throw new PlatformNotSupportedException ("Not available on mobile.");
 			} else {
-				// password = SafePasswordHandle.InvalidHandle;
+				password = SafePasswordHandle.InvalidHandle;
 			}
 
 			SafeSecIdentityHandle identityHandle;
@@ -98,12 +98,26 @@ namespace Mono.AppleTls
 				throw new CryptographicException ();
 			}
 
+			MartinTest (identityHandle);
+
 			Debug.Assert (certHandle.IsInvalid);
 			certHandle.Dispose ();
 			return identityHandle;
 			// return new AppleCertificatePal (identityHandle);
 		}
 
+		[DllImport (Interop.Libraries.AppleCryptoNative)]
+		static extern int AppleNativeCrypto_MartinTest (SafeSecCertificateHandle certificate);
+
+		static void MartinTest (SafeSecIdentityHandle identity)
+		{
+			using (var certificate = GetCertificate (identity)) {
+				var foundIdentity = FindIdentity (certificate, false);
+				Console.Error.WriteLine ($"FOUND IDENTITY: {foundIdentity}");
+
+				AppleNativeCrypto_MartinTest (certificate);
+			}
+		}
 
 		static int initialized;
 		static CFString ImportExportPassphase;
