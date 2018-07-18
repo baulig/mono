@@ -28,6 +28,7 @@ using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using XamMac.CoreFoundation;
 using Microsoft.Win32.SafeHandles;
+using CFX = Internal.Cryptography.Pal;
 
 namespace Mono.AppleTls
 {
@@ -35,7 +36,7 @@ namespace Mono.AppleTls
 	{
 		public override X509CertificateImpl Import (byte[] data)
 		{
-			var type = MonoCertificatePal.GetCertContentType (data);
+			var type = CFX.X509Pal.Instance.GetCertContentType (data);
 			Console.Error.WriteLine ($"IMPORT TYPE: {type}");
 
 			data = ConvertData (data);
@@ -50,11 +51,11 @@ namespace Mono.AppleTls
 		public override X509Certificate2Impl Import (
 			byte[] data, string password, X509KeyStorageFlags keyStorageFlags)
 		{
-			var type = MonoCertificatePal.GetCertContentType (data);
+			var type = CFX.X509Pal.Instance.GetCertContentType (data);
 			Console.Error.WriteLine ($"IMPORT TYPE: {type}");
 
 			using (var safePasswordHandle = new SafePasswordHandle (password)) {
-				var result = MonoCertificatePal.FromBlob (data, safePasswordHandle, keyStorageFlags);
+				var result = CFX.CertificatePal.FromBlob (data, safePasswordHandle, keyStorageFlags);
 				Console.Error.WriteLine ($"IMPORT #1: {result}");
 			}
 

@@ -58,7 +58,7 @@ namespace Mono.AppleTls
 			return Interop.AppleCrypto.X509GetContentType (rawData, rawData.Length);
 		}
 
-		public static SafeHandle FromBlob (byte[] rawData, SafePasswordHandle password, X509KeyStorageFlags keyStorageFlags)
+		public static SafeHandle XFromBlob (byte[] rawData, SafePasswordHandle password, X509KeyStorageFlags keyStorageFlags)
 		{
 			Debug.Assert (password != null);
 

@@ -124,4 +124,24 @@ namespace System.Security.Cryptography
 		}
 	}
 
+	static class RsaKeyBlobHelpers
+	{
+		internal static void ReadSubjectPublicKeyInfo (this DerSequenceReader keyInfo, ref RSAParameters parameters)
+		{
+			throw new PlatformNotSupportedException ();
+		}
+
+		internal static void ReadPkcs1PublicBlob (this DerSequenceReader subjectPublicKey, ref RSAParameters parameters)
+		{
+			throw new PlatformNotSupportedException ();
+		}
+	}
+
+	static class DsaKeyBlobHelpers
+	{
+		internal static void ReadSubjectPublicKeyInfo (this DerSequenceReader algParameters, byte[] publicKeyBlob, ref DSAParameters parameters)
+		{
+			throw new PlatformNotSupportedException ();
+		}
+	}
 }
