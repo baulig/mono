@@ -2,7 +2,7 @@
 #include appletls.sources
 #include appletls-corefx.sources
 
-Mono.AppleTls/MonoCertificatePal.Mobile.cs
+Mono.AppleTls/MonoCertificatePal.OSX.cs
 
 ../../../external/corefx/src/System.Text.RegularExpressions/src/System/Text/RegularExpressions/RegexCompiler.cs
 ../../../external/corefx/src/System.Text.RegularExpressions/src/System/Text/RegularExpressions/CompiledRegexRunner.cs
@@ -13,4 +13,4 @@ Mono.AppleTls/MonoCertificatePal.Mobile.cs
 ../../../external/corefx/src/Common/src/Interop/OSX/Interop.CoreFoundation.cs
 ../../../external/corefx/src/Common/src/Microsoft/Win32/SafeHandles/SafeCreateHandle.OSX.cs
 
-../../../external/corefx/src/Common/src/Interop/IOS/System.Security.Cryptography.Native.Apple/Interop.X509.cs
+../../../external/corefx/src/Common/src/Interop/OSX/System.Security.Cryptography.Native.Apple/Interop.X509.cs
