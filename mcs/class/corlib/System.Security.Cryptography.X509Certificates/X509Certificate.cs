@@ -133,6 +133,8 @@ namespace System.Security.Cryptography.X509Certificates {
 			}
 		}
 
+		internal object Pal => Impl;
+
 		internal bool IsValid {
 			get { return X509Helper.IsValid (impl); }
 		}
