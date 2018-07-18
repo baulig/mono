@@ -33,3 +33,7 @@
 ../../../external/corefx/src/Common/src/Interop/OSX/System.Security.Cryptography.Native.Apple/Interop.SecKeyRef.Export.cs
 ../../../external/corefx/src/Common/src/Interop/OSX/System.Security.Cryptography.Native.Apple/Interop.Trust.cs
 ../../../external/corefx/src/Common/src/Interop/OSX/System.Security.Cryptography.Native.Apple/Interop.X509Chain.cs
+
+../../../external/corefx/src/System.Security.Cryptography.X509Certificates/src/Internal/Cryptography/Helpers.cs
+../../../external/corefx/src/System.Security.Cryptography.X509Certificates/src/Internal/Cryptography/Pal.OSX/CertificatePal.cs
+Mono/Interop.Algorithms.cs
