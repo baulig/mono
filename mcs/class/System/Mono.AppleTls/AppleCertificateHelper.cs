@@ -95,15 +95,18 @@ namespace Mono.AppleTls
 
 			var impl2 = certificate.Impl as X509Certificate2Impl;
 			if (impl2 == null || impl2.IntermediateCertificates == null) {
-				intermediateCerts = new SafeSecCertificateHandle[0];
+				intermediateCerts = new SafeSecCertificateHandle [0];
 				return identity;
 			}
 
-			intermediateCerts = new SafeSecCertificateHandle[impl2.IntermediateCertificates.Count];
+			intermediateCerts = new SafeSecCertificateHandle [impl2.IntermediateCertificates.Count];
 
 			try {
-				for (int i = 0; i < intermediateCerts.Length; i++)
-					intermediateCerts[i] = MonoCertificatePal.FromOtherCertificate (impl2.IntermediateCertificates[i]);
+				for (int i = 0; i < intermediateCerts.Length; i++) {
+					var handle = impl2.IntermediateCertificates [i].GetNativeAppleCertificate ();
+					if (handle != null)
+						intermediateCerts [i] = new SafeSecCertificateHandle (handle, false);
+				}
 
 				return identity;
 			} catch {
