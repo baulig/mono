@@ -68,56 +68,40 @@ namespace Mono.AppleTls
 				throw new CryptographicException (SR.Cryptography_X509_PKCS7_NoSigner);
 			}
 
-			bool exportable = true;
-
-			SafeKeychainHandle keychain;
-
 			if (contentType == X509ContentType.Pkcs12) {
 				if ((keyStorageFlags & X509KeyStorageFlags.EphemeralKeySet) == X509KeyStorageFlags.EphemeralKeySet)
 					throw new PlatformNotSupportedException (SR.Cryptography_X509_NoEphemeralPfx);
-
-				exportable = (keyStorageFlags & X509KeyStorageFlags.Exportable) == X509KeyStorageFlags.Exportable;
-
-				bool persist =
-				    (keyStorageFlags & X509KeyStorageFlags.PersistKeySet) == X509KeyStorageFlags.PersistKeySet;
-
-				keychain = persist
-				    ? Interop.AppleCrypto.SecKeychainCopyDefault ()
-				    : Interop.AppleCrypto.CreateTemporaryKeychain ();
+				if ((keyStorageFlags & X509KeyStorageFlags.PersistKeySet) == X509KeyStorageFlags.PersistKeySet)
+					throw new PlatformNotSupportedException ("Not available on mobile.");
 			} else {
-				keychain = SafeTemporaryKeychainHandle.InvalidHandle;
-				password = SafePasswordHandle.InvalidHandle;
+				// password = SafePasswordHandle.InvalidHandle;
 			}
 
-			using (keychain) {
-				SafeSecIdentityHandle identityHandle;
-				SafeSecCertificateHandle certHandle = Interop.AppleCrypto.X509ImportCertificate (
-				    rawData,
-				    contentType,
-				    password,
-				    keychain,
-				    exportable,
-				    out identityHandle);
+			SafeSecIdentityHandle identityHandle;
+			SafeSecCertificateHandle certHandle = Interop.AppleCrypto.X509ImportCertificate (
+			    rawData,
+			    contentType,
+			    password,
+			    out identityHandle);
 
-				if (identityHandle.IsInvalid) {
-					identityHandle.Dispose ();
-					// return new AppleCertificatePal (certHandle);
-					return certHandle;
-				}
+			if (identityHandle.IsInvalid) {
+				identityHandle.Dispose ();
+				// return new AppleCertificatePal (certHandle);
+				return certHandle;
+			}
 
-				if (contentType != X509ContentType.Pkcs12) {
-					Debug.Fail ("Non-PKCS12 import produced an identity handle");
+			if (contentType != X509ContentType.Pkcs12) {
+				Debug.Fail ("Non-PKCS12 import produced an identity handle");
 
-					identityHandle.Dispose ();
-					certHandle.Dispose ();
-					throw new CryptographicException ();
-				}
-
-				Debug.Assert (certHandle.IsInvalid);
+				identityHandle.Dispose ();
 				certHandle.Dispose ();
-				return identityHandle;
-				// return new AppleCertificatePal (identityHandle);
+				throw new CryptographicException ();
 			}
+
+			Debug.Assert (certHandle.IsInvalid);
+			certHandle.Dispose ();
+			return identityHandle;
+			// return new AppleCertificatePal (identityHandle);
 		}
 
 
