@@ -27,6 +27,7 @@ using System;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using XamMac.CoreFoundation;
+using Microsoft.Win32.SafeHandles;
 
 namespace Mono.AppleTls
 {
@@ -52,8 +53,10 @@ namespace Mono.AppleTls
 			var type = MonoCertificatePal.GetCertContentType (data);
 			Console.Error.WriteLine ($"IMPORT TYPE: {type}");
 
-			var result = MonoCertificatePal.FromBlob (data, null, keyStorageFlags);
-			Console.Error.WriteLine ($"IMPORT #1: {result}");
+			using (var safePasswordHandle = new SafePasswordHandle (password)) {
+				var result = MonoCertificatePal.FromBlob (data, safePasswordHandle, keyStorageFlags);
+				Console.Error.WriteLine ($"IMPORT #1: {result}");
+			}
 
 			return null;
 		}

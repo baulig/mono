@@ -196,7 +196,11 @@ apple_crypto_mac_sources = \
     ../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_sec.c \
     ../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_sec.h
 
-apple_crypto_ios_sources =
+apple_crypto_ios_sources = \
+    ../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_random.c \
+    ../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_random.h \
+    ../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_x509_ios.c \
+    ../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_x509_ios.h
 
 if HOST_DARWIN
 lib_LTLIBRARIES += libmono-apple-crypto.la
