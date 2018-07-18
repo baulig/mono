@@ -208,27 +208,22 @@ apple_crypto_ios_sources = \
     ../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_x509_ios.h
 
 if HOST_DARWIN
-if !ENABLE_MONOTOUCH
 lib_LTLIBRARIES += libmono-apple-crypto.la
+if ENABLE_MONOTOUCH
+apple_crypto_sources = $(apple_crypto_common_sources) $(apple_crypto_ios_sources)
+else
+apple_crypto_sources = $(apple_crypto_common_sources) $(apple_crypto_mac_sources)
 endif
+else
+apple_crypto_sources =
 endif
 
-libmono_apple_crypto_la_SOURCES = \
-    ../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_keychain.c \
-    ../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_keychain.h \
-    ../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_sec.c \
-    ../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_sec.h \
-    ../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_seckey.c \
-    ../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_seckey.h \
-    ../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_trust.c \
-    ../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_trust.h \
-    ../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_x509.c \
-    ../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_x509.h \
-    ../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_x509chain.c \
-    ../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_x509chain.h
+libmono_apple_crypto_la_SOURCES = $(apple_crypto_sources)
 
 libmono_apple_crypto_la_CFLAGS = -I$(abs_top_srcdir)/external/corefx/src/Native/Unix/Common \
      -I$(abs_top_srcdir)/external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple -Wno-typedef-redefinition
+     
+
 
 CLEANFILES = mono-bundle.stamp
 
