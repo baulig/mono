@@ -14,6 +14,7 @@ using NUnit.Framework;
 namespace MonoTests.System.Security.Cryptography {
 	
 	[TestFixture]
+	[Category ("NotWorking")]
 	public class AsymmetricAlgorithmTest
 	{
 		private AsymmetricAlgorithm _algo;

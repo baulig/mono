@@ -37,7 +37,9 @@ RESX_RESOURCE_STRING = \
 	../../../external/corefx/src/System.Runtime.Extensions/src/Resources/Strings.resx \
 	../../../external/corefx/src/System.ObjectModel/src/Resources/Strings.resx \
 	../../../external/corefx/src/System.Numerics.Vectors/src/Resources/Strings.resx \
-	../../../external/corefx/src/System.Runtime.Numerics/src/Resources/Strings.resx
+	../../../external/corefx/src/System.Runtime.Numerics/src/Resources/Strings.resx \
+	../../../external/corefx/src/System.Security.Cryptography.Algorithms/src/Resources/Strings.resx \
+	../../../external/corefx/src/System.Security.Cryptography.Primitives/src/Resources/Strings.resx
 
 LIBRARY_COMPILE = $(BOOT_COMPILE)
 LIBRARY_INSTALL_DIR = $(mono_libdir)/mono/$(FRAMEWORK_VERSION)

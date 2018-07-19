@@ -1324,7 +1324,7 @@ ReferenceSources/AppContextDefaultValues.cs
 ../referencesource/mscorlib/system/security/claims/RoleClaimProvider.cs
 
 ../referencesource/mscorlib/system/security/cryptography/aes.cs
-../referencesource/mscorlib/system/security/cryptography/asymmetricalgorithm.cs
+#../referencesource/mscorlib/system/security/cryptography/asymmetricalgorithm.cs
 ../referencesource/mscorlib/system/security/cryptography/asymmetrickeyexchangedeformatter.cs
 ../referencesource/mscorlib/system/security/cryptography/asymmetrickeyexchangeformatter.cs
 ../referencesource/mscorlib/system/security/cryptography/asymmetricsignaturedeformatter.cs
@@ -1364,7 +1364,7 @@ ReferenceSources/AppContextDefaultValues.cs
 ../referencesource/mscorlib/system/security/cryptography/rijndaelmanagedtransform.cs
 ../referencesource/mscorlib/system/security/cryptography/ripemd160.cs
 ../referencesource/mscorlib/system/security/cryptography/ripemd160managed.cs
-../referencesource/mscorlib/system/security/cryptography/rsa.cs
+# ../referencesource/mscorlib/system/security/cryptography/rsa.cs
 ../referencesource/mscorlib/system/security/cryptography/rsacryptoserviceprovider.cs
 ../referencesource/mscorlib/system/security/cryptography/rsaoaepkeyexchangedeformatter.cs
 ../referencesource/mscorlib/system/security/cryptography/rsaoaepkeyexchangeformatter.cs
@@ -1387,6 +1387,13 @@ ReferenceSources/AppContextDefaultValues.cs
 ../referencesource/mscorlib/system/security/cryptography/tripledes.cs
 ../referencesource/mscorlib/system/security/cryptography/tripledescryptoserviceprovider.cs
 ../referencesource/mscorlib/system/security/cryptography/utils.cs
+
+../../../external/corefx/src/System.Security.Cryptography.Algorithms/src/System/Security/Cryptography/RSA.cs
+../../../external/corefx/src/System.Security.Cryptography.Algorithms/src/System/Security/Cryptography/RSAParameters.cs
+../../../external/corefx/src/System.Security.Cryptography.Primitives/src/System/Security/Cryptography/AsymmetricAlgorithm.cs
+../../../external/corefx/src/System.Security.Cryptography.Primitives/src/System/Security/Cryptography/CryptoConfigForwarder.cs
+../../../external/corefx/src/System.Security.Cryptography.Primitives/src/System/Security/Cryptography/Helpers.cs
+corefx/RSA.cs
 
 ../referencesource/mscorlib/system/security/cryptography/x509certificates/x509utils.cs
 
