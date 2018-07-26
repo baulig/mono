@@ -620,7 +620,7 @@ namespace System.Security.Cryptography {
                 throw new ArgumentNullException("hash");
             }
             if (String.IsNullOrEmpty(hashAlgorithm.Name)) {
-                throw HashAlgorithmNameNullOrEmpty();
+                throw new ArgumentException(SR.Cryptography_HashAlgorithmNameNullOrEmpty, "hashAlgorithm");
             }
             if (padding == null) {
                 throw new ArgumentNullException("padding");
@@ -640,7 +640,7 @@ namespace System.Security.Cryptography {
                 throw new ArgumentNullException("signature");
             }
             if (String.IsNullOrEmpty(hashAlgorithm.Name)) {
-                throw HashAlgorithmNameNullOrEmpty();
+                throw new ArgumentException(SR.Cryptography_HashAlgorithmNameNullOrEmpty, "hashAlgorithm");
             }
             if (padding == null) {
                 throw new ArgumentNullException("padding");

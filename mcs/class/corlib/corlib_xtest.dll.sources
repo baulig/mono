@@ -244,6 +244,16 @@
 
 #../../../external/corefx/src/System.Runtime.Extensions/tests/System/MathTests.netcoreapp.cs
 
+../../../external/corefx/src/Common/tests/System/Security/Cryptography/ByteUtils.cs
+../../../external/corefx/src/Common/tests/System/Security/Cryptography/CryptoUtils.cs
+../../../external/corefx/src/Common/tests/System/Security/Cryptography/AlgorithmImplementations/RSA/ImportExport.cs
+../../../external/corefx/src/Common/tests/System/Security/Cryptography/AlgorithmImplementations/RSA/TestData.cs
+../../../external/corefx/src/Common/tests/System/Security/Cryptography/AlgorithmImplementations/RSA/RSAFactory.cs
+
+../../../external/corefx/src/System.Security.Cryptography.Algorithms/tests/DefaultRSAProvider.cs
+#../../../external/corefx/src/System.Security.Cryptography.Algorithms/tests/RSACreateTests.cs
+#../../../external/corefx/src/System.Security.Cryptography.Algorithms/tests/RSATests.cs
+
 
 # System.Runtime
 ../../../external/corefx/src/System.Runtime/tests/System/AccessViolationExceptionTests.cs
