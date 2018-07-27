@@ -43,9 +43,13 @@ set(BUILD_SHARED_LIBS OFF)
 add_subdirectory (${BTLS_ROOT} boringssl)
 set(BUILD_SHARED_LIBS "${BUILD_SHARED_LIBS_SAVED}")
 
+set(COREFX_DIR "${SRC_DIR}/../../external/corefx")
+
 include_directories (
 	${SRC_DIR}
 	${BTLS_ROOT}/include
+	${COREFX_DIR}/src/Native/Unix/Common
+	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native
 )
 
 set (
@@ -86,6 +90,9 @@ set (
 	btls-x509-verify-param.h
 	btls-x509.c
 	btls-x509.h
+
+	pal_crypto_config.h
+	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/pal_evp.c
 
 	${BORINGSSL_OBJECTS}
 )
