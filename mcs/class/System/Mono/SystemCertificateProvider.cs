@@ -67,7 +67,7 @@ namespace Mono
 #endif
 #if MONO_FEATURE_BTLS
 			if (provider?.ID == MNS.MonoTlsProviderFactory.BtlsId)
-				return new Mono.Btls.X509PalImplBtls (provider);
+				return new Mono.Btls.X509PalImplBtls ((Mono.Btls.MonoBtlsProvider)provider);
 #endif
 
 			return new X509PalImplMono ();

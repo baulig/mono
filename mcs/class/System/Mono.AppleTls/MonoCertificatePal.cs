@@ -46,18 +46,12 @@ namespace Mono.AppleTls
 		{
 			if (certificate == null)
 				throw new ArgumentNullException (nameof (certificate));
-			return FromOtherCertificate (certificate.Impl);
-		}
 
-		public static SafeSecCertificateHandle FromOtherCertificate (X509CertificateImpl impl)
-		{
-			X509Helper.ThrowIfContextInvalid (impl);
-
-			var handle = impl.GetNativeAppleCertificate ();
+			var handle = certificate.Impl.GetNativeAppleCertificate ();
 			if (handle != IntPtr.Zero)
 				return new SafeSecCertificateHandle (handle, false);
 
-			using (var data = CFData.FromData (impl.RawData)) {
+			using (var data = CFData.FromData (certificate.GetRawCertData ())) {
 				handle = SecCertificateCreateWithData (IntPtr.Zero, data.Handle);
 				if (handle == IntPtr.Zero)
 					throw new ArgumentException ("Not a valid DER-encoded X.509 certificate");

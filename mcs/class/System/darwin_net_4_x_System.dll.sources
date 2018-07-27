@@ -1,9 +1,11 @@
 #include corefx.unix.sources
 #include net_4_x_System.dll.sources
 #include appletls.sources
+#include appletls-corefx.sources
 
 Mono.AppleTls/MonoCertificatePal.OSX.cs
-Mono.AppleTls/SafeHandles.cs
+
+Mono/X509PalImpl.Unix.cs
 
 ../../../external/corefx/src/Common/src/Interop/OSX/Interop.Libraries.cs
 ../../../external/corefx/src/Common/src/Interop/OSX/Interop.EventStream.cs
@@ -15,3 +17,5 @@ Mono.AppleTls/SafeHandles.cs
 ../../../external/corefx/src/Common/src/Microsoft/Win32/SafeHandles/SafeCreateHandle.OSX.cs
 ../../../external/corefx/src/Common/src/Microsoft/Win32/SafeHandles/SafeEventStreamHandle.OSX.cs
 ../../../external/corefx/src/Common/src/System/Net/ContextAwareResult.OSX.cs
+
+../../../external/corefx/src/Common/src/Interop/OSX/System.Security.Cryptography.Native.Apple/Interop.X509.cs

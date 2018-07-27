@@ -45,9 +45,9 @@ namespace Mono.Btls
 {
 	class X509PalImplBtls : X509PalImpl
 	{
-		public X509PalImplBtls (MonoTlsProvider provider)
+		public X509PalImplBtls (MonoBtlsProvider provider)
 		{
-			Provider = (MonoBtlsProvider)provider;
+			Provider = provider;
 		}
 
 		MonoBtlsProvider Provider {

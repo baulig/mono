@@ -30,6 +30,10 @@ namespace Mono.AppleTls
 {
 	class AppleTlsProvider : MonoTlsProvider
 	{
+		public AppleTlsProvider ()
+		{
+		}
+
 		public override string Name {
 			get { return "apple-tls"; }
 		}

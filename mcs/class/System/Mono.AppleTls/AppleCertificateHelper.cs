@@ -81,7 +81,7 @@ namespace Mono.AppleTls
 			 * may get a popup message on XamMac).
 			 */
 
-#if MOBILE
+#if MOBILE && !XAMMAC
 			using (var secCert = MonoCertificatePal.FromOtherCertificate (certificate))
 				return MonoCertificatePal.FindIdentity (secCert, true);
 #else
@@ -102,8 +102,11 @@ namespace Mono.AppleTls
 			intermediateCerts = new SafeSecCertificateHandle [impl2.IntermediateCertificates.Count];
 
 			try {
-				for (int i = 0; i < intermediateCerts.Length; i++)
-					intermediateCerts [i] = MonoCertificatePal.FromOtherCertificate (impl2.IntermediateCertificates[i]);
+				for (int i = 0; i < intermediateCerts.Length; i++) {
+					var handle = impl2.IntermediateCertificates [i].GetNativeAppleCertificate ();
+					if (handle != null)
+						intermediateCerts [i] = new SafeSecCertificateHandle (handle, false);
+				}
 
 				return identity;
 			} catch {

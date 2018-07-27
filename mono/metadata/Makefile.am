@@ -153,7 +153,7 @@ if !HOST_WIN32
 if !HOST_WASM
 if !ENABLE_MONODROID
 if !ENABLE_MONOTOUCH
-lib_LTLIBRARIES += libmono-system-native.la
+noinst_LTLIBRARIES += libmono-system-native.la
 endif
 endif
 endif
@@ -183,6 +183,44 @@ libmono_system_native_la_SOURCES = \
 	../../external/corefx/src/Native/Unix/System.Native/pal_random.h
 
 libmono_system_native_la_CFLAGS = -I$(abs_top_srcdir)/external/corefx/src/Native/Unix/Common -I$(abs_top_srcdir)/external/corefx/src/Native/Unix/System.Native -Wno-typedef-redefinition
+
+apple_crypto_common_sources = \
+    ../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_sec.c \
+    ../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_sec.h \
+    ../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_x509.c \
+    ../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_x509.h
+
+apple_crypto_mac_sources = \
+    ../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_keychain.c \
+    ../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_keychain.h \
+    ../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_seckey.c \
+    ../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_seckey.h \
+    ../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_x509_mac.c \
+    ../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_x509_mac.h
+
+apple_crypto_ios_sources = \
+    ../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_random.c \
+    ../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_random.h \
+    ../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_x509_ios.c \
+    ../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_x509_ios.h
+
+if HOST_DARWIN
+lib_LTLIBRARIES += libmono-apple-crypto.la
+if ENABLE_MONOTOUCH
+apple_crypto_sources = $(apple_crypto_common_sources) $(apple_crypto_ios_sources)
+else
+apple_crypto_sources = $(apple_crypto_common_sources) $(apple_crypto_mac_sources)
+endif
+else
+apple_crypto_sources =
+endif
+
+libmono_apple_crypto_la_SOURCES = $(apple_crypto_sources)
+
+libmono_apple_crypto_la_CFLAGS = -I$(abs_top_srcdir)/external/corefx/src/Native/Unix/Common \
+     -I$(abs_top_srcdir)/external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple -Wno-typedef-redefinition
+     
+
 
 CLEANFILES = mono-bundle.stamp
 
@@ -410,6 +448,7 @@ libmonoruntime_la_LIBADD = libmonoruntime-config.la
 
 libmonoruntimesgen_la_SOURCES = $(common_sources) $(icall_tables_sources) $(ilgen_sources) $(gc_dependent_sources) $(sgen_sources)
 libmonoruntimesgen_la_CFLAGS = $(SGEN_DEFINES)
+
 libmonoruntimesgen_la_LIBADD = libmonoruntime-config.la
 
 libmonoruntimeincludedir = $(includedir)/mono-$(API_VER)/mono/metadata
