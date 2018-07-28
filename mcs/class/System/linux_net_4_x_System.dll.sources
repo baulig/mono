@@ -26,4 +26,3 @@
 ../../../external/corefx/src/System.Security.Cryptography.Algorithms/src/Internal/Cryptography/HashProviderDispenser.Unix.cs
 ../../../external/corefx/src/System.Security.Cryptography.Algorithms/src/Internal/Cryptography/HashAlgorithmNames.cs
 ../../../external/corefx/src/System.Security.Cryptography.Algorithms/src/Internal/Cryptography/HMACCommon.cs
-../../../external/corefx/src/System.Security.Cryptography.Algorithms/src/System/Security/Cryptography/IncrementalHash.cs
