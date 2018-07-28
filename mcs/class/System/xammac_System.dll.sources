@@ -2,8 +2,6 @@
 #include appletls.sources
 #include appletls-corefx.sources
 
-Mono.AppleTls/SafeHandles.cs
-
 Mono.AppleTls/MonoCertificatePal.OSX.cs
 
 ../../../external/corefx/src/System.Text.RegularExpressions/src/System/Text/RegularExpressions/RegexCompiler.cs
