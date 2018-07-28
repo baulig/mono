@@ -32,6 +32,11 @@ namespace Mono.Btls.Interface
 {
 	public static class BtlsProvider
 	{
+		public static void MartinTest ()
+		{
+			Mono.Btls.MonoBtlsProvider.MartinTest ();
+		}
+
 		public static bool IsSupported ()
 		{
 			return MNS.MonoTlsProviderFactory.IsBtlsSupported ();

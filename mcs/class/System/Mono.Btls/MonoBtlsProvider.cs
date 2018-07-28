@@ -33,9 +33,11 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Net.Security;
+using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Security.Authentication;
 using Microsoft.Win32.SafeHandles;
+using Internal.Cryptography;
 
 #if MONO_SECURITY_ALIAS
 using MonoSecurity::Mono.Security.Interface;
@@ -387,6 +389,13 @@ namespace Mono.Btls
 				chain.Dispose ();
 				throw;
 			}
+		}
+
+		public static void MartinTest ()
+		{
+			Console.Error.WriteLine ($"BTLS MARTIN TEST!");
+			var ptr = global::Interop.Crypto.EvpSha1 ();
+			Console.Error.WriteLine ($"BTLS MARTIN TEST #1: {ptr}");
 		}
 	}
 }
