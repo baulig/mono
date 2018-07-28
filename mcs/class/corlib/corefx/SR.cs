@@ -577,6 +577,15 @@ partial class SR
 	public const string InvalidOperation_WrongOidInAsnCollection = "AsnEncodedData element in the collection has wrong Oid value: expected = '{0}', actual = '{1}'.";
 	public const string PlatformNotSupported_CryptographyPkcs = "System.Security.Cryptography.Pkcs is only supported on Windows platforms.";
 	public const string Cryptography_WriteEncodedValue_OneValueAtATime = "The input to WriteEncodedValue must represent a single encoded value with no trailing data.";
+	public const string Cryptography_CryptoStream_FlushFinalBlockTwice = "FlushFinalBlock() method was called twice on a CryptoStream. It can only be called once.";
+	public const string Cryptography_DefaultAlgorithm_NotSupported = "This platform does not allow the automatic selection of an algorithm.";
+	public const string Cryptography_HashNotYetFinalized = "Hash must be finalized before the hash value is retrieved.";
+	public const string Cryptography_InvalidFeedbackSize = "Specified feedback size is not valid for this algorithm.";
+	public const string Cryptography_InvalidBlockSize = "Specified block size is not valid for this algorithm.";
+	public const string Cryptography_InvalidCipherMode = "Specified cipher mode is not valid for this algorithm.";
+	public const string HashNameMultipleSetNotSupported = "Setting the hashname after it's already been set is not supported on this platform.";
+	public const string CryptoConfigNotSupported = "Accessing a hash algorithm by manipulating the HashName property is not supported on this platform. Instead, you must instantiate one of the supplied subtypes (such as HMACSHA1.)";
+	public const string InvalidOperation_IncorrectImplementation = "The algorithm's implementation is incorrect.";
 	public const string Cryptography_DpApi_ProfileMayNotBeLoaded = "The data protection operation was unsuccessful. This may have been caused by not having the user profile loaded for the current thread's user context, which may be the case when the thread is impersonating.";
 	public const string PlatformNotSupported_CryptographyProtectedData = "Windows Data Protection API (DPAPI) is not supported on this platform.";
 	public const string Cryptography_Partial_Chain = "A certificate chain could not be built to a trusted root authority.";
