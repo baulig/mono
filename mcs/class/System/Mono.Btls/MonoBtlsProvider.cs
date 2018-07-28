@@ -394,8 +394,6 @@ namespace Mono.Btls
 		public static void MartinTest ()
 		{
 			Console.Error.WriteLine ($"BTLS MARTIN TEST!");
-			var ptr = global::Interop.Crypto.EvpSha1 ();
-			Console.Error.WriteLine ($"BTLS MARTIN TEST #1: {ptr}");
 		}
 	}
 }
