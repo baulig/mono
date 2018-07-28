@@ -1,2 +1,4 @@
 #include common_System.Core.dll.sources
 #include interpreter_System.Core.dll.sources
+
+../../../external/corefx/src/System.Security.Cryptography.Algorithms/src/System/Security/Cryptography/IncrementalHash.cs
