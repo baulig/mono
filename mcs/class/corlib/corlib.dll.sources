@@ -1366,7 +1366,8 @@ ReferenceSources/AppContextDefaultValues.cs
 ../referencesource/mscorlib/system/security/cryptography/rijndaelmanagedtransform.cs
 ../referencesource/mscorlib/system/security/cryptography/ripemd160.cs
 ../referencesource/mscorlib/system/security/cryptography/ripemd160managed.cs
-../referencesource/mscorlib/system/security/cryptography/rsa.cs
+../../../external/corefx/src/System.Security.Cryptography.Algorithms/src/System/Security/Cryptography/RSA.cs
+../../../external/corefx/src/System.Security.Cryptography.Algorithms/src/System/Security/Cryptography/RSAParameters.cs
 ../referencesource/mscorlib/system/security/cryptography/rsacryptoserviceprovider.cs
 ../referencesource/mscorlib/system/security/cryptography/rsaoaepkeyexchangedeformatter.cs
 ../referencesource/mscorlib/system/security/cryptography/rsaoaepkeyexchangeformatter.cs
@@ -1546,6 +1547,7 @@ corefx/Interop.MonoRandomNumberGenerator.cs
 corefx/GlobalizationMode.cs
 corefx/RuntimeImports.cs
 corefx/RandomNumberGenerator.cs
+corefx/RSA.cs
 
 corert/DependencyReductionRootAttribute.cs
 corert/AddrofIntrinsics.cs

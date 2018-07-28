@@ -46,6 +46,7 @@ RESX_RESOURCE_STRING = \
 	../../../external/corefx/src/System.Runtime.Extensions/src/Resources/Strings.resx \
 	../../../external/corefx/src/System.Runtime.InteropServices.RuntimeInformation/src/Resources/Strings.resx \
 	../../../external/corefx/src/System.Runtime.Numerics/src/Resources/Strings.resx \
+	../../../external/corefx/src/System.Security.Cryptography.Algorithms/src/Resources/Strings.resx \
 	../../../external/corefx/src/System.Security.Cryptography.Encoding/src/Resources/Strings.resx \
 	../../../external/corefx/src/System.Security.Cryptography.Pkcs/src/Resources/Strings.resx \
 	../../../external/corefx/src/System.Security.Cryptography.ProtectedData/src/Resources/Strings.resx \
