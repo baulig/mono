@@ -103,7 +103,9 @@ namespace Mono.AppleTls
 
 			Debug.Assert (certHandle.IsInvalid);
 			certHandle.Dispose ();
-			return new AppleCertificatePal (identityHandle);
+			var pal = new AppleCertificatePal (identityHandle);
+			MartinTest (pal, identityHandle);
+			return pal;
 		}
 
 		[DllImport (Interop.Libraries.AppleCryptoNative)]
@@ -112,6 +114,9 @@ namespace Mono.AppleTls
 		[DllImport (Interop.Libraries.AppleCryptoNative)]
 		static extern int AppleCryptoNative_X509GetRawData (
 			SafeSecCertificateHandle cert, out SafeCFDataHandle cfDataOut, out int pOSStatus);
+
+		[DllImport (Interop.Libraries.AppleCryptoNative)]
+		static extern int AppleCryptoNative_SecKeyExport (SafeSecKeyRefHandle key);
 
 		static void MartinTest (SafeSecIdentityHandle identity)
 		{
@@ -137,6 +142,38 @@ namespace Mono.AppleTls
 
 				Console.Error.WriteLine ($"MARTIN TEST DONE");
 			}
+		}
+
+		static void MartinTest (AppleCertificatePal pal, SafeSecIdentityHandle identity)
+		{
+			Console.Error.WriteLine ("NEW MARTIN TEST");
+
+			var cert = GetCertificate (identity);
+			var publicKey = Interop.AppleCrypto.X509GetPublicKey (cert);
+			Console.Error.WriteLine ("NEW MARTIN TEST #1");
+			var privateKey = Interop.AppleCrypto.X509GetPrivateKeyFromIdentity (identity);
+			Console.Error.WriteLine ("NEW MARTIN TEST #2");
+			var pair = SecKeyPair.PublicPrivatePair(publicKey, privateKey);
+			Console.Error.WriteLine ("GOT PAIR!");
+
+			var rsa = new RSAImplementation.RSASecurityTransforms (publicKey, privateKey);
+
+			Console.Error.WriteLine ("GOT RSA!");
+
+			AppleCryptoNative_SecKeyExport (publicKey);
+			AppleCryptoNative_SecKeyExport (privateKey);
+
+			Console.Error.WriteLine ("TESTING EXPORT");
+
+			var reader = Interop.AppleCrypto.SecKeyExport (publicKey);
+			var reader2 = Interop.AppleCrypto.SecKeyExport (privateKey);
+
+			var p1 = rsa.ExportParameters (false);
+			Console.Error.WriteLine ("EXPORT #1");
+			var p2 = rsa.ExportParameters (false);
+			Console.Error.WriteLine ("EXPORT #2");
+
+			Console.Error.WriteLine ("MARTIN TEST ALL DONE!");
 		}
 
 		static int initialized;

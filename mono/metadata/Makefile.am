@@ -189,6 +189,8 @@ apple_crypto_common_sources = \
 	../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_digest.h \
 	../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_hmac.c \
 	../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_hmac.h \
+	../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_seckey.c \
+	../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_seckey.h \
 	../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_rsa.c \
 	../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_rsa.h \
 	../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_sec.c \
@@ -203,8 +205,8 @@ apple_crypto_mac_sources = \
 	../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_keychain.h \
 	../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_rsa_mac.c \
 	../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_rsa_mac.h \
-	../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_seckey.c \
-	../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_seckey.h \
+	../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_seckey_mac.c \
+	../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_seckey_mac.h \
 	../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_x509_mac.c \
 	../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_x509_mac.h
 
@@ -213,6 +215,8 @@ apple_crypto_ios_sources = \
 	../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_random.h \
 	../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_rsa_ios.c \
 	../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_rsa_ios.h \
+	../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_seckey_ios.c \
+	../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_seckey_ios.h \
 	../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_x509_ios.c \
 	../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_x509_ios.h
 
