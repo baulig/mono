@@ -59,6 +59,7 @@ namespace System.Security.Cryptography.Apple
 		}
 	}
 
+	#if FIXME
 	partial class SafeSecKeyRefHandle
 	{
 		public SafeSecKeyRefHandle (IntPtr handle, bool ownsHandle = false)
@@ -90,5 +91,6 @@ namespace System.Security.Cryptography.Apple
 			return base.ReleaseHandle ();
 		}
 	}
+	#endif
 
 }

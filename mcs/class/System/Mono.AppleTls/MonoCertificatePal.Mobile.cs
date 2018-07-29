@@ -35,6 +35,8 @@ using System.Security.Cryptography;
 using System.Security.Cryptography.Apple;
 using System.Security.Cryptography.X509Certificates;
 using Microsoft.Win32.SafeHandles;
+using Internal.Cryptography;
+using Internal.Cryptography.Pal;
 using Mono.Net;
 
 namespace Mono.AppleTls
@@ -51,7 +53,7 @@ namespace Mono.AppleTls
 			return Interop.AppleCrypto.X509GetContentType (rawData, rawData.Length);
 		}
 
-		public static SafeHandle FromBlob (byte[] rawData, SafePasswordHandle password, X509KeyStorageFlags keyStorageFlags)
+		public static ICertificatePal FromBlob (byte[] rawData, SafePasswordHandle password, X509KeyStorageFlags keyStorageFlags)
 		{
 			Debug.Assert (password != null);
 
@@ -86,8 +88,7 @@ namespace Mono.AppleTls
 
 			if (identityHandle.IsInvalid) {
 				identityHandle.Dispose ();
-				// return new AppleCertificatePal (certHandle);
-				return certHandle;
+				return new AppleCertificatePal (certHandle);
 			}
 
 			if (contentType != X509ContentType.Pkcs12) {
@@ -102,20 +103,39 @@ namespace Mono.AppleTls
 
 			Debug.Assert (certHandle.IsInvalid);
 			certHandle.Dispose ();
-			return identityHandle;
-			// return new AppleCertificatePal (identityHandle);
+			return new AppleCertificatePal (identityHandle);
 		}
 
 		[DllImport (Interop.Libraries.AppleCryptoNative)]
 		static extern int AppleNativeCrypto_MartinTest (SafeSecCertificateHandle certificate);
 
+		[DllImport (Interop.Libraries.AppleCryptoNative)]
+		static extern int AppleCryptoNative_X509GetRawData (
+			SafeSecCertificateHandle cert, out SafeCFDataHandle cfDataOut, out int pOSStatus);
+
 		static void MartinTest (SafeSecIdentityHandle identity)
 		{
+			Console.Error.WriteLine ("MARTIN TEST!");
+
 			using (var certificate = GetCertificate (identity)) {
 				var foundIdentity = FindIdentity (certificate, false);
 				Console.Error.WriteLine ($"FOUND IDENTITY: {foundIdentity}");
 
-				AppleNativeCrypto_MartinTest (certificate);
+				var ret = AppleCryptoNative_X509GetRawData (certificate, out var dataOut, out int status);
+				Console.Error.WriteLine ($"MARTIN TEST #1: {ret} {status} {dataOut}");
+
+				var key = Interop.AppleCrypto.X509GetPrivateKeyFromIdentity (identity);
+				Console.Error.WriteLine ($"MARTIN TEST #2: {key}");
+
+				Interop.AppleCrypto.X509CopyWithPrivateKey (certificate, key);
+
+				Console.Error.WriteLine ($"MARTIN TEST #3");
+
+				new AppleCertificatePal (identity);
+
+				// AppleNativeCrypto_MartinTest (certificate);
+
+				Console.Error.WriteLine ($"MARTIN TEST DONE");
 			}
 		}
 

@@ -3,6 +3,7 @@
 #include appletls-corefx.sources
 
 Mono.AppleTls/MonoCertificatePal.Mobile.cs
+Mono/Interop.Algorithms.RSA.cs
 
 ../../../external/corefx/src/Common/src/Interop/OSX/Interop.Libraries.cs
 ../../../external/corefx/src/Common/src/Interop/OSX/Interop.CoreFoundation.cs
@@ -10,16 +11,16 @@ Mono.AppleTls/MonoCertificatePal.Mobile.cs
 
 ../../../external/corefx/src/Common/src/Interop/OSX/System.Security.Cryptography.Native.Apple/Interop.Digest.cs
 ../../../external/corefx/src/Common/src/Interop/OSX/System.Security.Cryptography.Native.Apple/Interop.Hmac.cs
-../../../external/corefx/src/Common/src/Interop/OSX/System.Security.Cryptography.Native.Apple/Interop.RSA.cs
 ../../../external/corefx/src/Common/src/Interop/IOS/System.Security.Cryptography.Native.Apple/Interop.X509.cs
 
 ../../../external/corefx/src/Common/src/Internal/Cryptography/HashProvider.cs
+
+../../../external/corefx/src/System.Security.Cryptography.X509Certificates/src/Internal/Cryptography/Pal.IOS/CertificatePal.cs
 
 ../../../external/corefx/src/System.Security.Cryptography.Algorithms/src/Internal/Cryptography/HashProviderDispenser.OSX.cs
 ../../../external/corefx/src/System.Security.Cryptography.Algorithms/src/Internal/Cryptography/HashAlgorithmNames.cs
 ../../../external/corefx/src/System.Security.Cryptography.Algorithms/src/Internal/Cryptography/HMACCommon.cs
 
-../../../external/corefx/src/Common/src/System/Security/Cryptography/RSASecurityTransforms.cs
 ../../../external/corefx/src/Common/src/System/Security/Cryptography/RsaPaddingProcessor.cs
 ../../../external/corefx/src/Common/src/System/Security/Cryptography/KeyBlobHelpers.cs
 ../../../external/corefx/src/Common/src/Internal/Cryptography/AsymmetricAlgorithmHelpers.Der.cs
