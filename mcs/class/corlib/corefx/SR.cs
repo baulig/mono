@@ -689,6 +689,7 @@ partial class SR
 	public const string Cryptography_CertReq_NoKeyProvided = "This method cannot be used since no signing key was provided via a constructor, use an overload accepting an X509SignatureGenerator instead.";
 	public const string Cryptography_CertReq_RSAPaddingRequired = "The issuer certificate uses an RSA key but no RSASignaturePadding was provided to a constructor. If one cannot be provided, use the X509SignatureGenerator overload.";
 	public const string Cryptography_InvalidPublicKey_Object = "The provided PublicKey object is invalid, valid Oid and EncodedKeyValue property values are required.";
+	public const string Cryptography_NotAvailableOnMobile = "Feature is not available on Mobile.";
 	public const string Cryptography_PrivateKey_DoesNotMatch = "The provided key does not match the public key for this certificate.";
 	public const string Cryptography_PrivateKey_WrongAlgorithm = "The provided key does not match the public key algorithm for this certificate.";
 	public const string Cryptography_Unix_X509_DisallowedStoreNotEmpty = "The Disallowed store is not supported on this platform, but already has data. All files under '{0}' must be removed.";
