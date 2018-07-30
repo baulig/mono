@@ -104,7 +104,13 @@ namespace Mono.AppleTls
 			Debug.Assert (certHandle.IsInvalid);
 			certHandle.Dispose ();
 			var pal = new AppleCertificatePal (identityHandle);
-			MartinTest (pal, identityHandle);
+
+			try {
+				MartinTest (pal, identityHandle);
+			} catch (Exception ex) {
+				Console.Error.WriteLine ($"MARTIN TEST ERROR: {ex}");
+				throw;
+			}
 			return pal;
 		}
 
@@ -165,13 +171,22 @@ namespace Mono.AppleTls
 
 			Console.Error.WriteLine ("TESTING EXPORT");
 
-			var reader = Interop.AppleCrypto.SecKeyExport (publicKey);
-			var reader2 = Interop.AppleCrypto.SecKeyExport (privateKey);
-
 			var p1 = rsa.ExportParameters (false);
 			Console.Error.WriteLine ("EXPORT #1");
 			var p2 = rsa.ExportParameters (false);
 			Console.Error.WriteLine ("EXPORT #2");
+
+			// rsa.ImportParameters (p1);
+			// Console.Error.WriteLine ("IMPORT #1");
+			// rsa.ImportParameters (p2);
+			// Console.Error.WriteLine ("IMPORT #2");
+
+			var data = new byte[] { 0x41, 0x42, 0x43, 0x44 };
+			var encrypted = rsa.Encrypt (data, RSAEncryptionPadding.Pkcs1);
+			Console.Error.WriteLine ($"ENCRYPT DONE: {encrypted.ToHexStringUpper ()}");
+
+			var decrypted = rsa.Decrypt (encrypted, RSAEncryptionPadding.Pkcs1);
+			Console.Error.WriteLine ($"DECRYPT DONE: {decrypted.ToHexStringUpper ()}");
 
 			Console.Error.WriteLine ("MARTIN TEST ALL DONE!");
 		}
