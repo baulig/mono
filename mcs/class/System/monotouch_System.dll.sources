@@ -2,6 +2,7 @@
 #include appletls.sources
 #include appletls-corefx.sources
 
+Mono/MartinTest.cs
 Mono.AppleTls/MonoCertificatePal.Mobile.cs
 
 ../../../external/corefx/src/Common/src/Interop/OSX/Interop.Libraries.cs
