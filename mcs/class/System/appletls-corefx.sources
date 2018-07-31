@@ -15,6 +15,7 @@ Mono/Interop.Algorithms.cs
 ../../../external/corefx/src/Common/src/System/Security/Cryptography/SecKeyPair.cs
 
 ../../../external/corefx/src/System.Security.Cryptography.X509Certificates/src/Internal/Cryptography/ICertificatePal.cs
+../../../external/corefx/src/System.Security.Cryptography.X509Certificates/src/Internal/Cryptography/ICertificatePalCore.cs
 ../../../external/corefx/src/System.Security.Cryptography.X509Certificates/src/Internal/Cryptography/IX509Pal.cs
 ../../../external/corefx/src/System.Security.Cryptography.X509Certificates/src/Internal/Cryptography/Pal.Unix/X500NameEncoder.ManagedDecode.cs
 ../../../external/corefx/src/System.Security.Cryptography.X509Certificates/src/Internal/Cryptography/Pal.Unix/X500NameEncoder.cs
