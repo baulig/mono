@@ -188,6 +188,14 @@ namespace Mono.AppleTls
 			var decrypted = rsa.Decrypt (encrypted, RSAEncryptionPadding.Pkcs1);
 			Console.Error.WriteLine ($"DECRYPT DONE: {decrypted.ToHexStringUpper ()}");
 
+			var hash = new byte[20];
+
+			var signature = rsa.SignHash (hash, HashAlgorithmName.SHA1, RSASignaturePadding.Pkcs1);
+			Console.Error.WriteLine ($"SIGN HASH: {signature.ToHexStringUpper ()}");
+
+			var ok = rsa.VerifyHash (hash, signature, HashAlgorithmName.SHA1, RSASignaturePadding.Pkcs1);
+			Console.Error.WriteLine ($"VERIFY HASH: {ok}");
+
 			Console.Error.WriteLine ("MARTIN TEST ALL DONE!");
 		}
 

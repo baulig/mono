@@ -217,6 +217,8 @@ apple_crypto_ios_sources = \
 	../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_rsa_ios.h \
 	../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_seckey_ios.c \
 	../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_seckey_ios.h \
+	../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_signverify.h \
+	../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_signverify_ios.c \
 	../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_x509_ios.c \
 	../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_x509_ios.h
 
