@@ -1326,7 +1326,8 @@ ReferenceSources/AppContextDefaultValues.cs
 ../referencesource/mscorlib/system/security/claims/RoleClaimProvider.cs
 
 ../referencesource/mscorlib/system/security/cryptography/aes.cs
-../referencesource/mscorlib/system/security/cryptography/asymmetricalgorithm.cs
+../../../external/corefx/src/System.Security.Cryptography.Primitives/src/System/Security/Cryptography/Helpers.cs
+../../../external/corefx/src/System.Security.Cryptography.Primitives/src/System/Security/Cryptography/AsymmetricAlgorithm.cs
 ../referencesource/mscorlib/system/security/cryptography/asymmetrickeyexchangedeformatter.cs
 ../referencesource/mscorlib/system/security/cryptography/asymmetrickeyexchangeformatter.cs
 ../referencesource/mscorlib/system/security/cryptography/asymmetricsignaturedeformatter.cs
