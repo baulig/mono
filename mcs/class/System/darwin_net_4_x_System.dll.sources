@@ -8,8 +8,6 @@ Mono.AppleTls/MonoCertificatePal.OSX.cs
 Mono/StorePal.cs
 Mono/X509PalImpl.Unix.cs
 
-Internal.Cryptography/OidLookup.Managed.cs
-
 ../../../external/corefx/src/Common/src/Interop/OSX/Interop.Libraries.cs
 ../../../external/corefx/src/Common/src/Interop/OSX/Interop.EventStream.cs
 ../../../external/corefx/src/Common/src/Interop/OSX/Interop.RunLoop.cs

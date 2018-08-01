@@ -52,6 +52,7 @@ namespace System.Security.Cryptography
 		}
 	}
 
+#if FIXME
 	static partial class ECDsaImplementation
 	{
 		public sealed partial class ECDsaSecurityTransforms : ECDsa
@@ -87,6 +88,7 @@ namespace System.Security.Cryptography
 			}
 		}
 	}
+#endif
 
 	static class DsaKeyBlobHelpers
 	{

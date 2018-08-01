@@ -11,6 +11,7 @@ Mono.AppleTls/MonoCertificatePal.Mobile.cs
 
 
 ../../../external/corefx/src/Common/src/Interop/OSX/System.Security.Cryptography.Native.Apple/Interop.Digest.cs
+../../../external/corefx/src/Common/src/Interop/OSX/System.Security.Cryptography.Native.Apple/Interop.Ecc.cs
 ../../../external/corefx/src/Common/src/Interop/OSX/System.Security.Cryptography.Native.Apple/Interop.Hmac.cs
 ../../../external/corefx/src/Common/src/Interop/OSX/System.Security.Cryptography.Native.Apple/Interop.Symmetric.cs
 ../../../external/corefx/src/Common/src/Interop/Apple/System.Security.Cryptography.Native.Apple/Interop.SecKeyRef.cs
@@ -31,6 +32,8 @@ Mono.AppleTls/MonoCertificatePal.Mobile.cs
 ../../../external/corefx/src/Common/src/System/Security/Cryptography/KeyBlobHelpers.cs
 ../../../external/corefx/src/Common/src/System/Security/Cryptography/SecKeyPair.cs
 ../../../external/corefx/src/Common/src/System/Security/Cryptography/RSASecurityTransforms.cs
+../../../external/corefx/src/Common/src/System/Security/Cryptography/EccSecurityTransforms.cs
+../../../external/corefx/src/Common/src/System/Security/Cryptography/ECDsaSecurityTransforms.cs
 ../../../external/corefx/src/Common/src/System/Security/Cryptography/RsaPaddingProcessor.cs
 ../../../external/corefx/src/Common/src/Internal/Cryptography/AsymmetricAlgorithmHelpers.Der.cs
 ../../../external/corefx/src/Common/src/Internal/Cryptography/AsymmetricAlgorithmHelpers.Hash.cs

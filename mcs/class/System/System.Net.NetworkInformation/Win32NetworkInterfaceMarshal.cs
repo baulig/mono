@@ -42,9 +42,12 @@ namespace System.Net.NetworkInformation
 		static extern int GetNetworkParams (IntPtr ptr, ref int size);
 #endif
 
+#pragma warning disable 649
 		static Win32_FIXED_INFO fixedInfo;
+#pragma warning restore 649
 		static bool initialized = false;
 
+#pragma warning disable 162
 		public static Win32_FIXED_INFO FixedInfo {
 			get {
 				if (!initialized) {
@@ -64,6 +67,7 @@ namespace System.Net.NetworkInformation
 			}
 		}
 	}
+#pragma warning restore 162
 
 	// They are mostly defined in iptypes.h (included by iphlpapi.h).
 	// grep around /usr/include/w32api/* for identifiers you are curious.

@@ -1,4 +1,7 @@
 #include common_System.Core.dll.sources
 #include interpreter_System.Core.dll.sources
 
+../../../external/corefx/src/System.Security.Cryptography.Algorithms/src/System/Security/Cryptography/ECDsa.cs
+../../../external/corefx/src/System.Security.Cryptography.Algorithms/src/System/Security/Cryptography/ECCurve.cs
+../../../external/corefx/src/System.Security.Cryptography.Algorithms/src/System/Security/Cryptography/ECCurve.ECCurveType.cs
 ../../../external/corefx/src/System.Security.Cryptography.Algorithms/src/System/Security/Cryptography/IncrementalHash.cs
