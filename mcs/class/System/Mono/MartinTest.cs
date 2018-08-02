@@ -9,5 +9,10 @@ namespace Mono
 		{
 			return new RSAImplementation.RSASecurityTransforms ();
 		}
+
+		public static ECDsa CreateECDsa ()
+		{
+			return new ECDsaImplementation.ECDsaSecurityTransforms ();
+		}
 	}
 }

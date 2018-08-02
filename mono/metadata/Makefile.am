@@ -187,6 +187,8 @@ libmono_system_native_la_CFLAGS = -I$(abs_top_srcdir)/external/corefx/src/Native
 apple_crypto_common_sources = \
 	../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_digest.c \
 	../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_digest.h \
+	../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_ecc.c \
+	../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_ecc.h \
 	../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_hmac.c \
 	../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_hmac.h \
 	../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_seckey.c \
@@ -201,6 +203,8 @@ apple_crypto_common_sources = \
 	../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_x509.h
 
 apple_crypto_mac_sources = \
+	../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_ecc_mac.c \
+	../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_ecc_mac.h \
 	../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_keychain.c \
 	../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_keychain.h \
 	../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_rsa_mac.c \
@@ -211,6 +215,8 @@ apple_crypto_mac_sources = \
 	../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_x509_mac.h
 
 apple_crypto_ios_sources = \
+	../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_ecc_ios.c \
+	../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_ecc_ios.h \
 	../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_random.c \
 	../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_random.h \
 	../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_rsa_ios.c \
