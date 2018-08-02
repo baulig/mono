@@ -1778,6 +1778,7 @@ corert/RuntimeAugments.cs
 ../../../external/corefx/src/System.Runtime.InteropServices.RuntimeInformation/src/System/Runtime/InteropServices/RuntimeInformation/Architecture.cs
 
 ../../../external/corefx/src/Common/src/Internal/Cryptography/Helpers.cs
+../../../external/corefx/src/Common/src/Internal/Cryptography/OidLookupTable.cs
 
 ../../../external/corefx/src/System.Security.Cryptography.X509Certificates/src/Internal/Cryptography/Helpers.cs
 ../../../external/corefx/src/System.Security.Cryptography.X509Certificates/src/Internal/Cryptography/ErrorCode.cs
@@ -1795,7 +1796,5 @@ corefx/Mono.SafePasswordHandle.Unix.cs
 ../../../external/corefx/src/System.Security.Cryptography.Primitives/src/System/Security/Cryptography/CryptoConfigForwarder.cs
 
 ../../../external/corefx/src/System.Security.Cryptography.Algorithms/src/Internal/Cryptography/HashAlgorithmNames.cs
-../../../external/corefx/src/System.Security.Cryptography.Encoding/src/System/Security/Cryptography/OidGroup.cs
-../../../external/corefx/src/System.Security.Cryptography.Encoding/src/Internal/Cryptography/OidLookup.cs
-../../../external/corefx/src/System.Security.Cryptography.Encoding/src/Internal/Cryptography/OidLookup.OSX.cs
+../../../external/corefx/src/System.Security.Cryptography.Algorithms/src/Internal/Cryptography/OidLookupHelper.Unix.cs
 corefx/LinqHelpers.cs
