@@ -1796,5 +1796,3 @@ corefx/Mono.SafePasswordHandle.Unix.cs
 ../../../external/corefx/src/System.Security.Cryptography.Primitives/src/System/Security/Cryptography/CryptoConfigForwarder.cs
 
 ../../../external/corefx/src/System.Security.Cryptography.Algorithms/src/Internal/Cryptography/HashAlgorithmNames.cs
-../../../external/corefx/src/System.Security.Cryptography.Algorithms/src/Internal/Cryptography/OidLookupHelper.Unix.cs
-corefx/LinqHelpers.cs
