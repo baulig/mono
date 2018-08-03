@@ -702,8 +702,6 @@ System.Security.Cryptography/MD5CryptoServiceProvider.cs
 System.Security.Cryptography/RC2CryptoServiceProvider.cs
 System.Security.Cryptography/RNGCryptoServiceProvider.cs
 System.Security.Cryptography/RSACryptoServiceProvider.cs
-#System.Security.Cryptography/RSAPKCS1SignatureDeformatter.cs
-#System.Security.Cryptography/RSAPKCS1SignatureFormatter.cs
 ../../../external/corefx//src/System.Security.Cryptography.Algorithms/src/System/Security/Cryptography/RSAPKCS1SignatureDeformatter.cs
 ../../../external/corefx//src/System.Security.Cryptography.Algorithms/src/System/Security/Cryptography/RSAPKCS1SignatureFormatter.cs
 System.Security.Cryptography/SHA1CryptoServiceProvider.cs
@@ -1073,7 +1071,6 @@ ReferenceSources/AppContextDefaultValues.cs
 ../referencesource/mscorlib/system/globalization/calendarweekrule.cs
 ../referencesource/mscorlib/system/globalization/charunicodeinfo.cs
 ../referencesource/mscorlib/system/globalization/chineselunisolarcalendar.cs
-#../referencesource/mscorlib/system/globalization/compareinfo.cs
 ../referencesource/mscorlib/system/globalization/culturenotfoundexception.cs
 ../referencesource/mscorlib/system/globalization/culturetypes.cs
 ../referencesource/mscorlib/system/globalization/daylighttime.cs
