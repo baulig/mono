@@ -60,7 +60,7 @@ System.Security.Cryptography.Pkcs/EnvelopedCms.cs
 ../../../external/corefx/src/System.Security.Cryptography.Pkcs/src/Internal/Cryptography/KeyLengths.cs
 ../../../external/corefx/src/System.Security.Cryptography.Pkcs/src/Internal/Cryptography/KeyTransRecipientInfoPal.cs
 ../../../external/corefx/src/System.Security.Cryptography.Pkcs/src/Internal/Cryptography/Oids.cs
-../../../external/corefx/src/System.Security.Cryptography.Pkcs/src/Internal/Cryptography/Helpers.cs
+../../../external/corefx/src/System.Security.Cryptography.Pkcs/src/Internal/Cryptography/PkcsHelpers.cs
 ../../../external/corefx/src/System.Security.Cryptography.Pkcs/src/Internal/Cryptography/PkcsPal.cs
 ../../../external/corefx/src/System.Security.Cryptography.Pkcs/src/Internal/Cryptography/RecipientInfoPal.cs
 ../../../external/corefx/src/System.Security.Cryptography.Pkcs/src/Internal/Cryptography/Pal/AnyOS/AsnHelpers.cs
