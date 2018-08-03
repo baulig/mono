@@ -32,7 +32,7 @@ namespace Mono
 	{
 		public bool SupportsRSA => false;
 
-		bool SupportsECDsa => false;
+		public bool SupportsECDsa => false;
 
 		public RSA CreateRSA () => throw new PlatformNotSupportedException ();
 
