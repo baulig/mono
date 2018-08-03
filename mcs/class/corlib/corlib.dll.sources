@@ -1778,7 +1778,6 @@ corert/RuntimeAugments.cs
 ../../../external/corefx/src/System.Runtime.InteropServices.RuntimeInformation/src/System/Runtime/InteropServices/RuntimeInformation/Architecture.cs
 
 ../../../external/corefx/src/Common/src/Internal/Cryptography/Helpers.cs
-../../../external/corefx/src/Common/src/Internal/Cryptography/OidLookupTable.cs
 
 ../../../external/corefx/src/System.Security.Cryptography.X509Certificates/src/Internal/Cryptography/Helpers.cs
 ../../../external/corefx/src/System.Security.Cryptography.X509Certificates/src/Internal/Cryptography/ErrorCode.cs
