@@ -1,0 +1,4 @@
+PhoneTest.csproj
+bin/
+obj/
+*.log
