@@ -50,7 +50,13 @@ namespace Mono
 
 		ISystemCertificateProvider ISystemDependencyProvider.CertificateProvider => CertificateProvider;
 
+		ISystemCryptographyProvider ISystemDependencyProvider.CryptographyProvider => CryptographyProvider;
+
 		public SystemCertificateProvider CertificateProvider {
+			get;
+		}
+
+		public SystemCryptographyProvider CryptographyProvider {
 			get;
 		}
 
@@ -59,6 +65,7 @@ namespace Mono
 		SystemDependencyProvider ()
 		{
 			CertificateProvider = new SystemCertificateProvider ();
+			CryptographyProvider = new SystemCryptographyProvider ();
 
 			/*
 			 * Register ourselves with corlib's `DependencyInjector`.

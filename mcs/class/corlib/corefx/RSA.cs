@@ -2,6 +2,7 @@ using System.IO;
 using System.Text;
 using System.Security.Util;
 using System.Diagnostics.Contracts;
+using Mono;
 
 namespace System.Security.Cryptography
 {
@@ -9,6 +10,10 @@ namespace System.Security.Cryptography
 	{
 		new static public RSA Create ()
 		{
+			var provider = DependencyInjector.SystemProvider.CryptographyProvider;
+			if (provider.SupportsRSA)
+				return provider.CreateRSA ();
+
 #if FULL_AOT_RUNTIME
 			return new System.Security.Cryptography.RSACryptoServiceProvider ();
 #else

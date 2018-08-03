@@ -26,6 +26,7 @@ Mono.Globalization.Unicode/NormalizationTableUtil.cs
 Mono/CertificateImportFlags.cs
 Mono/DependencyInjector.cs
 Mono/ISystemCertificateProvider.cs
+Mono/ISystemCryptographyProvider.cs
 Mono/ISystemDependencyProvider.cs
 Mono/Runtime.cs
 Mono/RuntimeHandles.cs

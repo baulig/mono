@@ -1,5 +1,5 @@
 //
-// ISystemDependencyProvider.cs
+// ISystemCryptographyProvider.cs
 //
 // Author:
 //       Martin Baulig <mabaul@microsoft.com>
@@ -23,16 +23,23 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
+using System;
+using System.Security.Cryptography;
+
 namespace Mono
 {
-	interface ISystemDependencyProvider
+	interface ISystemCryptographyProvider
 	{
-		ISystemCertificateProvider CertificateProvider {
+		bool SupportsRSA {
 			get;
 		}
 
-		ISystemCryptographyProvider CryptographyProvider {
+		bool SupportsECDsa {
 			get;
 		}
+
+		RSA CreateRSA ();
+
+		AsymmetricAlgorithm CreateECDsa (); 
 	}
 }

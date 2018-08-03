@@ -5,6 +5,7 @@
 
 Mono.AppleTls/MonoCertificatePal.OSX.cs
 
+Mono/SystemCryptographyProvider.Apple.cs
 Mono/StorePal.cs
 Mono/X509PalImpl.Unix.cs
 
