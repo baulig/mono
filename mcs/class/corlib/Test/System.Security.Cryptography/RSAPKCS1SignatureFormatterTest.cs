@@ -45,6 +45,11 @@ namespace MonoTests.System.Security.Cryptography {
 
 		private RSAPKCS1SignatureFormatter fmt;
 
+		static RSA CreateMono ()
+		{
+			return RSA.Create ();
+		}
+
 		[SetUp]
 		public void SetUp () 
 		{
@@ -158,7 +163,7 @@ namespace MonoTests.System.Security.Cryptography {
 		// see: http://msdn.microsoft.com/library/default.asp?url=/library/en-us/cpguide/html/cpcongeneratingsignatures.asp
 
 		[Test]
-		[ExpectedException (typeof (CryptographicUnexpectedOperationException))]
+		[ExpectedException (typeof (ArgumentNullException))]
 		public void CreateSignatureNullHash () 
 		{
 			fmt = new RSAPKCS1SignatureFormatter ();
@@ -232,10 +237,7 @@ namespace MonoTests.System.Security.Cryptography {
 			fmt = new RSAPKCS1SignatureFormatter ();
 
 			// we need the private key 
-			RSA rsa = RSA.Create ("Mono.Security.Cryptography.RSAManaged");	// only available with Mono::
-			if (rsa == null) {
-				rsa = RSA.Create ();
-			}
+			RSA rsa = CreateMono ();
 			rsa.ImportParameters (AllTests.GetRsaKey (true));
 			fmt.SetKey (rsa);
 
@@ -276,7 +278,7 @@ namespace MonoTests.System.Security.Cryptography {
 		}
 
 		[Test]
-		[ExpectedException (typeof (CryptographicUnexpectedOperationException))]
+		[ExpectedException (typeof (ArgumentNullException))]
 		public void CreateSignatureRSABadHash () 
 		{
 			fmt = new RSAPKCS1SignatureFormatter ();
@@ -343,14 +345,12 @@ namespace MonoTests.System.Security.Cryptography {
 			fmt = new RSAPKCS1SignatureFormatter ();
 
 			// we need the private key 
-			RSA rsa = RSA.Create ("Mono.Security.Cryptography.RSAManaged");	// only available with Mono::
-			if (rsa == null) {
-				rsa = RSA.Create ();
-			}
+			RSA rsa = CreateMono();
 			rsa.ImportParameters (AllTests.GetRsaKey (true));
 			fmt.SetKey (rsa);
 
 			HashAlgorithm hash = HashAlgorithm.Create (hashName);
+			Assert.IsNotNull (hash);
 			byte[] data = new byte [(hash.HashSize >> 3)];
 			hash.ComputeHash (data);
 			return fmt.CreateSignature (hash);
