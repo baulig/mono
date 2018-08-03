@@ -16,10 +16,15 @@ namespace MonoTests.System.Security.Cryptography {
 	[TestFixture]
 	public class AsymmetricAlgorithmTest
 	{
+		static AsymmetricAlgorithm CreateDefault ()
+		{
+			return AsymmetricAlgorithm.Create ("RSA");
+		}
+
 		private AsymmetricAlgorithm _algo;
 		[SetUp]
 		public void SetUp() {
-			_algo = AsymmetricAlgorithm.Create();
+			_algo = CreateDefault();
 		}
 
 		private void SetDefaultData() {

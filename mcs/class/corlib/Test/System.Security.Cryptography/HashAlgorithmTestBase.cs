@@ -44,10 +44,15 @@ public abstract class HashAlgorithmTestBase {
 
 	protected HashAlgorithm hash;
 
+	static HashAlgorithm CreateDefault ()
+	{
+		return HashAlgorithm.Create ("SHA1");
+	}
+
 	[SetUp]
 	public virtual void SetUp () 
 	{
-		hash = HashAlgorithm.Create ();
+		hash = CreateDefault ();
 	}
 
 	// Note: These tests will only be valid without a "machine.config" file
@@ -149,7 +154,7 @@ public abstract class HashAlgorithmTestBase {
 	[Test]
 	public void Disposable () 
 	{
-		using (HashAlgorithm hash = HashAlgorithm.Create ()) {
+		using (HashAlgorithm hash = CreateDefault ()) {
 			hash.ComputeHash (new byte [0]);
 		}
 	}
