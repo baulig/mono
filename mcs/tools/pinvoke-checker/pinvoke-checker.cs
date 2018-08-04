@@ -32,6 +32,7 @@ using Mono.Cecil;
 using Mono.Cecil.Cil;
 using Mono.Options;
 using System.Diagnostics;
+using System.Text.RegularExpressions;
 using System.Collections.Generic;
 
 public class Program
@@ -172,6 +173,14 @@ public class Program
 
 	bool LoadDynamicLibrary (DynamicLibrary library)
 	{
+		if (Platform.IsMacOS)
+			return LoadDynamicLibraryMac (library);
+		else
+			return LoadDynamicLibraryLinux (library);
+	}
+
+	bool LoadDynamicLibraryMac (DynamicLibrary library)
+	{
 		var process = new Process ();
 		process.StartInfo.FileName = "/usr/bin/nm";
 		process.StartInfo.Arguments = $"-g -j -U {library.Path}";
@@ -193,6 +202,41 @@ public class Program
 		DynamicSymbols.Add (library.Name, new List<string> (symbols));
 
 		Console.WriteLine ($"Added {symbols.Length} symbols from {library.Path}.");
+
+		return true;
+	}
+
+	bool LoadDynamicLibraryLinux (DynamicLibrary library)
+	{
+		var process = new Process ();
+		process.StartInfo.FileName = "/usr/bin/nm";
+		process.StartInfo.Arguments = $"-g --defined-only {library.Path}";
+		process.StartInfo.UseShellExecute = false;
+		process.StartInfo.RedirectStandardOutput = true;
+
+		var symbols = new List<string> ();
+		try {
+			process.Start ();
+
+			var regex = new Regex (@"^([0-9a-fA-F]+)\s(\w)\s(\w+)");
+
+			string line;
+			while ((line = process.StandardOutput.ReadLine ()) != null) {
+				var match = regex.Match (line);
+				if (!match.Success)
+					continue;
+				symbols.Add (match.Groups[3].Value);
+			}
+
+			process.WaitForExit ();
+		} catch (Exception ex) {
+			Console.Error.WriteLine ($"Command failed: {ex.Message}");
+			return false;
+		}
+
+		DynamicSymbols.Add (library.Name, symbols);
+
+		Console.WriteLine ($"Added {symbols.Count} symbols from {library.Path}.");
 
 		return true;
 	}
@@ -222,8 +266,6 @@ public class Program
 		if (!method.HasPInvokeInfo)
 			return;
 
-		// Console.Error.WriteLine ($"CHECK METHOD: {method} {method.PInvokeInfo.EntryPoint} {method.PInvokeInfo.Module.Name}");
-
 		var dll = method.PInvokeInfo.Module.Name;
 		if (Options.IgnoreList.Contains (dll))
 			return;
@@ -243,6 +285,8 @@ public class Program
 				symbols = DynamicSymbols[dll];
 			else if (File.Exists (dll + ".dylib") && LoadDynamicLibrary (new DynamicLibrary (dll, dll + ".dylib")))
 				symbols = DynamicSymbols[dll];
+			else if (File.Exists (dll + ".so") && LoadDynamicLibrary (new DynamicLibrary (dll, dll + ".so")))
+				symbols = DynamicSymbols[dll];
 			else {
 				Console.Error.WriteLine ($"Cannot find assembly: '{dll}'.");
 				DynamicSymbols.Add (dll, null);
@@ -261,8 +305,13 @@ public class Program
 				return;
 		}
 
-		if (symbols.Contains ("_" + function))
-			return;
+		if (Platform.IsMacOS) {
+			if (symbols.Contains ("_" + function))
+				return;
+		} else {
+			if (symbols.Contains (function))
+				return;
+		}
 
 		Console.Error.WriteLine ($"Library '{dll}' does not contain '{function}'.");
 

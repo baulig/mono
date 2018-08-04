@@ -24,11 +24,22 @@ include ../../build/executable.make
 
 IOS_BUILD_OUT = ../../../sdks/out/ios-sim64-release
 
-MARTIN_ARGS = \
+MARTIN_MONOTOUCH_ARGS = \
 	--runtime=$(IOS_BUILD_OUT)/lib/libmonosgen-2.0.1.dylib \
 	--dylib=System.Security.Cryptography.Native.Apple:$(IOS_BUILD_OUT)/lib/libmono-apple-crypto.0.dylib \
 	../../class/lib/monotouch/System.dll
 
-martin::
+MARTIN_LINUX_ARGS = \
+	--runtime=../../mono/mini/.libs/libmonosgen-2.0.so.1 \
+	--dylib=System.Security.Cryptography.Native.OpenSsl:../../../mono/btls/build-shared/libmono-btls-shared.so \
+	--dylib=libmono-btls-shared:../../../mono/btls/build-shared/libmono-btls-shared.so \
+	--dylib=System.Native:../../../mono/metadata/.libs/libmono-system-native.a \
+	../../class/lib/net_4_x/System.dll
+
+martin-monotouch::
 	$(MAKE) V=1 PROFILE=basic
-	mono --debug ../../class/lib/basic/pinvoke-checker.exe $(MARTIN_ARGS)
+	mono --debug ../../class/lib/basic/pinvoke-checker.exe $(MARTIN_MONOTOUCH_ARGS)
+
+martin-linux::
+	$(MAKE) V=1 PROFILE=basic
+	mono --debug ../../class/lib/basic/pinvoke-checker.exe $(MARTIN_LINUX_ARGS)
