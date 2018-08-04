@@ -16,10 +16,8 @@
 ../../../external/corefx/src/Common/src/Interop/Unix/System.Native/Interop.Close.cs
 ../../../external/corefx/src/Common/src/System/Net/ContextAwareResult.Unix.cs
 
-../../../external/corefx/src/Common/src/Microsoft/Win32/SafeHandles/SafeEvpMdCtxHandle.Unix.cs
-../../../external/corefx/src/Common/src/Microsoft/Win32/SafeHandles/SafeHmacCtxHandle.Unix.cs
-../../../external/corefx/src/Common/src/Microsoft/Win32/SafeHandles/SafeBignumHandle.Unix.cs
-../../../external/corefx/src/Common/src/Microsoft/Win32/SafeHandles/SafeRsaHandle.Unix.cs
+../../../external/corefx/src/Common/src/Microsoft/Win32/SafeHandles/*.Unix.cs:SafeDsaHandle.Unix.cs,SafePkcs7Handle.Unix.cs
+../../../external/corefx/src/Common/src/Microsoft/Win32/SafeHandles/SafeInteriorHandle.cs
 
 ../../../external/corefx/src/Common/src/Internal/Cryptography/HashProvider.cs
 ../../../external/corefx/src/Common/src/Internal/Cryptography/AsymmetricAlgorithmHelpers.Der.cs
@@ -29,7 +27,8 @@
 ../../../external/corefx/src/Common/src/Interop/Unix/System.Security.Cryptography.Native/Interop.ERR.cs
 ../../../external/corefx/src/Common/src/Interop/Unix/System.Security.Cryptography.Native/Interop.EVP.cs
 ../../../external/corefx/src/Common/src/Interop/Unix/System.Security.Cryptography.Native/Interop.Hmac.cs
-../../../external/corefx/src/Common/src/Interop/Unix/System.Security.Cryptography.Native/Interop.Rsa.cs
+
+../../../external/corefx/src/Common/src/Interop/Unix/System.Security.Cryptography.Native/Interop.*.cs:Interop.OpenSsl.cs,Interop.SetProtocolOptions.cs,Interop.Ssl.cs,Interop.SslCtx.cs,Interop.SslCtxOptions.cs,Interop.Pkcs7.cs,Interop.Dsa.cs,Interop.EvpPkey.Dsa.cs
 ../../../external/corefx/src/Common/src/System/Security/Cryptography/RsaPaddingProcessor.cs
 
 
@@ -40,5 +39,5 @@
 ../../../external/corefx/src/System.Security.Cryptography.Primitives/src/System/Security/Cryptography/CryptographicOperations.cs
 
 #../../../external/corefx/src/System.Security.Cryptography.Csp/src/System/Security/Cryptography/RSACryptoServiceProvider.Unix.cs
-#../../../external/corefx/src/System.Security.Cryptography.OpenSsl/src/System/Security/Cryptography/RSAOpenSsl.cs
+../../../external/corefx/src/System.Security.Cryptography.OpenSsl/src/System/Security/Cryptography/RSAOpenSsl.cs
 ../../../external/corefx/src/Common/src/System/Security/Cryptography/RSAOpenSsl.cs
