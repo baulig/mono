@@ -92,9 +92,21 @@ set (
 	btls-x509.h
 
 	pal_crypto_config.h
+	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/pal_asn1.c
+	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/pal_asn1.h
+	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/pal_bignum.c
+	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/pal_bignum.h
+	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/pal_err.c
+	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/pal_err.h
 	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/pal_evp.c
+	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/pal_evp.h
+	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/pal_evp_cipher.c
+	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/pal_evp_cipher.h
+	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/pal_hmac.c
+	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/pal_hmac.h
 
 	${BORINGSSL_OBJECTS}
 )
 
 add_library (mono-btls-shared SHARED ${MONO_BTLS_SOURCES})
+
