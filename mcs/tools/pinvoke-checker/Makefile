@@ -22,7 +22,11 @@ endif
 
 include ../../build/executable.make
 
+IOS_BUILD_OUT = ../../../sdks/out/ios-sim64-release
+
 MARTIN_ARGS = \
+	--runtime=$(IOS_BUILD_OUT)/lib/libmonosgen-2.0.1.dylib \
+	--dylib=System.Security.Cryptography.Native.Apple:$(IOS_BUILD_OUT)/lib/libmono-apple-crypto.0.dylib \
 	../../class/lib/monotouch/System.dll
 
 martin::

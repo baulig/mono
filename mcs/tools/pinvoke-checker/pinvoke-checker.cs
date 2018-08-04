@@ -67,6 +67,8 @@ public class Program
 		public List<DynamicLibrary> DynamicLibraries { get; }
 		public List<string> IgnoreList { get; }
 
+		public string MonoRuntime { get; set; }
+
 		public CmdOptions ()
 		{
 			DynamicLibraries = new List<DynamicLibrary> ();
@@ -96,6 +98,8 @@ public class Program
 				v => Options.DynamicLibraries.Add (new DynamicLibrary (v)) },
 			{ "i|ignore=", "Ignore this DLL",
 				v => Options.IgnoreList.Add (v) },
+			{ "r|runtime=", "Add __Internal library",
+				v => Options.MonoRuntime = v },
 			{ "h|help",  "Display available options",
 				v => Options.ShowHelp = v != null },
 			{ "v|verbose",  "Use verbose output",
@@ -223,6 +227,16 @@ public class Program
 		var dll = method.PInvokeInfo.Module.Name;
 		if (Options.IgnoreList.Contains (dll))
 			return;
+		
+		switch (dll) {
+		case "libc":
+			return;
+		case "__Internal":
+			if (Options.MonoRuntime == null)
+				return;
+			dll = Options.MonoRuntime;
+			break;
+		}
 
 		if (!DynamicSymbols.TryGetValue (dll, out var symbols)) {
 			if (File.Exists (dll) && LoadDynamicLibrary (new DynamicLibrary (dll)))
@@ -239,6 +253,18 @@ public class Program
 		if (symbols == null)
 			return;
 
+		var function = method.PInvokeInfo.EntryPoint;
+		switch (function) {
+			case "dlopen":
+			case "dlsym":
+			case "dlclose":
+				return;
+		}
+
+		if (symbols.Contains ("_" + function))
+			return;
+
+		Console.Error.WriteLine ($"Library '{dll}' does not contain '{function}'.");
 
 	}
 }
