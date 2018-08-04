@@ -21,3 +21,10 @@ LIB_REFS += Mono.Cecil.Mdb
 endif
 
 include ../../build/executable.make
+
+MARTIN_ARGS = \
+	../../class/lib/monotouch/System.dll
+
+martin::
+	$(MAKE) V=1 PROFILE=basic
+	mono --debug ../../class/lib/basic/pinvoke-checker.exe $(MARTIN_ARGS)

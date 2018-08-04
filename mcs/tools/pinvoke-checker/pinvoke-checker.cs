@@ -31,25 +31,69 @@ using System.IO;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 using Mono.Options;
+using System.Diagnostics;
 using System.Collections.Generic;
 
 public class Program
 {
-	class CmdOptions
+	internal class DynamicLibrary
+	{
+		public string Name { get; set; }
+		public string Path { get; set; }
+
+		public DynamicLibrary (string name)
+		{
+			var pos = name.IndexOf (':');
+			if (pos < 0) {
+				Name = Path = name;
+			} else {
+				Name = name.Substring (0, pos);
+				Path = name.Substring (pos + 1);
+			}
+		}
+	}
+
+	internal class CmdOptions
 	{
 		public bool ShowHelp { get; set; }
 		public bool Verbose { get; set; }
+
+		public List<DynamicLibrary> DynamicLibraries { get; }
+		public List<string> IgnoreList { get; }
+
+		public CmdOptions ()
+		{
+			DynamicLibraries = new List<DynamicLibrary> ();
+			IgnoreList = new List<string> ();
+		}
 	}
 
-	public static int Main (string[] args)
+	internal CmdOptions Options {
+		get;
+	}
+
+	internal string FileName {
+		get;
+	}
+
+	internal Dictionary<string, List<string>> DynamicSymbols {
+		get;
+	}
+
+	Program (string[] args)
 	{
-		var options = new CmdOptions ();
+		Options = new CmdOptions ();
+		DynamicSymbols = new Dictionary<string, List<string>> ();
 
 		var p = new OptionSet () {
+			{ "d|dylib=", "Dynamic library to check for symbols",
+				v => Options.DynamicLibraries.Add (new DynamicLibrary (v)) },
+			{ "i|ignore=", "Ignore this DLL",
+				v => Options.IgnoreList.Add (v) },
 			{ "h|help",  "Display available options",
-				v => options.ShowHelp = v != null },
+				v => Options.ShowHelp = v != null },
 			{ "v|verbose",  "Use verbose output",
-				v => options.Verbose = v != null },
+				v => Options.Verbose = v != null },
 		};
 
 		List<string> extra;
@@ -59,20 +103,35 @@ public class Program
 		catch (OptionException e) {
 			Console.WriteLine (e.Message);
 			Console.WriteLine ("Try 'pinvoke-checker -help' for more information.");
-			return 1;
+			Environment.Exit (1);
+			return;
 		}
 
-		if (options.ShowHelp) {
+		if (Options.ShowHelp) {
 			ShowHelp (p);
-			return 0;
+			Environment.Exit (0);
 		}
 
 		if (extra.Count != 1) {
 			ShowHelp (p);
-			return 2;
+			Environment.Exit (2);
 		}
 
-		CheckAssembly (extra [0], options);
+		FileName = extra[0];
+	}
+
+	public static int Main (string[] args)
+	{
+		var program = new Program (args);
+		return program.Run ();
+	}
+
+	int Run ()
+	{
+		if (!LoadDynamicLibraries ())
+			return 3;
+
+		CheckAssembly ();
 
 		return 0;
 	}
@@ -86,7 +145,41 @@ public class Program
 		p.WriteOptionDescriptions (Console.Out);
 	}
 
-	static void CheckAssembly (string assemblyLocation, CmdOptions options)
+	bool LoadDynamicLibraries ()
+	{
+		foreach (var dynamicLibrary in Options.DynamicLibraries) {
+			if (!File.Exists (dynamicLibrary.Path)) {
+				Console.Error.WriteLine ($"Error reading shared library '{dynamicLibrary.Path}'");
+				return false;
+			}
+
+			var process = new Process ();
+			process.StartInfo.FileName = "/usr/bin/nm";
+			process.StartInfo.Arguments = $"-g -j -U {dynamicLibrary.Path}";
+			process.StartInfo.UseShellExecute = false;
+			process.StartInfo.RedirectStandardOutput = true;
+
+			string output;
+			try {
+				process.Start ();
+
+				output = process.StandardOutput.ReadToEnd ();
+				process.WaitForExit ();
+			} catch (Exception ex) {
+				Console.Error.WriteLine ($"Command failed: {ex.Message}");
+				return false;
+			}
+
+			var symbols = output.Split ();
+			DynamicSymbols.Add (dynamicLibrary.Name, new List<string> (symbols));
+
+			Console.WriteLine ($"Added {symbols.Length} symbols from {dynamicLibrary.Path}.");
+		}
+
+		return true;
+	}
+
+	void CheckAssembly ()
 	{
 		var readerParameters = new ReaderParameters {
 			ReadSymbols = true,
@@ -94,14 +187,38 @@ public class Program
 			SymbolReaderProvider = new DefaultSymbolReaderProvider (false)
 		};
 
-		using (var assembly = AssemblyDefinition.ReadAssembly (assemblyLocation, readerParameters)) {
+		using (var assembly = AssemblyDefinition.ReadAssembly (FileName, readerParameters)) {
 			foreach (var module in assembly.Modules) {
 				foreach (var type in module.GetTypes ()) {
 					foreach (var method in type.Methods) {
+						CheckMethod (method);
 					}
 				}
 			}
 
 		}
+	}
+
+	void CheckMethod (MethodDefinition method)
+	{
+		if (!method.HasPInvokeInfo)
+			return;
+
+		// Console.Error.WriteLine ($"CHECK METHOD: {method} {method.PInvokeInfo.EntryPoint} {method.PInvokeInfo.Module.Name}");
+
+		var dll = method.PInvokeInfo.Module.Name;
+		if (Options.IgnoreList.Contains (dll))
+			return;
+
+		if (!DynamicSymbols.TryGetValue (dll, out var symbols)) {
+			Console.Error.WriteLine ($"Cannot find assembly: '{dll}'.");
+			DynamicSymbols.Add (dll, null);
+			return;
+		}
+
+		if (symbols == null)
+			return;
+
+
 	}
 }
