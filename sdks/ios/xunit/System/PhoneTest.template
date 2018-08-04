@@ -82,22 +82,22 @@
     <Reference Include="System.Core" />
     <Reference Include="Xamarin.iOS" />
     <Reference Include="xunit.abstractions">
-      <HintPath>@XUNIT_BINARIES@\netstandard2.0\xunit.abstractions.dll</HintPath>
+      <HintPath>@XUNIT_BINARIES@\xunit.abstractions.dll</HintPath>
     </Reference>
     <Reference Include="xunit.assert">
-      <HintPath>@XUNIT_BINARIES@\netstandard2.0\xunit.assert.dll</HintPath>
+      <HintPath>@XUNIT_BINARIES@\xunit.assert.dll</HintPath>
     </Reference>
     <Reference Include="xunit.core">
-      <HintPath>@XUNIT_BINARIES@\netstandard2.0\xunit.core.dll</HintPath>
+      <HintPath>@XUNIT_BINARIES@\xunit.core.dll</HintPath>
     </Reference>
     <Reference Include="xunit.execution.dotnet">
-      <HintPath>@XUNIT_BINARIES@\netstandard2.0\xunit.execution.dotnet.dll</HintPath>
+      <HintPath>@XUNIT_BINARIES@\xunit.execution.dotnet.dll</HintPath>
     </Reference>
     <Reference Include="xunit.runner.utility">
-      <HintPath>@XUNIT_BINARIES@\netstandard2.0\xunit.runner.utility.netstandard20.dll</HintPath>
+      <HintPath>@XUNIT_BINARIES@\xunit.runner.utility.netstandard20.dll</HintPath>
     </Reference>
     <Reference Include="Xunit.NetCore.Extensions">
-      <HintPath>@XUNIT_BINARIES@\netstandard2.0\Xunit.NetCore.Extensions.dll</HintPath>
+      <HintPath>@XUNIT_BINARIES@\Xunit.NetCore.Extensions.dll</HintPath>
     </Reference>
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Numerics" />
