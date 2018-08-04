@@ -38,8 +38,8 @@ public class Program
 {
 	internal class DynamicLibrary
 	{
-		public string Name { get; set; }
-		public string Path { get; set; }
+		public string Name { get; private set; }
+		public string Path { get; private set; }
 
 		public DynamicLibrary (string name)
 		{
@@ -50,6 +50,12 @@ public class Program
 				Name = name.Substring (0, pos);
 				Path = name.Substring (pos + 1);
 			}
+		}
+
+		public DynamicLibrary (string name, string path)
+		{
+			Name = name;
+			Path = path;
 		}
 	}
 
@@ -153,28 +159,36 @@ public class Program
 				return false;
 			}
 
-			var process = new Process ();
-			process.StartInfo.FileName = "/usr/bin/nm";
-			process.StartInfo.Arguments = $"-g -j -U {dynamicLibrary.Path}";
-			process.StartInfo.UseShellExecute = false;
-			process.StartInfo.RedirectStandardOutput = true;
-
-			string output;
-			try {
-				process.Start ();
-
-				output = process.StandardOutput.ReadToEnd ();
-				process.WaitForExit ();
-			} catch (Exception ex) {
-				Console.Error.WriteLine ($"Command failed: {ex.Message}");
+			if (!LoadDynamicLibrary (dynamicLibrary))
 				return false;
-			}
-
-			var symbols = output.Split ();
-			DynamicSymbols.Add (dynamicLibrary.Name, new List<string> (symbols));
-
-			Console.WriteLine ($"Added {symbols.Length} symbols from {dynamicLibrary.Path}.");
 		}
+
+		return true;
+	}
+
+	bool LoadDynamicLibrary (DynamicLibrary library)
+	{
+		var process = new Process ();
+		process.StartInfo.FileName = "/usr/bin/nm";
+		process.StartInfo.Arguments = $"-g -j -U {library.Path}";
+		process.StartInfo.UseShellExecute = false;
+		process.StartInfo.RedirectStandardOutput = true;
+
+		string output;
+		try {
+			process.Start ();
+
+			output = process.StandardOutput.ReadToEnd ();
+			process.WaitForExit ();
+		} catch (Exception ex) {
+			Console.Error.WriteLine ($"Command failed: {ex.Message}");
+			return false;
+		}
+
+		var symbols = output.Split ();
+		DynamicSymbols.Add (library.Name, new List<string> (symbols));
+
+		Console.WriteLine ($"Added {symbols.Length} symbols from {library.Path}.");
 
 		return true;
 	}
@@ -211,9 +225,15 @@ public class Program
 			return;
 
 		if (!DynamicSymbols.TryGetValue (dll, out var symbols)) {
-			Console.Error.WriteLine ($"Cannot find assembly: '{dll}'.");
-			DynamicSymbols.Add (dll, null);
-			return;
+			if (File.Exists (dll) && LoadDynamicLibrary (new DynamicLibrary (dll)))
+				symbols = DynamicSymbols[dll];
+			else if (File.Exists (dll + ".dylib") && LoadDynamicLibrary (new DynamicLibrary (dll, dll + ".dylib")))
+				symbols = DynamicSymbols[dll];
+			else {
+				Console.Error.WriteLine ($"Cannot find assembly: '{dll}'.");
+				DynamicSymbols.Add (dll, null);
+				return;
+			}
 		}
 
 		if (symbols == null)
