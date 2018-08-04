@@ -493,6 +493,7 @@ partial class SR
 	public const string Cryptography_MustTransformWholeBlock = "TransformBlock may only process bytes in block sized increments.";
 	public const string Cryptography_NotValidPrivateKey = "Key is not a valid private key.";
 	public const string Cryptography_NotValidPublicOrPrivateKey = "Key is not a valid public or private key.";
+	public const string Cryptography_Oid_InvalidName = "No OID value matches this name.";
 	public const string Cryptography_OAEP_Decryption_Failed = "Error occurred while decoding OAEP padding.";
 	public const string Cryptography_OpenInvalidHandle = "Cannot open an invalid handle.";
 	public const string Cryptography_PartialBlock = "The input data is not a complete block.";
@@ -514,7 +515,17 @@ partial class SR
 	public const string NotSupported_SubclassOverride = "Method not supported. Derived class must override.";
 	public const string Cryptography_AlgorithmTypesMustBeVisible = "Algorithms added to CryptoConfig must be accessable from outside their assembly.";
 	public const string Cryptography_AddNullOrEmptyName = "CryptoConfig cannot add a mapping for a null or empty name.";
-	public const string Cryptography_Oid_InvalidName = "No OID value matches this name.";
+	public const string Cryptography_CAPI_Required = "'{0}' requires Windows Cryptographic API (CAPI), which is not available on this platform.";
+	public const string Cryptography_CSP_NotFound = "The requested key container was not found.";
+	public const string Cryptography_CSP_WrongKeySpec = "The specified cryptographic service provider (CSP) does not support this key algorithm: {0}.";
+	public const string Cryptography_InvalidDSASignatureSize = "Length of the DSA signature was not 40 bytes.";
+	public const string Cryptography_InvalidHashSize = "{0} algorithm hash size is {1} bytes.";
+	public const string Cryptography_PasswordDerivedBytes_InvalidAlgorithm = "Algorithm is unavailable or is not supported for this operation.";
+	public const string Cryptography_PasswordDerivedBytes_InvalidIV = "The Initialization vector should have the same length as the algorithm block size in bytes.";
+	public const string Cryptography_PasswordDerivedBytes_TooManyBytes = "Requested number of bytes exceeds the maximum.";
+	public const string Cryptography_PasswordDerivedBytes_ValuesFixed = "Value of '{0}' cannot be changed after the bytes have been retrieved.";
+	public const string CryptSetKeyParam_Failed = "CryptSetKeyParam failed with error code {0}.";
+	public const string CspParameter_invalid = "CSPParameters cannot be null";
 	public const string Cryptography_SSE_InvalidDataSize = "NoLength of the data to encrypt is invalid.";
 	public const string ObjectDisposed_Generic = "Cannot access a disposed object.";
 	public const string Cryptography_Asn_EnumeratedValueRequiresNonFlagsEnum = "ASN.1 Enumerated values only apply to enum types without the [Flags] attribute.";
