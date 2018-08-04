@@ -92,18 +92,52 @@ set (
 	btls-x509.h
 
 	pal_crypto_config.h
+	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/openssl.c
+	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/openssl.h
 	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/pal_asn1.c
 	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/pal_asn1.h
+	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/pal_asn1_print.c
+	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/pal_asn1_print.h
 	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/pal_bignum.c
 	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/pal_bignum.h
+	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/pal_bio.c
+	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/pal_bio.h
+	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/pal_crypto_types.h
+	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/pal_ecc_import_export.c
+	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/pal_ecc_import_export.h
+	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/pal_ecdsa.c
+	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/pal_ecdsa.h
+	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/pal_eckey.c
+	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/pal_eckey.h
 	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/pal_err.c
 	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/pal_err.h
 	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/pal_evp.c
-	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/pal_evp.h
 	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/pal_evp_cipher.c
 	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/pal_evp_cipher.h
+	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/pal_evp.h
+	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/pal_evp_pkey.c
+	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/pal_evp_pkey_dsa.c
+	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/pal_evp_pkey_dsa.h
+	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/pal_evp_pkey_ecdh.c
+	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/pal_evp_pkey_ecdh.h
+	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/pal_evp_pkey_eckey.c
+	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/pal_evp_pkey_eckey.h
+	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/pal_evp_pkey.h
+	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/pal_evp_pkey_rsa.c
+	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/pal_evp_pkey_rsa.h
 	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/pal_hmac.c
 	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/pal_hmac.h
+	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/pal_rsa.c
+	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/pal_rsa.h
+	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/pal_x509.c
+	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/pal_x509ext.c
+	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/pal_x509ext.h
+	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/pal_x509.h
+	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/pal_x509_name.c
+	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/pal_x509_name.h
+	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/pal_x509_root.c
+	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/pal_x509_root.h
+
 
 	${BORINGSSL_OBJECTS}
 )
