@@ -42,7 +42,6 @@ Mono/SystemCryptographyProvider.Linux.cs
 
 ../../../external/corefx/src/System.Security.Cryptography.Csp/src/System/Security/Cryptography/CapiHelper.Shared.cs
 ../../../external/corefx/src/System.Security.Cryptography.Csp/src/System/Security/Cryptography/CapiHelper.Unix.cs
-../../../external/corefx/src/System.Security.Cryptography.Csp/src/System/Security/Cryptography/RSACryptoServiceProvider.Unix.cs
 ../../../external/corefx/src/System.Security.Cryptography.OpenSsl/src/System/Security/Cryptography/RSAOpenSsl.cs
 ../../../external/corefx/src/System.Security.Cryptography.OpenSsl/src/System/Security/Cryptography/ECDsaOpenSsl.cs
 ../../../external/corefx/src/Common/src/System/Security/Cryptography/RSAOpenSsl.cs
