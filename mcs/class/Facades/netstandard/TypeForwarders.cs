@@ -872,6 +872,7 @@
 [assembly:System.Runtime.CompilerServices.TypeForwardedTo(typeof(System.Diagnostics.Tracing.EventTask))]
 [assembly:System.Runtime.CompilerServices.TypeForwardedTo(typeof(System.Diagnostics.Tracing.EventWrittenEventArgs))]
 [assembly:System.Runtime.CompilerServices.TypeForwardedTo(typeof(System.Diagnostics.Tracing.NonEventAttribute))]
+#if !MONOTOUCH
 [assembly:System.Runtime.CompilerServices.TypeForwardedTo(typeof(System.Drawing.Color))]
 [assembly:System.Runtime.CompilerServices.TypeForwardedTo(typeof(System.Drawing.Point))]
 [assembly:System.Runtime.CompilerServices.TypeForwardedTo(typeof(System.Drawing.PointF))]
@@ -879,6 +880,7 @@
 [assembly:System.Runtime.CompilerServices.TypeForwardedTo(typeof(System.Drawing.RectangleF))]
 [assembly:System.Runtime.CompilerServices.TypeForwardedTo(typeof(System.Drawing.Size))]
 [assembly:System.Runtime.CompilerServices.TypeForwardedTo(typeof(System.Drawing.SizeF))]
+#endif
 [assembly:System.Runtime.CompilerServices.TypeForwardedTo(typeof(System.Dynamic.BinaryOperationBinder))]
 [assembly:System.Runtime.CompilerServices.TypeForwardedTo(typeof(System.Dynamic.BindingRestrictions))]
 [assembly:System.Runtime.CompilerServices.TypeForwardedTo(typeof(System.Dynamic.CallInfo))]

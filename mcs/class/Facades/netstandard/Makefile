@@ -40,10 +40,11 @@ else
 # For now we typeforward the drawing types to the System.Drawing.Primitives.dll
 # facade where they are embedded.
 # TODO: find a better solution.
-EMBEDDED_DRAWING_DEP := $(filter xammac_net_4_5 testing_aot_full testing_aot_hybrid, $(PROFILE))
+EMBEDDED_DRAWING_DEP := $(filter xammac_net_4_5 testing_aot_full testing_aot_hybrid , $(PROFILE))
 
 ifdef EMBEDDED_DRAWING_DEP
 LIB_REFS += Facades/System.Drawing.Primitives
+else ifeq ($(PROFILE),monotouch)
 else
 # When System.Drawing.dll is not built in the Mono repo but in
 # the product repo like in the XI/XA case we need to pass in a reference
