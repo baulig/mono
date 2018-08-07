@@ -23,21 +23,22 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
-using Foundation;
-using ObjCRuntime;
-using UIKit;
-using Xunit.Runners;
+using System;
 using System.Linq;
-using System.Collections.Generic;
+using AppKit;
+using Foundation;
+using PhoneTest;
 
-namespace PhoneTest
+namespace Mac
 {
-	// The UIApplicationDelegate for the application. This class is responsible for launching the
-	// User Interface of the application, as well as listening (and optionally responding) to application events from iOS.
 	[Register ("AppDelegate")]
-	public class AppDelegate : UIApplicationDelegate
+	public class AppDelegate : NSApplicationDelegate
 	{
-		public override bool FinishedLaunching (UIApplication application, NSDictionary launchOptions)
+		public AppDelegate ()
+		{
+		}
+
+		public override void DidFinishLaunching (NSNotification notification)
 		{
 			var runner = new DeviceRunner ();
 
@@ -45,15 +46,12 @@ namespace PhoneTest
 			runner.Filters.ExcludedTraits.Add ("Benchmark", new[] { "true" }.ToList ());
 
 			runner.Run ();
-			TerminateWithSuccess ();
-			return true;
+			Environment.Exit (0);
 		}
 
-		public static void TerminateWithSuccess()
+		public override void WillTerminate (NSNotification notification)
 		{
-			var selector = new Selector ("terminateWithSuccess");
-			UIApplication.SharedApplication.PerformSelector (selector, UIApplication.SharedApplication, 0);
+			// Insert code here to tear down your application
 		}
 	}
 }
-

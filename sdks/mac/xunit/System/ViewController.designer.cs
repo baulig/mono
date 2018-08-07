@@ -1,5 +1,5 @@
 ﻿//
-// Main.cs
+// ViewController.designer.cs
 //
 // Author:
 //       Martin Baulig <mabaul@microsoft.com>
@@ -23,16 +23,21 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
-using AppKit;
+// WARNING
+//
+// This file has been generated automatically by Xamarin Studio to store outlets and
+// actions made in the UI designer. If it is removed, they will be lost.
+// Manual changes to this file may not be handled correctly.
+//
+using Foundation;
 
 namespace Mac
 {
-	static class MainClass
+	[Register ("ViewController")]
+	partial class ViewController
 	{
-		static void Main (string[] args)
+		void ReleaseDesignerOutlets ()
 		{
-			NSApplication.Init ();
-			NSApplication.Main (args);
 		}
 	}
 }

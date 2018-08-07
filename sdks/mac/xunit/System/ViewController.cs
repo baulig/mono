@@ -1,5 +1,5 @@
 ﻿//
-// Main.cs
+// ViewController.cs
 //
 // Author:
 //       Martin Baulig <mabaul@microsoft.com>
@@ -23,16 +23,34 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
+using System;
+
 using AppKit;
+using Foundation;
 
 namespace Mac
 {
-	static class MainClass
+	public partial class ViewController : NSViewController
 	{
-		static void Main (string[] args)
+		public ViewController (IntPtr handle) : base (handle)
 		{
-			NSApplication.Init ();
-			NSApplication.Main (args);
+		}
+
+		public override void ViewDidLoad ()
+		{
+			base.ViewDidLoad ();
+
+			// Do any additional setup after loading the view.
+		}
+
+		public override NSObject RepresentedObject {
+			get {
+				return base.RepresentedObject;
+			}
+			set {
+				base.RepresentedObject = value;
+				// Update the view, if already loaded.
+			}
 		}
 	}
 }
