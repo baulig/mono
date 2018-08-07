@@ -2,6 +2,7 @@
 #include appletls.sources
 #include appletls-corefx.sources
 
+Mono/MartinTest.cs
 Mono.AppleTls/MonoCertificatePal.OSX.cs
 
 ../../../external/corefx/src/System.Text.RegularExpressions/src/System/Text/RegularExpressions/RegexCompiler.cs
@@ -13,6 +14,26 @@ Mono.AppleTls/MonoCertificatePal.OSX.cs
 ../../../external/corefx/src/Common/src/Interop/OSX/Interop.CoreFoundation.cs
 ../../../external/corefx/src/Common/src/Microsoft/Win32/SafeHandles/SafeCreateHandle.OSX.cs
 
+../../../external/corefx/src/Common/src/Interop/OSX/System.Security.Cryptography.Native.Apple/Interop.Digest.cs
+../../../external/corefx/src/Common/src/Interop/OSX/System.Security.Cryptography.Native.Apple/Interop.Hmac.cs
+../../../external/corefx/src/Common/src/Interop/OSX/System.Security.Cryptography.Native.Apple/Interop.Symmetric.cs
+../../../external/corefx/src/Common/src/Interop/Apple/System.Security.Cryptography.Native.Apple/Interop.SecKeyRef.cs
+../../../external/corefx/src/Common/src/Interop/Apple/System.Security.Cryptography.Native.Apple/Interop.SignVerify.cs
+../../../external/corefx/src/Common/src/Interop/OSX/System.Security.Cryptography.Native.Apple/Interop.Ecc.cs
+../../../external/corefx/src/Common/src/Interop/OSX/System.Security.Cryptography.Native.Apple/Interop.RSA.cs
+../../../external/corefx/src/Common/src/Interop/OSX/System.Security.Cryptography.Native.Apple/Interop.SecKeyRef.cs
+../../../external/corefx/src/Common/src/Interop/OSX/System.Security.Cryptography.Native.Apple/Interop.X509.cs
+
 ../../../external/corefx/src/Common/src/Interop/OSX/System.Security.Cryptography.Native.Apple/Interop.X509.cs
 ../../../external/corefx/src/Common/src/Interop/OSX/System.Security.Cryptography.Native.Apple/Interop.SecKeyRef.cs
 ../../../external/corefx/src/Common/src/Interop/OSX/System.Security.Cryptography.Native.Apple/Interop.SecKeyRef.Export.cs
+
+../../../external/corefx/src/Common/src/System/Security/Cryptography/KeyBlobHelpers.cs
+../../../external/corefx/src/Common/src/System/Security/Cryptography/SecKeyPair.cs
+../../../external/corefx/src/Common/src/System/Security/Cryptography/RSASecurityTransforms.cs
+../../../external/corefx/src/Common/src/System/Security/Cryptography/EccSecurityTransforms.cs
+../../../external/corefx/src/Common/src/System/Security/Cryptography/ECDsaSecurityTransforms.cs
+../../../external/corefx/src/Common/src/System/Security/Cryptography/RsaPaddingProcessor.cs
+../../../external/corefx/src/Common/src/Internal/Cryptography/AsymmetricAlgorithmHelpers.Der.cs
+../../../external/corefx/src/Common/src/Internal/Cryptography/AsymmetricAlgorithmHelpers.Hash.cs
+

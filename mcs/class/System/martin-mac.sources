@@ -1,0 +1,106 @@
+../../../sdks/ios/xunit/System/Mono/MonoRsaProvider.cs
+../../../sdks/ios/xunit/System/Mono/MonoECDsaProvider.cs
+
+../../../external/corefx/src/CoreFx.Private.TestUtilities/src/System/AssertExtensions.cs
+../../../external/corefx/src/Common/tests/System/IO/PositionValueStream.cs
+
+../../../external/corefx/src/Common/tests/System/Security/Cryptography/AsymmetricSignatureFormatter.cs
+../../../external/corefx/src/Common/tests/System/Security/Cryptography/CryptoUtils.cs
+../../../external/corefx/src/Common/tests/System/Security/Cryptography/ByteUtils.cs
+
+##
+## Common EC
+##
+../../../external/corefx/src/Common/tests/System/Security/Cryptography/AlgorithmImplementations/EC/CurveDef.cs
+../../../external/corefx/src/Common/tests/System/Security/Cryptography/AlgorithmImplementations/EC/EccTestBase.cs
+../../../external/corefx/src/Common/tests/System/Security/Cryptography/AlgorithmImplementations/EC/EccTestData.cs
+
+##
+## ECDiffieHellman - missing NetCore APIs
+##
+# ../../../external/corefx/src/Common/tests/System/Security/Cryptography/AlgorithmImplementations/ECDiffieHellman/ECDiffieHellmanFactory.cs
+# ../../../external/corefx/src/Common/tests/System/Security/Cryptography/AlgorithmImplementations/ECDiffieHellman/ECDiffieHellmanTests.Hash.cs
+# ../../../external/corefx/src/Common/tests/System/Security/Cryptography/AlgorithmImplementations/ECDiffieHellman/ECDiffieHellmanTests.Hmac.cs
+# ../../../external/corefx/src/Common/tests/System/Security/Cryptography/AlgorithmImplementations/ECDiffieHellman/ECDiffieHellmanTests.ImportExport.cs
+# ../../../external/corefx/src/Common/tests/System/Security/Cryptography/AlgorithmImplementations/ECDiffieHellman/ECDiffieHellmanTests.NistValidation.cs
+# ../../../external/corefx/src/Common/tests/System/Security/Cryptography/AlgorithmImplementations/ECDiffieHellman/ECDiffieHellmanTests.Tls.cs
+# ../../../external/corefx/src/Common/tests/System/Security/Cryptography/AlgorithmImplementations/ECDiffieHellman/ECDiffieHellmanTests.Xml.cs
+# ../../../external/corefx/src/Common/tests/System/Security/Cryptography/AlgorithmImplementations/ECDiffieHellman/ECDiffieHellmanTests.cs
+
+##
+## RSA
+##
+../../../external/corefx/src/Common/tests/System/Security/Cryptography/AlgorithmImplementations/RSA/EncryptDecrypt.cs
+# xammac doesn't support netcoreapp yet
+# ../../../external/corefx/src/Common/tests/System/Security/Cryptography/AlgorithmImplementations/RSA/EncryptDecrypt.netcoreapp.cs
+../../../external/corefx/src/Common/tests/System/Security/Cryptography/AlgorithmImplementations/RSA/ImportExport.cs
+../../../external/corefx/src/Common/tests/System/Security/Cryptography/AlgorithmImplementations/RSA/KeyGeneration.cs
+../../../external/corefx/src/Common/tests/System/Security/Cryptography/AlgorithmImplementations/RSA/RSAFactory.cs
+../../../external/corefx/src/Common/tests/System/Security/Cryptography/AlgorithmImplementations/RSA/RSAKeyExchangeFormatter.cs
+../../../external/corefx/src/Common/tests/System/Security/Cryptography/AlgorithmImplementations/RSA/RSASignatureFormatter.cs
+../../../external/corefx/src/Common/tests/System/Security/Cryptography/AlgorithmImplementations/RSA/RSAXml.cs
+../../../external/corefx/src/Common/tests/System/Security/Cryptography/AlgorithmImplementations/RSA/SignVerify.cs
+../../../external/corefx/src/Common/tests/System/Security/Cryptography/AlgorithmImplementations/RSA/SignVerify.netcoreapp.cs
+../../../external/corefx/src/Common/tests/System/Security/Cryptography/AlgorithmImplementations/RSA/TestData.cs
+
+##
+## ECDsa
+##
+
+../../../external/corefx/src/Common/tests/System/Security/Cryptography/AlgorithmImplementations/ECDsa/ECDsaFactory.cs
+../../../external/corefx/src/Common/tests/System/Security/Cryptography/AlgorithmImplementations/ECDsa/ECDsaImportExport.cs
+../../../external/corefx/src/Common/tests/System/Security/Cryptography/AlgorithmImplementations/ECDsa/ECDsaStub.cs
+# xammac doesn't support netcoreapp yet
+# ../../../external/corefx/src/Common/tests/System/Security/Cryptography/AlgorithmImplementations/ECDsa/ECDsaTests.NistValidation.cs
+# ../../../external/corefx/src/Common/tests/System/Security/Cryptography/AlgorithmImplementations/ECDsa/ECDsaTests.cs
+# Missing NetCore APIs
+# ../../../external/corefx/src/Common/tests/System/Security/Cryptography/AlgorithmImplementations/ECDsa/ECDsaTests.netcoreapp.cs
+../../../external/corefx/src/Common/tests/System/Security/Cryptography/AlgorithmImplementations/ECDsa/ECDsaTestsBase.cs
+../../../external/corefx/src/Common/tests/System/Security/Cryptography/AlgorithmImplementations/ECDsa/ECDsaXml.cs
+
+##
+## System.Security.Cryptography.Algorithms
+##
+
+../../../external/corefx/src/System.Security.Cryptography.Algorithms/tests/AsymmetricSignatureFormatterTests.cs
+../../../external/corefx/src/System.Security.Cryptography.Algorithms/tests/BlockSizeValueTests.cs
+../../../external/corefx/src/System.Security.Cryptography.Algorithms/tests/ECDiffieHellmanPublicKeyTests.cs
+# Missing NetCore APIs
+# ../../../external/corefx/src/System.Security.Cryptography.Algorithms/tests/ECDiffieHellmanTests.cs
+# xammac doesn't support netcoreapp yet
+# ../../../external/corefx/src/System.Security.Cryptography.Algorithms/tests/ECDsaTests.cs
+../../../external/corefx/src/System.Security.Cryptography.Algorithms/tests/HashAlgorithmTest.cs
+../../../external/corefx/src/System.Security.Cryptography.Algorithms/tests/HashAlgorithmTest.netcoreapp.cs
+../../../external/corefx/src/System.Security.Cryptography.Algorithms/tests/HmacMD5Tests.cs
+../../../external/corefx/src/System.Security.Cryptography.Algorithms/tests/HmacSha1Tests.cs
+../../../external/corefx/src/System.Security.Cryptography.Algorithms/tests/HmacSha256Tests.cs
+../../../external/corefx/src/System.Security.Cryptography.Algorithms/tests/HmacSha384Tests.cs
+../../../external/corefx/src/System.Security.Cryptography.Algorithms/tests/HmacSha512Tests.cs
+../../../external/corefx/src/System.Security.Cryptography.Algorithms/tests/HmacTests.cs
+../../../external/corefx/src/System.Security.Cryptography.Algorithms/tests/IncrementalHashTests.cs
+# xammac doesn't support netcoreapp yet
+# ../../../external/corefx/src/System.Security.Cryptography.Algorithms/tests/IncrementalHashTests.netcoreapp.cs
+# These hang the test runner
+# ../../../external/corefx/src/System.Security.Cryptography.Algorithms/tests/InvalidUsageTests.cs
+../../../external/corefx/src/System.Security.Cryptography.Algorithms/tests/MD5Tests.cs
+../../../external/corefx/src/System.Security.Cryptography.Algorithms/tests/PaddingModeTests.cs
+../../../external/corefx/src/System.Security.Cryptography.Algorithms/tests/RSACreateTests.cs
+../../../external/corefx/src/System.Security.Cryptography.Algorithms/tests/RSAKeyExchangeFormatterTests.cs
+../../../external/corefx/src/System.Security.Cryptography.Algorithms/tests/RSASignatureFormatterTests.cs
+../../../external/corefx/src/System.Security.Cryptography.Algorithms/tests/RSATests.cs
+../../../external/corefx/src/System.Security.Cryptography.Algorithms/tests/ReusabilityTests.cs
+../../../external/corefx/src/System.Security.Cryptography.Algorithms/tests/Rfc2202HmacTests.cs
+# We are still using the referencesource version.
+# ../../../external/corefx/src/System.Security.Cryptography.Algorithms/tests/Rfc2898Tests.cs
+../../../external/corefx/src/System.Security.Cryptography.Algorithms/tests/Rfc4231HmacTests.cs
+../../../external/corefx/src/System.Security.Cryptography.Algorithms/tests/Sha1ManagedTests.cs
+../../../external/corefx/src/System.Security.Cryptography.Algorithms/tests/Sha1Tests.cs
+../../../external/corefx/src/System.Security.Cryptography.Algorithms/tests/Sha256ManagedTests.cs
+../../../external/corefx/src/System.Security.Cryptography.Algorithms/tests/Sha256Tests.cs
+../../../external/corefx/src/System.Security.Cryptography.Algorithms/tests/Sha384ManagedTests.cs
+../../../external/corefx/src/System.Security.Cryptography.Algorithms/tests/Sha384Tests.cs
+../../../external/corefx/src/System.Security.Cryptography.Algorithms/tests/Sha512ManagedTests.cs
+../../../external/corefx/src/System.Security.Cryptography.Algorithms/tests/Sha512Tests.cs
+../../../external/corefx/src/System.Security.Cryptography.Algorithms/tests/SignatureDescriptionTests.cs
+
+

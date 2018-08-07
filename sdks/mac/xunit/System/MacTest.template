@@ -81,8 +81,8 @@
     <InterfaceDefinition Include="Main.storyboard" />
   </ItemGroup>
   <ItemGroup>
-    <Reference Include="monotouch_System_xunit-test">
-      <HintPath>@MONO_DIR@\mcs\class\System\monotouch_System_xunit-test.dll</HintPath>
+    <Reference Include="xammac_System_xunit-test">
+      <HintPath>@MONO_DIR@\mcs\class\System\xammac_System_xunit-test.dll</HintPath>
     </Reference>
   </ItemGroup>
   <ItemGroup>

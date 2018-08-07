@@ -872,7 +872,7 @@
 [assembly:System.Runtime.CompilerServices.TypeForwardedTo(typeof(System.Diagnostics.Tracing.EventTask))]
 [assembly:System.Runtime.CompilerServices.TypeForwardedTo(typeof(System.Diagnostics.Tracing.EventWrittenEventArgs))]
 [assembly:System.Runtime.CompilerServices.TypeForwardedTo(typeof(System.Diagnostics.Tracing.NonEventAttribute))]
-#if !MONOTOUCH
+#if !MONOTOUCH && !XAMMAC
 [assembly:System.Runtime.CompilerServices.TypeForwardedTo(typeof(System.Drawing.Color))]
 [assembly:System.Runtime.CompilerServices.TypeForwardedTo(typeof(System.Drawing.Point))]
 [assembly:System.Runtime.CompilerServices.TypeForwardedTo(typeof(System.Drawing.PointF))]

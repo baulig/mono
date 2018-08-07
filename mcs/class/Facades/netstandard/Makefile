@@ -41,16 +41,19 @@ else
 # facade where they are embedded.
 # TODO: find a better solution.
 EMBEDDED_DRAWING_DEP := $(filter xammac_net_4_5 testing_aot_full testing_aot_hybrid , $(PROFILE))
+SKIP_DRAWING_DEP := $(filter monotouch xammac, $(PROFILE))
 
 ifdef EMBEDDED_DRAWING_DEP
 LIB_REFS += Facades/System.Drawing.Primitives
-else ifeq ($(PROFILE),monotouch)
+else
+ifdef SKIP_DRAWING_DEP
 else
 # When System.Drawing.dll is not built in the Mono repo but in
 # the product repo like in the XI/XA case we need to pass in a reference
 # to the assembly containing drawing types like Rectangle etc. from there.
 # This needs to be passed in via EXTERNAL_FACADE_DRAWING_REFERENCE.
 LIB_MCS_FLAGS += /r:$(EXTERNAL_FACADE_DRAWING_REFERENCE)
+endif
 endif
 
 endif
