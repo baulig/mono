@@ -20,8 +20,7 @@ namespace PhoneTest
 	public class DeviceRunner
 	{
 		static object consoleLock = new object();
-		ManualResetEvent finished = new ManualResetEvent(false);
-		int result = 0;
+		ManualResetEvent finished = new ManualResetEvent (false);
 		int countFailed;
 		int countPassed;
 		int countSkipped;
@@ -31,8 +30,8 @@ namespace PhoneTest
 
 		public DeviceRunner ()
 		{
-			var assembly = Assembly.GetEntryAssembly ().Location;
-			runner = AssemblyRunner.WithoutAppDomain (assembly);
+			var assembly = typeof (System.Security.Cryptography.Rsa.Tests.RSAFactory).Assembly;
+			runner = AssemblyRunner.WithoutAppDomain (Path.GetFileName (assembly.Location));
 			filters = new XunitFilters ();
 
 			runner.OnDiscoveryComplete = OnDiscoveryComplete;
@@ -84,8 +83,6 @@ namespace PhoneTest
 
 				Console.ResetColor ();
 			}
-
-			result = 1;
 		}
 
 		void OnTestPassed (TestPassedInfo info)

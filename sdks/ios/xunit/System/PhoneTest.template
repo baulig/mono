@@ -205,7 +205,6 @@
   <ItemGroup>
     <Folder Include="Resources\" />
     <Folder Include="CoreFX\" />
-    <Folder Include="Mono\" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Info.plist" />
@@ -216,7 +215,9 @@
     <Compile Include="AppDelegate.cs" />
   </ItemGroup>
   <ItemGroup>
-@SOURCE_LIST@
+    <Reference Include="monotouch_System_xunit-test">
+      <HintPath>@MONO_DIR@\mcs\class\System\monotouch_System_xunit-test.dll</HintPath>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="DeviceRunner.cs" />
