@@ -4,6 +4,7 @@
 #include appletls-corefx.sources
 
 Mono.AppleTls/MonoCertificatePal.OSX.cs
+Mono.AppleTls/SafeHandles.Keychain.cs
 
 Mono/SystemCryptographyProvider.Apple.cs
 Mono/StorePal.cs
@@ -32,6 +33,8 @@ Mono/X509PalImpl.Unix.cs
 ../../../external/corefx/src/Common/src/Interop/OSX/System.Security.Cryptography.Native.Apple/Interop.SecKeyRef.cs
 ../../../external/corefx/src/Common/src/Interop/OSX/System.Security.Cryptography.Native.Apple/Interop.SecKeyRef.Export.cs
 ../../../external/corefx/src/Common/src/Interop/OSX/System.Security.Cryptography.Native.Apple/Interop.X509.cs
+../../../external/corefx/src/Common/src/Interop/OSX/System.Security.Cryptography.Native.Apple/Interop.X509Chain.cs
+../../../external/corefx/src/Common/src/Interop/OSX/System.Security.Cryptography.Native.Apple/Interop.Keychain.cs
 
 ../../../external/corefx/src/System.Security.Cryptography.Algorithms/src/Internal/Cryptography/HashProviderDispenser.OSX.cs
 ../../../external/corefx/src/System.Security.Cryptography.Algorithms/src/Internal/Cryptography/HashAlgorithmNames.cs

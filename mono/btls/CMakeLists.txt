@@ -90,6 +90,12 @@ set (
 	btls-x509-verify-param.h
 	btls-x509.c
 	btls-x509.h
+    
+	${BORINGSSL_OBJECTS}
+)
+
+if (BTLS_COREFX)
+list (APPEND MONO_BTLS_SOURCES
 
 	pal_crypto_config.h
 	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/openssl.c
@@ -137,10 +143,8 @@ set (
 	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/pal_x509_name.h
 	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/pal_x509_root.c
 	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/pal_x509_root.h
-
-
-	${BORINGSSL_OBJECTS}
 )
+endif (BTLS_COREFX)
 
 add_library (mono-btls-shared SHARED ${MONO_BTLS_SOURCES})
 
