@@ -1,6 +1,6 @@
 ../../../sdks/ios/xunit/System/Mono/MonoRsaProvider.cs
 ../../../sdks/ios/xunit/System/Mono/MonoECDsaProvider.cs
-../../../mcs/class/test-helpers/PlatformDetection.cs
+
 ../../../external/corefx/src/CoreFx.Private.TestUtilities/src/System/AssertExtensions.cs
 ../../../external/corefx/src/Common/tests/System/IO/PositionValueStream.cs
 
@@ -86,7 +86,8 @@
 ../../../external/corefx/src/System.Security.Cryptography.Algorithms/tests/RSATests.cs
 ../../../external/corefx/src/System.Security.Cryptography.Algorithms/tests/ReusabilityTests.cs
 ../../../external/corefx/src/System.Security.Cryptography.Algorithms/tests/Rfc2202HmacTests.cs
-../../../external/corefx/src/System.Security.Cryptography.Algorithms/tests/Rfc2898Tests.cs
+# We are still using the referencesource version.
+# ../../../external/corefx/src/System.Security.Cryptography.Algorithms/tests/Rfc2898Tests.cs
 ../../../external/corefx/src/System.Security.Cryptography.Algorithms/tests/Rfc4231HmacTests.cs
 ../../../external/corefx/src/System.Security.Cryptography.Algorithms/tests/Sha1ManagedTests.cs
 ../../../external/corefx/src/System.Security.Cryptography.Algorithms/tests/Sha1Tests.cs
