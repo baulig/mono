@@ -2,3 +2,4 @@ MacTest.csproj
 bin/
 obj/
 *.log
+log*

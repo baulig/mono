@@ -23,6 +23,7 @@ endif
 include ../../build/executable.make
 
 IOS_BUILD_OUT = ../../../sdks/out/ios-sim64-release
+MAC_BUILD_OUT = ../../../../../builds/install/mac64
 
 MARTIN_MONOTOUCH_ARGS = \
 	--runtime=$(IOS_BUILD_OUT)/lib/libmonosgen-2.0.1.dylib \
@@ -36,6 +37,11 @@ MARTIN_LINUX_ARGS = \
 	--dylib=System.Native:../../../mono/metadata/.libs/libmono-system-native.a \
 	../../class/lib/net_4_x/System.dll
 
+MARTIN_XAMMAC_ARGS = \
+	--runtime=$(MAC_BUILD_OUT)/lib/libmonosgen-2.0.1.dylib \
+	--dylib=System.Security.Cryptography.Native.Apple:$(MAC_BUILD_OUT)/lib/libmono-apple-crypto.0.dylib \
+	../../class/lib/xammac/System.dll
+
 martin-monotouch::
 	$(MAKE) V=1 PROFILE=basic
 	mono --debug ../../class/lib/basic/pinvoke-checker.exe $(MARTIN_MONOTOUCH_ARGS)
@@ -43,3 +49,8 @@ martin-monotouch::
 martin-linux::
 	$(MAKE) V=1 PROFILE=basic
 	mono --debug ../../class/lib/basic/pinvoke-checker.exe $(MARTIN_LINUX_ARGS)
+
+martin-xammac::
+	$(MAKE) V=1 PROFILE=basic
+	mono --debug ../../class/lib/basic/pinvoke-checker.exe $(MARTIN_XAMMAC_ARGS)
+
