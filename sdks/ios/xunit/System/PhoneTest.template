@@ -99,103 +99,20 @@
     <Reference Include="Xunit.NetCore.Extensions">
       <HintPath>@XUNIT_BINARIES@\Xunit.NetCore.Extensions.dll</HintPath>
     </Reference>
-    <Reference Include="System.Xml.Linq" />
-    <Reference Include="System.Numerics" />
-    <Reference Include="System">
-      <HintPath>@ROOT@\_ios-build\Library\Frameworks\Xamarin.iOS.framework\Versions\Current\lib\mono\Xamarin.iOS\System.dll</HintPath>
-    </Reference>
-    <Reference Include="System">
-      <HintPath>@ROOT@\_ios-build\Library\Frameworks\Xamarin.iOS.framework\Versions\Current\lib\mono\Xamarin.iOS\System.dll</HintPath>
-    </Reference>
-    <Reference Include="mscorlib">
-      <HintPath>@ROOT@\_ios-build\Library\Frameworks\Xamarin.iOS.framework\Versions\Current\lib\mono\Xamarin.iOS\mscorlib.dll</HintPath>
-    </Reference>
-    <Reference Include="mscorlib">
-      <HintPath>@ROOT@\_ios-build\Library\Frameworks\Xamarin.iOS.framework\Versions\Current\lib\mono\Xamarin.iOS\mscorlib.dll</HintPath>
-    </Reference>
-    <Reference Include="mscorlib">
-      <HintPath>@ROOT@\_ios-build\Library\Frameworks\Xamarin.iOS.framework\Versions\Current\lib\mono\Xamarin.iOS\mscorlib.dll</HintPath>
-    </Reference>
     <Reference Include="mscorlib">
       <HintPath>@ROOT@\_ios-build\Library\Frameworks\Xamarin.iOS.framework\Versions\Current\lib\mono\Xamarin.iOS\mscorlib.dll</HintPath>
     </Reference>
     <Reference Include="System">
       <HintPath>@ROOT@\_ios-build\Library\Frameworks\Xamarin.iOS.framework\Versions\Current\lib\mono\Xamarin.iOS\System.dll</HintPath>
     </Reference>
-    <Reference Include="System">
-      <HintPath>@ROOT@\_ios-build\Library\Frameworks\Xamarin.iOS.framework\Versions\Current\lib\mono\Xamarin.iOS\System.dll</HintPath>
+    <Reference Include="System.Core">
+      <HintPath>@ROOT@\_ios-build\Library\Frameworks\Xamarin.iOS.framework\Versions\Current\lib\mono\Xamarin.iOS\System.Core.dll</HintPath>
     </Reference>
-    <Reference Include="System">
-      <HintPath>@ROOT@\_ios-build\Library\Frameworks\Xamarin.iOS.framework\Versions\Current\lib\mono\Xamarin.iOS\System.dll</HintPath>
+    <Reference Include="System.Xml.Linq">
+      <HintPath>@ROOT@\_ios-build\Library\Frameworks\Xamarin.iOS.framework\Versions\Current\lib\mono\Xamarin.iOS\System.Xml.Line.dll</HintPath>
     </Reference>
-    <Reference Include="System">
-      <HintPath>@ROOT@\_ios-build\Library\Frameworks\Xamarin.iOS.framework\Versions\Current\lib\mono\Xamarin.iOS\System.dll</HintPath>
-    </Reference>
-    <Reference Include="System">
-      <HintPath>@ROOT@\_ios-build\Library\Frameworks\Xamarin.iOS.framework\Versions\Current\lib\mono\Xamarin.iOS\System.dll</HintPath>
-    </Reference>
-    <Reference Include="System">
-      <HintPath>@ROOT@\_ios-build\Library\Frameworks\Xamarin.iOS.framework\Versions\Current\lib\mono\Xamarin.iOS\System.dll</HintPath>
-    </Reference>
-    <Reference Include="System">
-      <HintPath>@ROOT@\_ios-build\Library\Frameworks\Xamarin.iOS.framework\Versions\Current\lib\mono\Xamarin.iOS\System.dll</HintPath>
-    </Reference>
-    <Reference Include="System">
-      <HintPath>@ROOT@\_ios-build\Library\Frameworks\Xamarin.iOS.framework\Versions\Current\lib\mono\Xamarin.iOS\System.dll</HintPath>
-    </Reference>
-    <Reference Include="System">
-      <HintPath>@ROOT@\_ios-build\Library\Frameworks\Xamarin.iOS.framework\Versions\Current\lib\mono\Xamarin.iOS\System.dll</HintPath>
-    </Reference>
-    <Reference Include="System">
-      <HintPath>@ROOT@\_ios-build\Library\Frameworks\Xamarin.iOS.framework\Versions\Current\lib\mono\Xamarin.iOS\System.dll</HintPath>
-    </Reference>
-    <Reference Include="System">
-      <HintPath>@ROOT@\_ios-build\Library\Frameworks\Xamarin.iOS.framework\Versions\Current\lib\mono\Xamarin.iOS\System.dll</HintPath>
-    </Reference>
-    <Reference Include="System">
-      <HintPath>@ROOT@\_ios-build\Library\Frameworks\Xamarin.iOS.framework\Versions\Current\lib\mono\Xamarin.iOS\System.dll</HintPath>
-    </Reference>
-    <Reference Include="System">
-      <HintPath>@ROOT@\_ios-build\Library\Frameworks\Xamarin.iOS.framework\Versions\Current\lib\mono\Xamarin.iOS\System.dll</HintPath>
-    </Reference>
-    <Reference Include="System">
-      <HintPath>@ROOT@\_ios-build\Library\Frameworks\Xamarin.iOS.framework\Versions\Current\lib\mono\Xamarin.iOS\System.dll</HintPath>
-    </Reference>
-    <Reference Include="System">
-      <HintPath>@ROOT@\_ios-build\Library\Frameworks\Xamarin.iOS.framework\Versions\Current\lib\mono\Xamarin.iOS\System.dll</HintPath>
-    </Reference>
-    <Reference Include="System">
-      <HintPath>@ROOT@\_ios-build\Library\Frameworks\Xamarin.iOS.framework\Versions\Current\lib\mono\Xamarin.iOS\System.dll</HintPath>
-    </Reference>
-    <Reference Include="System">
-      <HintPath>@ROOT@\_ios-build\Library\Frameworks\Xamarin.iOS.framework\Versions\Current\lib\mono\Xamarin.iOS\System.dll</HintPath>
-    </Reference>
-    <Reference Include="System">
-      <HintPath>@ROOT@\_ios-build\Library\Frameworks\Xamarin.iOS.framework\Versions\Current\lib\mono\Xamarin.iOS\System.dll</HintPath>
-    </Reference>
-    <Reference Include="System">
-      <HintPath>@ROOT@\_ios-build\Library\Frameworks\Xamarin.iOS.framework\Versions\Current\lib\mono\Xamarin.iOS\System.dll</HintPath>
-    </Reference>
-    <Reference Include="System">
-      <HintPath>@ROOT@\_ios-build\Library\Frameworks\Xamarin.iOS.framework\Versions\Current\lib\mono\Xamarin.iOS\System.dll</HintPath>
-    </Reference>
-    <Reference Include="System">
-      <HintPath>@ROOT@\_ios-build\Library\Frameworks\Xamarin.iOS.framework\Versions\Current\lib\mono\Xamarin.iOS\System.dll</HintPath>
-    </Reference>
-    <Reference Include="System">
-      <HintPath>@ROOT@\_ios-build\Library\Frameworks\Xamarin.iOS.framework\Versions\Current\lib\mono\Xamarin.iOS\System.dll</HintPath>
-    </Reference>
-    <Reference Include="System">
-      <HintPath>@ROOT@\_ios-build\Library\Frameworks\Xamarin.iOS.framework\Versions\Current\lib\mono\Xamarin.iOS\System.dll</HintPath>
-    </Reference>
-    <Reference Include="System">
-      <HintPath>@ROOT@\_ios-build\Library\Frameworks\Xamarin.iOS.framework\Versions\Current\lib\mono\Xamarin.iOS\System.dll</HintPath>
-    </Reference>
-    <Reference Include="mscorlib">
-      <HintPath>@ROOT@\_ios-build\Library\Frameworks\Xamarin.iOS.framework\Versions\Current\lib\mono\Xamarin.iOS\mscorlib.dll</HintPath>
-    </Reference>
-    <Reference Include="System">
-      <HintPath>@ROOT@\_ios-build\Library\Frameworks\Xamarin.iOS.framework\Versions\Current\lib\mono\Xamarin.iOS\System.dll</HintPath>
+    <Reference Include="System.Numerics">
+      <HintPath>@ROOT@\_ios-build\Library\Frameworks\Xamarin.iOS.framework\Versions\Current\lib\mono\Xamarin.iOS\System.Numerics.dll</HintPath>
     </Reference>
   </ItemGroup>
   <ItemGroup>
