@@ -22,3 +22,11 @@ System/RemoteExecutorTests.cs
 ../../../external/corefx/src/System.Net.Security/tests/UnitTests/Fakes/*.cs:FakeSslState.cs,FakeLazyAsyncResult.cs
 ../../../external/corefx/src/System.Text.RegularExpressions/tests/*.cs
 
+# xammac doesn't support netcoreapp yet
+../../../external/corefx/src/Common/tests/System/Security/Cryptography/AlgorithmImplementations/RSA/EncryptDecrypt.netcoreapp.cs
+../../../external/corefx/src/Common/tests/System/Security/Cryptography/AlgorithmImplementations/ECDsa/ECDsaTests.NistValidation.cs
+../../../external/corefx/src/Common/tests/System/Security/Cryptography/AlgorithmImplementations/ECDsa/ECDsaTests.cs
+../../../external/corefx/src/Common/tests/System/Security/Cryptography/AlgorithmImplementations/ECDsa/ECDsaTests.NistValidation.cs
+../../../external/corefx/src/Common/tests/System/Security/Cryptography/AlgorithmImplementations/ECDsa/ECDsaTests.cs
+../../../external/corefx/src/System.Security.Cryptography.Algorithms/tests/ECDsaTests.cs
+../../../external/corefx/src/System.Security.Cryptography.Algorithms/tests/IncrementalHashTests.netcoreapp.cs
