@@ -2,60 +2,18 @@
 #include net_4_x_System.dll.sources
 #include appletls.sources
 #include appletls-corefx.sources
+#include appletls-mac.sources
 
-Mono.AppleTls/MonoCertificatePal.OSX.cs
-Mono.AppleTls/SafeHandles.Keychain.cs
-
-Mono/SystemCryptographyProvider.Apple.cs
 Mono/StorePal.cs
 Mono/X509PalImpl.Unix.cs
 Mono/MartinTest.cs
 
-../../../external/corefx/src/Common/src/Interop/OSX/Interop.Libraries.cs
 ../../../external/corefx/src/Common/src/Interop/OSX/Interop.EventStream.cs
 ../../../external/corefx/src/Common/src/Interop/OSX/Interop.RunLoop.cs
-../../../external/corefx/src/Common/src/Interop/OSX/Interop.CoreFoundation.cs
+
 ../../../external/corefx/src/Common/src/Interop/Unix/System.Native/Interop.Sync.cs
 ../../../external/corefx/src/Common/src/Interop/Unix/System.Native/Interop.RealPath.cs
 ../../../external/corefx/src/System.IO.FileSystem.Watcher/src/System/IO/FileSystemWatcher.OSX.cs
-../../../external/corefx/src/Common/src/Microsoft/Win32/SafeHandles/SafeCreateHandle.OSX.cs
 ../../../external/corefx/src/Common/src/Microsoft/Win32/SafeHandles/SafeEventStreamHandle.OSX.cs
 ../../../external/corefx/src/Common/src/System/Net/ContextAwareResult.OSX.cs
-
-../../../external/corefx/src/Common/src/Internal/Cryptography/HashProvider.cs
-
-../../../external/corefx/src/Common/src/Interop/OSX/System.Security.Cryptography.Native.Apple/Interop.Digest.cs
-../../../external/corefx/src/Common/src/Interop/OSX/System.Security.Cryptography.Native.Apple/Interop.Hmac.cs
-../../../external/corefx/src/Common/src/Interop/OSX/System.Security.Cryptography.Native.Apple/Interop.Symmetric.cs
-../../../external/corefx/src/Common/src/Interop/Apple/System.Security.Cryptography.Native.Apple/Interop.SecKeyRef.cs
-../../../external/corefx/src/Common/src/Interop/Apple/System.Security.Cryptography.Native.Apple/Interop.SignVerify.cs
-../../../external/corefx/src/Common/src/Interop/OSX/System.Security.Cryptography.Native.Apple/Interop.Ecc.cs
-../../../external/corefx/src/Common/src/Interop/OSX/System.Security.Cryptography.Native.Apple/Interop.RSA.cs
-../../../external/corefx/src/Common/src/Interop/OSX/System.Security.Cryptography.Native.Apple/Interop.SecKeyRef.cs
-../../../external/corefx/src/Common/src/Interop/OSX/System.Security.Cryptography.Native.Apple/Interop.SecKeyRef.Export.cs
-../../../external/corefx/src/Common/src/Interop/OSX/System.Security.Cryptography.Native.Apple/Interop.X509.cs
-../../../external/corefx/src/Common/src/Interop/OSX/System.Security.Cryptography.Native.Apple/Interop.X509Chain.cs
-../../../external/corefx/src/Common/src/Interop/OSX/System.Security.Cryptography.Native.Apple/Interop.Keychain.cs
-
-../../../external/corefx/src/System.Security.Cryptography.Algorithms/src/Internal/Cryptography/HashProviderDispenser.OSX.cs
-../../../external/corefx/src/System.Security.Cryptography.Algorithms/src/Internal/Cryptography/HashAlgorithmNames.cs
-../../../external/corefx/src/System.Security.Cryptography.Algorithms/src/Internal/Cryptography/HMACCommon.cs
-
-../../../external/corefx/src/System.Security.Cryptography.X509Certificates/src/Internal/Cryptography/IExportPal.cs
-../../../external/corefx/src/System.Security.Cryptography.X509Certificates/src/Internal/Cryptography/Pal.OSX/CertificatePal.cs
-../../../external/corefx/src/System.Security.Cryptography.X509Certificates/src/Internal/Cryptography/Pal.OSX/AppleCertificatePal.cs
-../../../external/corefx/src/System.Security.Cryptography.X509Certificates/src/Internal/Cryptography/Pal.OSX/AppleCertificatePal.Mac.cs
-../../../external/corefx/src/System.Security.Cryptography.X509Certificates/src/Internal/Cryptography/Pal.OSX/CertificatePal.cs
-../../../external/corefx/src/System.Security.Cryptography.X509Certificates/src/Internal/Cryptography/Pal.OSX/X509Pal.cs
-
-../../../external/corefx/src/Common/src/System/Security/Cryptography/KeyBlobHelpers.cs
-../../../external/corefx/src/Common/src/System/Security/Cryptography/SecKeyPair.cs
-../../../external/corefx/src/Common/src/System/Security/Cryptography/RSAKeyBlobHelpers.cs
-../../../external/corefx/src/Common/src/System/Security/Cryptography/RSASecurityTransforms.cs
-../../../external/corefx/src/Common/src/System/Security/Cryptography/EccSecurityTransforms.cs
-../../../external/corefx/src/Common/src/System/Security/Cryptography/ECDsaSecurityTransforms.cs
-../../../external/corefx/src/Common/src/System/Security/Cryptography/RsaPaddingProcessor.cs
-../../../external/corefx/src/Common/src/System/Security/Cryptography/KeyBlobHelpers.cs
-../../../external/corefx/src/Common/src/Internal/Cryptography/AsymmetricAlgorithmHelpers.Der.cs
-../../../external/corefx/src/Common/src/Internal/Cryptography/AsymmetricAlgorithmHelpers.Hash.cs
 

@@ -1,5 +1,8 @@
 Mono/Interop.Algorithms.cs
+Mono/SystemCryptographyProvider.Apple.cs
 
+../../../external/corefx/src/Common/src/Interop/OSX/Interop.Libraries.cs
+../../../external/corefx/src/Common/src/Interop/OSX/Interop.CoreFoundation.cs
 ../../../external/corefx/src/Common/src/Interop/OSX/Interop.CommonCrypto.cs
 ../../../external/corefx/src/Common/src/Interop/OSX/Interop.CoreFoundation.CFArray.cs
 ../../../external/corefx/src/Common/src/Interop/OSX/Interop.CoreFoundation.CFData.cs
@@ -8,20 +11,53 @@ Mono/Interop.Algorithms.cs
 ../../../external/corefx/src/Common/src/Interop/OSX/Interop.CoreFoundation.CFString.cs
 ../../../external/corefx/src/Common/src/Interop/OSX/Interop.CoreFoundation.cs
 
+# Apple Crypto Interop
+
+../../../external/corefx/src/Common/src/Interop/Apple/System.Security.Cryptography.Native.Apple/Interop.SecKeyRef.cs
+../../../external/corefx/src/Common/src/Interop/Apple/System.Security.Cryptography.Native.Apple/Interop.SignVerify.cs
+../../../external/corefx/src/Common/src/Interop/OSX/System.Security.Cryptography.Native.Apple/Interop.Digest.cs
+../../../external/corefx/src/Common/src/Interop/OSX/System.Security.Cryptography.Native.Apple/Interop.Err.cs
+../../../external/corefx/src/Common/src/Interop/OSX/System.Security.Cryptography.Native.Apple/Interop.Hmac.cs
+../../../external/corefx/src/Common/src/Interop/OSX/System.Security.Cryptography.Native.Apple/Interop.PAL_HashAlgorithm.cs
+../../../external/corefx/src/Common/src/Interop/OSX/System.Security.Cryptography.Native.Apple/Interop.SecErr.cs
+../../../external/corefx/src/Common/src/Interop/OSX/System.Security.Cryptography.Native.Apple/Interop.SecErrMessage.cs
+../../../external/corefx/src/Common/src/Interop/OSX/System.Security.Cryptography.Native.Apple/Interop.Symmetric.cs
+
+# Safe Handles
+
+../../../external/corefx/src/Common/src/Microsoft/Win32/SafeHandles/SafeCreateHandle.OSX.cs
+
+# Common code
+
+../../../external/corefx/src/Common/src/Internal/Cryptography/HashProvider.cs
+
 ../../../external/corefx/src/Common/src/System/Security/Cryptography/DerEncoder.cs
 ../../../external/corefx/src/Common/src/System/Security/Cryptography/DerSequenceReader.cs
+../../../external/corefx/src/Common/src/System/Security/Cryptography/EccSecurityTransforms.cs
+../../../external/corefx/src/Common/src/System/Security/Cryptography/ECDsaSecurityTransforms.cs
+../../../external/corefx/src/Common/src/System/Security/Cryptography/KeyBlobHelpers.cs
+../../../external/corefx/src/Common/src/System/Security/Cryptography/RSASecurityTransforms.cs
+../../../external/corefx/src/Common/src/System/Security/Cryptography/RsaPaddingProcessor.cs
+../../../external/corefx/src/Common/src/System/Security/Cryptography/SecKeyPair.cs
 ../../../external/corefx/src/Common/src/System/Security/Cryptography/SecKeyPair.cs
 
-../../../external/corefx/src/Common/src/System/Security/Cryptography/SecKeyPair.cs
+../../../external/corefx/src/Common/src/Internal/Cryptography/AsymmetricAlgorithmHelpers.Der.cs
+../../../external/corefx/src/Common/src/Internal/Cryptography/AsymmetricAlgorithmHelpers.Hash.cs
+
+# System.Security.Cryptography.X509Certificates
 
 ../../../external/corefx/src/System.Security.Cryptography.X509Certificates/src/Internal/Cryptography/ICertificatePal.cs
 ../../../external/corefx/src/System.Security.Cryptography.X509Certificates/src/Internal/Cryptography/ICertificatePalCore.cs
 ../../../external/corefx/src/System.Security.Cryptography.X509Certificates/src/Internal/Cryptography/IX509Pal.cs
+../../../external/corefx/src/System.Security.Cryptography.X509Certificates/src/Internal/Cryptography/Pal.OSX/CertificatePal.cs
+../../../external/corefx/src/System.Security.Cryptography.X509Certificates/src/Internal/Cryptography/Pal.OSX/AppleCertificatePal.cs
 ../../../external/corefx/src/System.Security.Cryptography.X509Certificates/src/Internal/Cryptography/Pal.Unix/X500NameEncoder.ManagedDecode.cs
 ../../../external/corefx/src/System.Security.Cryptography.X509Certificates/src/Internal/Cryptography/Pal.Unix/X500NameEncoder.cs
 ../../../external/corefx/src/System.Security.Cryptography.X509Certificates/src/Internal/Cryptography/Pal.Unix/ManagedX509ExtensionProcessor.cs
-../../../external/corefx/src/Common/src/System/Security/Cryptography/DerEncoder.cs
-../../../external/corefx/src/Common/src/Interop/OSX/System.Security.Cryptography.Native.Apple/Interop.Err.cs
-../../../external/corefx/src/Common/src/Interop/OSX/System.Security.Cryptography.Native.Apple/Interop.PAL_HashAlgorithm.cs
-../../../external/corefx/src/Common/src/Interop/OSX/System.Security.Cryptography.Native.Apple/Interop.SecErr.cs
-../../../external/corefx/src/Common/src/Interop/OSX/System.Security.Cryptography.Native.Apple/Interop.SecErrMessage.cs
+
+# System.Security.Cryptography.Algorithms
+
+../../../external/corefx/src/System.Security.Cryptography.Algorithms/src/Internal/Cryptography/HashProviderDispenser.OSX.cs
+../../../external/corefx/src/System.Security.Cryptography.Algorithms/src/Internal/Cryptography/HashAlgorithmNames.cs
+../../../external/corefx/src/System.Security.Cryptography.Algorithms/src/Internal/Cryptography/HMACCommon.cs
+
