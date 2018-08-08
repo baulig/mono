@@ -23,12 +23,25 @@ namespace Mono
 			return AppleCrypto.TryRsaEncryptionPrimitive (keyPair.PublicKey, source, destination, out bytesWritten);
 		}
 
-
 		public static bool TryRsaDecryptionPrimitive (
 			RSA rsa, ReadOnlySpan<byte> source, Span<byte> destination, out int bytesWritten)
 		{
 			var keyPair = ((RSAImplementation.RSASecurityTransforms)rsa).GetKeys ();
 			return AppleCrypto.TryRsaDecryptionPrimitive (keyPair.PrivateKey, source, destination, out bytesWritten);
+		}
+
+		public static bool TryRsaSignaturePrimitive (
+			RSA rsa, ReadOnlySpan<byte> source, Span<byte> destination, out int bytesWritten)
+		{
+			var keyPair = ((RSAImplementation.RSASecurityTransforms)rsa).GetKeys ();
+			return AppleCrypto.TryRsaSignaturePrimitive (keyPair.PrivateKey, source, destination, out bytesWritten);
+		}
+
+		public static bool TryRsaVerificationPrimitive (
+			RSA rsa, ReadOnlySpan<byte> source, Span<byte> destination, out int bytesWritten)
+		{
+			var keyPair = ((RSAImplementation.RSASecurityTransforms)rsa).GetKeys ();
+			return AppleCrypto.TryRsaVerificationPrimitive (keyPair.PublicKey, source, destination, out bytesWritten);
 		}
 	}
 }

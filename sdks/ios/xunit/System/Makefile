@@ -12,7 +12,7 @@ PhoneTest.csproj: ../generator.pl PhoneTest.template martin-phone.sources PhoneT
 clean:
 	-rm -rf bin obj log* *.log* MacTest.csproj $(XUNIT_TEST_LIB)
 
-$(XUNIT_TEST_LIB): Makefile $(XUNIT_TEST_SOURCES)
+$(XUNIT_TEST_LIB): Makefile $(XUNIT_TEST_SOURCES) PhoneTest.csproj
 	touch $(SYSTEM_DIR)/monotouch_System_xtest.dll.sources && $(MAKE) -C $(SYSTEM_DIR) PROFILE=monotouch xunit-test
 
 build: PhoneTest.csproj $(XUNIT_TEST_LIB)
