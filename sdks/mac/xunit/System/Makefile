@@ -6,7 +6,7 @@ OUT_DIR = ./bin/Debug
 
 OUT_BINARY = $(OUT_DIR)/MacTest.app/Contents/MacOS/MacTest
 
-XUNIT_TEST_SOURCES = $(SYSTEM_DIR)/xammac_System_xtest.dll.sources $(SYSTEM_DIR)/appletls-xtest.sources $(SYSTEM_DIR)/martin-mac.sources
+XUNIT_TEST_SOURCES = $(SYSTEM_DIR)/xammac_System_xtest.dll.sources $(SYSTEM_DIR)/appletls-xtest.sources
 
 all:	MacTest.csproj $(XUNIT_TEST_LIB)
 
