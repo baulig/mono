@@ -17,7 +17,7 @@ MacTest.csproj: ../../../ios/xunit/generator.pl MacTest.template martin-mac.sour
 clean:
 	-rm -rf bin obj log* *.log* MacTest.csproj $(XUNIT_TEST_LIB)
 
-$(XUNIT_TEST_LIB): $(XUNIT_TEST_SOURCES)
+$(XUNIT_TEST_LIB): $(XUNIT_TEST_SOURCES) Makefile $(SYSTEM_DIR)/Mono/MartinXTest.cs
 	touch $(SYSTEM_DIR)/xammac_System_xtest.dll.sources && $(MAKE) -C $(SYSTEM_DIR) PROFILE=xammac xunit-test
 
 $(OUT_BINARY): MacTest.csproj Makefile $(XUNIT_TEST_LIB)

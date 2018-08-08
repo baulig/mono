@@ -6,7 +6,11 @@ namespace System.Security.Cryptography.Rsa.Tests
 	public class MartinXTests
 	{
 		byte[] plainBytes = ("41424344").HexToByteArray ();
-		byte[] plainBytes2 = ("00000041424344").HexToByteArray ();
+		byte[] plainBytes2 = (
+			"0000000000000000000000000000000000000000000000000000000000000000" +
+			"0000000000000000000000000000000000000000000000000000000000000000" +
+			"0000000000000000000000000000000000000000000000000000000000000000" +
+			"0000000000000000000000000000000000000000000000000000000041424344").HexToByteArray ();
 
 		byte[] cipherBytes = (
 			"088025B29062638CF0620A9BE92430217A0EB856FF6C15C096DE9557B90C9F78" +
@@ -24,9 +28,16 @@ namespace System.Security.Cryptography.Rsa.Tests
 			"852CC1D3F0C4B360E2D740AAF092EB0F4649254C0D67EA5735CCB6DEABD4B4D9" +
 			"0CBE45C86B1F435474DBB58B7FC97F6A0BF89C7F5292467A5817F22D1EFB0878").HexToByteArray ();
 
+		byte[] signatureBytes2 = (
+			"56C31366F97926C9948B8847CA64010D70862D65A9290ABCF56DE4AAC6ECA63D7" +
+			"033DE20459FCB125E12BDF560F817A730A4B45D111BD678EFF0E10BF3964A981A" +
+			"DBE8CE21B3796A6555C51C9DF1CE8875A0D034A7EFC9C04EF3B1B0FA83B9983C8" +
+			"C52AA3C5A1F19C87D838A589CC9460A21B70C8C39171E83909789F68BB95B").HexToByteArray ();
+
 		static byte[] Encrypt (RSA rsa, byte[] buffer)
 		{
-			Console.Error.WriteLine ($"ENCRYPT: {buffer.ByteArrayToHex ()}");
+			var rsaSize = ((rsa.KeySize) + 7) / 8;
+			Console.Error.WriteLine ($"ENCRYPT: {rsa.KeySize} {rsaSize} {buffer.Length} {buffer.ByteArrayToHex ()}");
 			var output = new byte [rsa.KeySize];
 			var result = Mono.MartinTest.TryRsaEncryptionPrimitive (
 				rsa, buffer, output, out var bytesWritten);
@@ -44,7 +55,8 @@ namespace System.Security.Cryptography.Rsa.Tests
 
 		static byte[] Decrypt (RSA rsa, byte[] buffer)
 		{
-			Console.Error.WriteLine ($"DECRYPT: {buffer.ByteArrayToHex ()}");
+			var rsaSize = ((rsa.KeySize) + 7) / 8;
+			Console.Error.WriteLine ($"DECRYPT: {rsa.KeySize} {rsaSize} {buffer.Length} {buffer.ByteArrayToHex ()}");
 			var output = new byte [rsa.KeySize];
 			var result = Mono.MartinTest.TryRsaDecryptionPrimitive (
 				rsa, buffer, output, out var bytesWritten);
@@ -62,7 +74,8 @@ namespace System.Security.Cryptography.Rsa.Tests
 
 		static byte[] Sign (RSA rsa, byte[] buffer)
 		{
-			Console.Error.WriteLine ($"SIGN: {buffer.ByteArrayToHex ()}");
+			var rsaSize = ((rsa.KeySize) + 7) / 8;
+			Console.Error.WriteLine ($"SIGN: {rsa.KeySize} {rsaSize} {buffer.Length} {buffer.ByteArrayToHex ()}");
 
 			var output = new byte [rsa.KeySize * 4];
 			var result = Mono.MartinTest.TryRsaSignaturePrimitive (
@@ -93,7 +106,7 @@ namespace System.Security.Cryptography.Rsa.Tests
 			return result;
 		}
 
-		[Fact]
+		// [Fact]
 		public void TestEncryptionPrimitive ()
 		{
 			using (RSA rsa = RSAFactory.Create()) {
@@ -129,7 +142,7 @@ namespace System.Security.Cryptography.Rsa.Tests
 			}
 		}
 
-		[Fact]
+		// [Fact]
 		public void TestSignaturePrimitive ()
 		{
 			using (RSA rsa = RSAFactory.Create()) {
@@ -145,6 +158,46 @@ namespace System.Security.Cryptography.Rsa.Tests
 		}
 
 		[Fact]
+		public void TestSignaturePrimitive2 ()
+		{
+			using (RSA rsa = RSAFactory.Create()) {
+				rsa.ImportParameters (TestData.RSA1024Params);
+
+				var output = Sign (rsa, plainBytes2);
+				Assert.Equal (signatureBytes2, output);
+			}
+		}
+
+		[Fact]
+		public void TestSignaturePrimitive3 ()
+		{
+			using (RSA rsa = RSAFactory.Create()) {
+				rsa.ImportParameters (TestData.RSA1024Params);
+
+				var sha = SHA1.Create ();
+				var hash = sha.ComputeHash (plainBytes);
+
+				var output = rsa.SignHash (hash, HashAlgorithmName.SHA1, RSASignaturePadding.Pss);
+				Console.Error.WriteLine ($"TEST HASH SIGN: {output.ByteArrayToHex ()}");
+
+				var result = rsa.VerifyHash (hash, output, HashAlgorithmName.SHA1, RSASignaturePadding.Pss);
+				Console.Error.WriteLine ($"TEST HASH SIGN #1: {result}");
+				Assert.True (result);
+			}
+		}
+
+		[Fact]
+		public void TestSignaturePrimitive4 ()
+		{
+			using (RSA rsa = RSAFactory.Create()) {
+				rsa.ImportParameters (TestData.RSA1024Params);
+
+				var output = Sign (rsa, cipherBytes);
+				Assert.Equal (plainBytes2, output);
+			}
+		}
+
+		// [Fact]
 		public void TestVerificationPrimitive ()
 		{
 			using (RSA rsa = RSAFactory.Create()) {
