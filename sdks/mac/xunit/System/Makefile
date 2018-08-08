@@ -6,13 +6,13 @@ OUT_DIR = ./bin/Debug
 
 OUT_BINARY = $(OUT_DIR)/MacTest.app/Contents/MacOS/MacTest
 
-XUNIT_TEST_SOURCES = $(SYSTEM_DIR)/xammac_System_xtest.dll.sources $(SYSTEM_DIR)/martin-xtest.sources $(SYSTEM_DIR)/martin-mac.sources
+XUNIT_TEST_SOURCES = $(SYSTEM_DIR)/xammac_System_xtest.dll.sources $(SYSTEM_DIR)/appletls-xtest.sources $(SYSTEM_DIR)/martin-mac.sources
 
 all:	MacTest.csproj $(XUNIT_TEST_LIB)
 
-MacTest.csproj: ../../../ios/xunit/generator.pl MacTest.template martin-mac.sources MacTest.template
+MacTest.csproj: ../../../ios/xunit/generator.pl MacTest.template MacTest.template $(XUNIT_TEST_SOURCES)
 	-rm -f $@ output-tmp
-	../../../ios/xunit/generator.pl MacTest.template martin-mac.sources output-tmp && mv output-tmp $@
+	../../../ios/xunit/generator.pl MacTest.template /dev/null output-tmp && mv output-tmp $@
 
 clean:
 	-rm -rf bin obj log* *.log* MacTest.csproj $(XUNIT_TEST_LIB)
