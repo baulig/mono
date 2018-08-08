@@ -2,6 +2,7 @@
 #include net_4_x_System.dll.sources
 
 Mono/SystemCryptographyProvider.Linux.cs
+Mono/MartinTest.Linux.cs
 
 ../../../external/corefx/src/Common/src/Interop/Linux/Interop.Libraries.cs
 ../../../external/corefx/src/Common/src/Microsoft/Win32/SafeHandles/SafeFileHandle.Unix.cs
