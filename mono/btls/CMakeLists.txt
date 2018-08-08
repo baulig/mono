@@ -98,8 +98,6 @@ set (
 	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/openssl.h
 	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/pal_asn1.c
 	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/pal_asn1.h
-	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/pal_asn1_print.c
-	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/pal_asn1_print.h
 	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/pal_bignum.c
 	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/pal_bignum.h
 	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/pal_bio.c
