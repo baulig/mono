@@ -92,11 +92,7 @@ set (
 	btls-x509.h
     
 	${BORINGSSL_OBJECTS}
-)
-
-if (BTLS_COREFX)
-list (APPEND MONO_BTLS_SOURCES
-
+    
 	pal_crypto_config.h
 	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/openssl.c
 	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/openssl.h
@@ -109,8 +105,8 @@ list (APPEND MONO_BTLS_SOURCES
 	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/pal_bio.c
 	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/pal_bio.h
 	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/pal_crypto_types.h
-	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/pal_ecc_import_export.c
-	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/pal_ecc_import_export.h
+#	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/pal_ecc_import_export.c
+#	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/pal_ecc_import_export.h
 	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/pal_ecdsa.c
 	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/pal_ecdsa.h
 	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/pal_eckey.c
@@ -144,7 +140,6 @@ list (APPEND MONO_BTLS_SOURCES
 	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/pal_x509_root.c
 	${COREFX_DIR}/src/Native/Unix/System.Security.Cryptography.Native/pal_x509_root.h
 )
-endif (BTLS_COREFX)
 
 add_library (mono-btls-shared SHARED ${MONO_BTLS_SOURCES})
 
