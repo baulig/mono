@@ -9,6 +9,7 @@ Mono.AppleTls/SafeHandles.Keychain.cs
 Mono/SystemCryptographyProvider.Apple.cs
 Mono/StorePal.cs
 Mono/X509PalImpl.Unix.cs
+Mono/MartinTest.cs
 
 ../../../external/corefx/src/Common/src/Interop/OSX/Interop.Libraries.cs
 ../../../external/corefx/src/Common/src/Interop/OSX/Interop.EventStream.cs
