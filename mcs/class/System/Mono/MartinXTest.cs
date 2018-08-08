@@ -73,7 +73,10 @@ namespace System.Security.Cryptography.Rsa.Tests
 				rsa.ImportParameters (TestData.RSA1024Params);
 
 				var output = Decrypt (rsa, cipherBytes);
-				Assert.Equal (decryptedBytes, output);
+
+				var plain = new byte [plainBytes.Length];
+				Buffer.BlockCopy (output, output.Length - plain.Length, plain, 0, plain.Length);
+				Assert.Equal (plainBytes, plain);
 			}
 		}
 
