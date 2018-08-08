@@ -1,3 +1,5 @@
+Mono/StorePal.cs
+
 Mono.AppleTls/MonoCertificatePal.OSX.cs
 Mono.AppleTls/SafeHandles.Keychain.cs
 

@@ -4,7 +4,6 @@
 #include appletls-corefx.sources
 #include appletls-mac.sources
 
-Mono/StorePal.cs
 Mono/X509PalImpl.Unix.cs
 Mono/MartinTest.cs
 
