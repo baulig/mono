@@ -95,11 +95,11 @@ System/RemoteExecutorTests.cs
 ../../../external/corefx/src/Common/tests/System/ShouldNotBeInvokedException.cs
 
 # System.IO.FileSystemWatcher
-../../../external/corefx/src/System.IO.FileSystem.Watcher/tests/Utility/*.cs
-../../../external/corefx/src/System.IO.FileSystem.Watcher/tests/FileSystemWatcher.cs
-../../../external/corefx/src/System.IO.FileSystem.Watcher/tests/FileSystemWatcher.unit.cs
-../../../external/corefx/src/Common/tests/System/IO/TempFile.cs
-../../../external/corefx/src/Common/tests/System/IO/TempDirectory.cs
+# ../../../external/corefx/src/System.IO.FileSystem.Watcher/tests/Utility/*.cs
+# ../../../external/corefx/src/System.IO.FileSystem.Watcher/tests/FileSystemWatcher.cs
+# ../../../external/corefx/src/System.IO.FileSystem.Watcher/tests/FileSystemWatcher.unit.cs
+# ../../../external/corefx/src/Common/tests/System/IO/TempFile.cs
+# ../../../external/corefx/src/Common/tests/System/IO/TempDirectory.cs
 
 # System.Text.RegularExpressions
 ../../../external/corefx/src/Common/tests/System/Diagnostics/DebuggerAttributes.cs
