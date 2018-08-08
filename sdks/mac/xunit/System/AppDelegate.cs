@@ -40,6 +40,13 @@ namespace Mac
 
 		public override void DidFinishLaunching (NSNotification notification)
 		{
+			Console.Error.WriteLine ($"STARTUP!");
+
+			Run ();
+		}
+
+		public static void Run ()
+		{
 			var runner = new DeviceRunner ();
 
 			runner.Filters.ExcludedTraits.Add ("category", new[] { "failing", "nonmonotests", "outerloop", "nonnetfxtests" }.ToList ());

@@ -1,0 +1,16 @@
+Mono/MartinXTest.cs
+
+../../../sdks/ios/xunit/System/Mono/MonoRsaProvider.cs
+../../../sdks/ios/xunit/System/Mono/MonoECDsaProvider.cs
+
+../../../external/corefx/src/Common/tests/System/Security/Cryptography/AlgorithmImplementations/RSA/RSAFactory.cs
+../../../external/corefx/src/Common/tests/System/Security/Cryptography/AlgorithmImplementations/ECDsa/ECDsaFactory.cs
+../../../external/corefx/src/Common/tests/System/Security/Cryptography/AlgorithmImplementations/RSA/TestData.cs
+
+../../../external/corefx/src/CoreFx.Private.TestUtilities/src/System/AssertExtensions.cs
+../../../external/corefx/src/Common/tests/System/IO/PositionValueStream.cs
+
+../../../external/corefx/src/Common/tests/System/Security/Cryptography/AsymmetricSignatureFormatter.cs
+../../../external/corefx/src/Common/tests/System/Security/Cryptography/CryptoUtils.cs
+../../../external/corefx/src/Common/tests/System/Security/Cryptography/ByteUtils.cs
+

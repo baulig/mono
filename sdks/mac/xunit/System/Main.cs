@@ -32,7 +32,8 @@ namespace Mac
 		static void Main (string[] args)
 		{
 			NSApplication.Init ();
-			NSApplication.Main (args);
+			AppDelegate.Run ();
+			// NSApplication.Main (args);
 		}
 	}
 }

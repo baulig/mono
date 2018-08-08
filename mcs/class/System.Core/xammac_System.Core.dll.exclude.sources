@@ -1,0 +1,3 @@
+../referencesource/System.Core/System/Security/Cryptography/ECDsa.cs
+System.Security.Cryptography/ECCurve.cs
+../../../external/corefx/src/System.Security.Cryptography.Algorithms/src/System/Security/Cryptography/IncrementalHash.net46.cs

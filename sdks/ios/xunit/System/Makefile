@@ -5,7 +5,7 @@ PhoneTest.csproj: ../generator.pl PhoneTest.template martin-phone.sources PhoneT
 	../generator.pl PhoneTest.template martin-phone.sources output-tmp && mv output-tmp $@
 
 clean:
-	-rm -rf bin obj PhoneTest.csproj
+	-rm -rf bin obj simulator.log PhoneTest.csproj
 
 build: PhoneTest.csproj
 	msbuild

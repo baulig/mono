@@ -24,8 +24,6 @@
 	<string>Xamarin Inc. (http://www.xamarin.com)</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
-	<key>NSMainStoryboardFile</key>
-	<string>Main</string>
 	
 </dict>
 </plist>
