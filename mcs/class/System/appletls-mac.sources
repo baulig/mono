@@ -3,8 +3,10 @@ Mono/StorePal.cs
 Mono.AppleTls/MonoCertificatePal.OSX.cs
 Mono.AppleTls/SafeHandles.Keychain.cs
 
+../../../external/corefx/src/Common/src/Interop/Apple/System.Security.Cryptography.Native.Apple/Interop.RSA.cs
+
 ../../../external/corefx/src/Common/src/Interop/OSX/System.Security.Cryptography.Native.Apple/Interop.Ecc.cs
-../../../external/corefx/src/Common/src/Interop/OSX/System.Security.Cryptography.Native.Apple/Interop.RSA.cs
+../../../external/corefx/src/Common/src/Interop/OSX/System.Security.Cryptography.Native.Apple/Interop.KeyGen.cs
 ../../../external/corefx/src/Common/src/Interop/OSX/System.Security.Cryptography.Native.Apple/Interop.SecKeyRef.cs
 ../../../external/corefx/src/Common/src/Interop/OSX/System.Security.Cryptography.Native.Apple/Interop.X509.cs
 ../../../external/corefx/src/Common/src/Interop/OSX/System.Security.Cryptography.Native.Apple/Interop.Keychain.cs

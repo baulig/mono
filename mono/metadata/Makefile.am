@@ -195,10 +195,14 @@ apple_crypto_common_sources = \
 	../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_seckey.h \
 	../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_rsa.c \
 	../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_rsa.h \
+	../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_rsa_unified.c \
+	../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_rsa_unified.h \
 	../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_sec.c \
 	../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_sec.h \
 	../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_signverify.h \
 	../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_signverify.c \
+	../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_signverify_unified.h \
+	../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_signverify_unified.c \
 	../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_symmetric.c \
 	../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_symmetric.h \
 	../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_x509.c \
@@ -213,6 +217,8 @@ apple_crypto_mac_sources = \
 	../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_rsa_mac.h \
 	../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_seckey_mac.c \
 	../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_seckey_mac.h \
+	../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_signverify_mac.h \
+	../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_signverify_mac.c \
 	../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_x509_mac.c \
 	../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_x509_mac.h
 
@@ -225,6 +231,8 @@ apple_crypto_ios_sources = \
 	../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_rsa_ios.h \
 	../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_seckey_ios.c \
 	../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_seckey_ios.h \
+	../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_signverify_ios.h \
+	../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_signverify_ios.c \
 	../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_x509_ios.c \
 	../../external/corefx/src/Native/Unix/System.Security.Cryptography.Native.Apple/pal_x509_ios.h
 

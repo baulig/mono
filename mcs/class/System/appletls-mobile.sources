@@ -1,7 +1,9 @@
 Mono.AppleTls/MonoCertificatePal.Mobile.cs
 
+../../../external/corefx/src/Common/src/Interop/Apple/System.Security.Cryptography.Native.Apple/Interop.RSA.cs
+
 ../../../external/corefx/src/Common/src/Interop/IOS/System.Security.Cryptography.Native.Apple/Interop.Ecc.cs
-../../../external/corefx/src/Common/src/Interop/IOS/System.Security.Cryptography.Native.Apple/Interop.RSA.cs
+../../../external/corefx/src/Common/src/Interop/IOS/System.Security.Cryptography.Native.Apple/Interop.KeyGen.cs
 ../../../external/corefx/src/Common/src/Interop/IOS/System.Security.Cryptography.Native.Apple/Interop.SecKeyRef.cs
 ../../../external/corefx/src/Common/src/Interop/IOS/System.Security.Cryptography.Native.Apple/Interop.X509.cs
 

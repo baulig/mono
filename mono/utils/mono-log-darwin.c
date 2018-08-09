@@ -32,10 +32,13 @@ mono_log_open_asl (const char *path, void *userData)
 void
 mono_log_write_asl (const char *log_domain, GLogLevelFlags level, mono_bool hdr, const char *message)
 {
-	asl_log (NULL, NULL, to_asl_priority (level), "%s%s%s\n",
+#pragma GCC diagnostic push 
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+    	asl_log (NULL, NULL, to_asl_priority (level), "%s%s%s\n",
 		log_domain != NULL ? log_domain : "",
 		log_domain != NULL ? ": " : "",
 		message);
+#pragma GCC diagnostics pop
 
 	if (level & G_LOG_LEVEL_ERROR)
 		abort();
