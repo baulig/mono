@@ -335,6 +335,7 @@ case "$host" in
 		host_darwin=yes
 		target_mach=yes
 		CPPFLAGS="$CPPFLAGS -D_THREAD_SAFE -DGC_MACOSX_THREADS -DUSE_MMAP -DUSE_MUNMAP"
+		CXXFLAGS="$CXXFLAGS -stdlib=libc++"
 		libmono_cflags="-D_THREAD_SAFE"
 		need_link_unlink=yes
 		AC_DEFINE(PTHREAD_POINTER_ID)
