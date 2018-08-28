@@ -47,7 +47,8 @@ net_4_5_dirs := \
 	mdb2ppdb	\
 	ikdasm		\
 	mono-symbolicate	\
-	linker-analyzer
+	linker-analyzer		\
+	pinvoke-checker
 
 build_SUBDIRS = resgen gacutil security culevel cil-stringreplacer commoncryptogenerator resx2sr linker cil-strip corcompare mono-api-diff mono-api-html
 monodroid_tools_SUBDIRS = cil-strip linker-analyzer mkbundle mdoc mono-symbolicate

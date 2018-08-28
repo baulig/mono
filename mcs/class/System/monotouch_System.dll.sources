@@ -1,5 +1,8 @@
 #include mobile_System.dll.sources
 #include appletls.sources
 
+Mono/MonoNativePlatform.cs
+Mono/MonoNativePlatformType.cs
+
 Mono.AppleTls/MonoCertificatePal.Mobile.cs
 Mono.AppleTls/SafeHandles.cs
