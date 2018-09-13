@@ -1,4 +1,6 @@
 ../../test-helpers/NunitHelpers.cs
+Mono/NativePlatformTest.cs
+Mono/NativePlatformType.cs
 Microsoft.CSharp/CodeGeneratorFromCompileUnitTest.cs
 Microsoft.CSharp/CodeGeneratorFromExpressionTest.cs
 Microsoft.CSharp/CodeGeneratorFromNamespaceTest.cs

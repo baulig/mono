@@ -1,4 +1,8 @@
 #include mobile_System.dll.sources
+
+Mono/MonoNativePlatform.cs
+Mono/MonoNativePlatformType.cs
+
 ../../../external/corefx/src/System.Text.RegularExpressions/src/System/Text/RegularExpressions/RegexCompiler.cs
 ../../../external/corefx/src/System.Text.RegularExpressions/src/System/Text/RegularExpressions/CompiledRegexRunnerFactory.cs
 ../../../external/corefx/src/System.Text.RegularExpressions/src/System/Text/RegularExpressions/RegexLWCGCompiler.cs

@@ -1,6 +1,9 @@
 #include corefx.unix.sources
 #include net_4_x_System.dll.sources
 
+Mono/MonoNativePlatform.cs
+Mono/MonoNativePlatformType.cs
+
 ../../../external/corefx/src/Common/src/Interop/OSX/Interop.Libraries.cs
 ../../../external/corefx/src/Common/src/Interop/OSX/Interop.EventStream.cs
 ../../../external/corefx/src/Common/src/Interop/OSX/Interop.RunLoop.cs
