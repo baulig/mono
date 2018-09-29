@@ -123,6 +123,18 @@ EXTRA_DISTFILES = \
 include ../../build/library.make
 
 $(test_lib_output): $(TEST_RESOURCES) $(test_lib_dir)
+tests_BUILT_FILES = Test/Mono/NativePlatformType.cs
+
+$(test_lib_output): $(TEST_RESOURCE_FILES) $(test_lib_dir) $(tests_BUILT_FILES)
+
+Test/Mono/NativePlatformType.cs: Test/Mono/NativePlatformType.cs.in $(wildcard ../../build/config.make) Makefile
+	test -n '$(MONO_VERSION)'
+	test -n '$(MONO_NATIVE_SUPPORTED)'
+	sed -e 's,@''MONO_NATIVE_SUPPORTED@,$(MONO_NATIVE_SUPPORTED),' \
+		-e 's,@''MONO_NATIVE_USING_COMPAT@,$(MONO_NATIVE_USING_COMPAT),' \
+		-e 's,@''MONO_NATIVE_PLATFORM_TYPE@,$(MONO_NATIVE_PLATFORM_TYPE),' \
+		-e 's,@''MONO_NATIVE_PLATFORM@,$(MONO_NATIVE_PLATFORM),' \
+		$< > $@
 
 # Helper target to run the perl regex test suite
 regex-check:

@@ -5098,18 +5098,10 @@ else
 	AC_MSG_RESULT(no)
 fi
 
-if test x$mono_native; then
-	MONO_NATIVE_SUPPORTED=true
-else
-	MONO_NATIVE_SUPPORTED=false
-fi
-
 if test x$mono_native_compat = xyes; then
 	MONO_NATIVE_LIBRARY_NAME=libmono-native-compat
-	MONO_NATIVE_USING_COMPAT=true
 else
 	MONO_NATIVE_LIBRARY_NAME=libmono-native
-	MONO_NATIVE_USING_COMPAT=false
 fi
 
 AC_SUBST(MONO_NATIVE_PLATFORM)
@@ -5124,8 +5116,6 @@ AC_SUBST(MONO_NATIVE_LDFLAGS)
 AC_SUBST(MONO_NATIVE_COMPAT_LDFLAGS)
 AC_SUBST(MONO_NATIVE_UNIFIED_LDFLAGS)
 AC_SUBST(MONO_NATIVE_LIBRARY_NAME)
-AC_SUBST(MONO_NATIVE_USING_COMPAT)
-AC_SUBST(MONO_NATIVE_SUPPORTED)
 
 AM_CONDITIONAL(MONO_NATIVE, test x$mono_native = xyes)
 AM_CONDITIONAL(MONO_NATIVE_COMPAT, test x$mono_native_compat = xyes)
@@ -5170,7 +5160,6 @@ mono/sgen/Makefile
 mono/native/platform-type.c
 mono/native/platform-type-compat.c
 mono/native/platform-type-unified.c
-mcs/class/System/Test/Mono/NativePlatformType.cs
 mono/tests/Makefile
 mono/tests/tests-config
 mono/tests/gc-descriptors/Makefile
@@ -5350,6 +5339,21 @@ fi
     if test "x$enable_btls" = "xyes"; then
       echo "HAVE_BTLS=1" >> $srcdir/$mcsdir/build/config.make
     fi
+
+    if test "x$mono_native" = "xyes"; then
+      echo "MONO_NATIVE_SUPPORTED=true" >> $srcdir/$mcsdir/build/config.make
+    else
+      echo "MONO_NATIVE_SUPPORTED=false" >> $srcdir/$mcsdir/build/config.make
+    fi
+
+    if test x$mono_native_compat = xyes; then
+      echo "MONO_NATIVE_USING_COMPAT=true" >> $srcdir/$mcsdir/build/config.make
+    else
+      echo "MONO_NATIVE_USING_COMPAT=false" >> $srcdir/$mcsdir/build/config.make
+    fi
+
+    echo "MONO_NATIVE_PLATFORM_TYPE=$MONO_NATIVE_PLATFORM_TYPE" >> $srcdir/$mcsdir/build/config.make
+    echo "MONO_NATIVE_PLATFORM=$MONO_NATIVE_PLATFORM" >> $srcdir/$mcsdir/build/config.make
 
   fi
 
