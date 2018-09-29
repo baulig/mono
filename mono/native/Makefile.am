@@ -44,14 +44,8 @@ linux_sources = $(unix_sources)
 unix_sources = \
 	../../external/corefx/src/Native/Unix/System.Native/pal_io.c \
 	../../external/corefx/src/Native/Unix/System.Native/pal_io.h \
-	../../external/corefx/src/Native/Unix/System.Native/pal_networking.c \
-	../../external/corefx/src/Native/Unix/System.Native/pal_networking.h \
 	../../external/corefx/src/Native/Unix/System.Native/pal_networkstatistics.c \
-	../../external/corefx/src/Native/Unix/System.Native/pal_networkstatistics.h \
-	../../external/corefx/src/Native/Unix/System.Native/pal_tcpstate.c \
-	../../external/corefx/src/Native/Unix/System.Native/pal_tcpstate.h \
-	../../external/corefx/src/Native/Unix/System.Native/pal_random.c \
-	../../external/corefx/src/Native/Unix/System.Native/pal_random.h
+	../../external/corefx/src/Native/Unix/System.Native/pal_networkstatistics.h
 
 gss_sources = \
 	../../external/corefx/src/Native/Unix/System.Net.Security.Native/pal_gssapi.c \
