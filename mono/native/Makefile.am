@@ -27,6 +27,10 @@ common_sources = \
 	../../external/corefx/src/Native/Unix/Common/pal_utilities.h \
 	../../external/corefx/src/Native/Unix/System.Native/pal_errno.c \
 	../../external/corefx/src/Native/Unix/System.Native/pal_errno.h \
+	../../external/corefx/src/Native/Unix/System.Native/pal_io.c \
+	../../external/corefx/src/Native/Unix/System.Native/pal_io.h \
+	../../external/corefx/src/Native/Unix/System.Native/pal_networking.c \
+	../../external/corefx/src/Native/Unix/System.Native/pal_networking.h \
 	../../external/corefx/src/Native/Unix/System.Native/pal_maphardwaretype.c \
 	../../external/corefx/src/Native/Unix/System.Native/pal_maphardwaretype.h \
 	../../external/corefx/src/Native/Unix/System.Native/pal_memory.c \
@@ -41,10 +45,6 @@ linux_sources = $(unix_sources)
 unix_sources = \
 	pal-icalls.h \
 	pal-icalls.c \
-	../../external/corefx/src/Native/Unix/System.Native/pal_io.c \
-	../../external/corefx/src/Native/Unix/System.Native/pal_io.h \
-	../../external/corefx/src/Native/Unix/System.Native/pal_networking.c \
-	../../external/corefx/src/Native/Unix/System.Native/pal_networking.h \
 	../../external/corefx/src/Native/Unix/System.Native/pal_networkstatistics.c \
 	../../external/corefx/src/Native/Unix/System.Native/pal_networkstatistics.h \
 	../../external/corefx/src/Native/Unix/System.Native/pal_tcpstate.c \
