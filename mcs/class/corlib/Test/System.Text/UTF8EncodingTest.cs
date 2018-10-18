@@ -19,7 +19,7 @@ using DecoderException = System.Text.DecoderFallbackException;
 
 using AssertType = NUnit.Framework.Assert;
 
-using MonoTests.Helpers;
+// using MonoTests.Helpers;
 
 namespace MonoTests.System.Text
 {
@@ -1041,6 +1041,7 @@ namespace MonoTests.System.Text
 			AssertType.AreEqual ('\uFFFD', b.GetNextChar (), "#4");
 		}
 
+#if FIXME
 		[Test]
 		[Category ("MobileNotWorking")]
 		public void Bug415628 ()
@@ -1051,6 +1052,7 @@ namespace MonoTests.System.Text
 				Encoding.UTF8.GetString(buf);
 			}
 		}
+#endif
 
 		[Test]
 		[ExpectedException (typeof (ArgumentException))]

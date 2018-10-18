@@ -23,6 +23,8 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
+using System;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
 namespace Mono
@@ -35,6 +37,31 @@ namespace Mono
 		public static MonoNativePlatformType GetPlatformType ()
 		{
 			return (MonoNativePlatformType)mono_native_get_platform_type ();
+		}
+
+		[MethodImpl (MethodImplOptions.InternalCall)]
+		extern static int IncrementInternalCounter ();
+
+		[DllImport ("System.Native")]
+		extern static int mono_native_is_initialized ();
+
+		[DllImport ("System.Native")]
+		extern static int mono_native_initialize ();
+
+		public static void Initialize ()
+		{
+			mono_native_initialize ();
+		}
+
+		public static bool IsInitialized ()
+		{
+			return mono_native_is_initialized () != 0;
+		}
+
+		internal static int TestInternalCounter ()
+		{
+			// Atomically increments internal counter, for testing purposes only.
+			return IncrementInternalCounter ();
 		}
 	}
 }
