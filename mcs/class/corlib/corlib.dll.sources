@@ -1902,5 +1902,6 @@ corefx/DirectoryInfo.cs
 corefx/File.cs
 corefx/FileInfo.cs
 corefx/Directory.cs
+corefx/GlobalizationSupport.cs
 corefx/MonoLinqHelper.cs
 corefx/ThrowHelper.cs

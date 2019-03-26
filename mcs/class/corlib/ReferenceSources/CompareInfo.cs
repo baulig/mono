@@ -33,34 +33,69 @@ using System.Threading;
 
 namespace System.Globalization
 {
+	interface ISimpleCollator
+	{
+		SortKey GetSortKey (string source, CompareOptions options);
+
+		int Compare (string s1, string s2);
+
+		int Compare (string s1, int idx1, int len1, string s2, int idx2, int len2, CompareOptions options);
+
+		bool IsPrefix (string src, string target, CompareOptions opt);
+
+		bool IsSuffix (string src, string target, CompareOptions opt);
+
+		int IndexOf (string s, string target, int start, int length, CompareOptions opt);
+
+		int IndexOf (string s, char target, int start, int length, CompareOptions opt);
+
+		int LastIndexOf (string s, string target, CompareOptions opt);
+
+		int LastIndexOf (string s, string target, int start, int length, CompareOptions opt);
+
+		int LastIndexOf (string s, char target, CompareOptions opt);
+
+		int LastIndexOf (string s, char target, int start, int length, CompareOptions opt);
+	}
+
 	partial class CompareInfo
 	{
 		[NonSerialized]
-		SimpleCollator collator;
+		ISimpleCollator collator;
 
 		// Maps culture IDs to SimpleCollator objects
-		static Dictionary<string, SimpleCollator> collators;
+		static Dictionary<string, ISimpleCollator> collators;
 		static bool managedCollation;
 		static bool managedCollationChecked;
 
 		static bool UseManagedCollation {
 			get {
+#pragma warning disable 162
+				if (!GlobalizationSupport.SupportsManagedCollation)
+					return false;
 				if (!managedCollationChecked) {
 					managedCollation = Environment.internalGetEnvironmentVariable ("MONO_DISABLE_MANAGED_COLLATION") != "yes" && MSCompatUnicodeTable.IsReady;
 					managedCollationChecked = true;
 				}
 
 				return managedCollation;
+#pragma warning restore 162
 			}
 		}
 
-		SimpleCollator GetCollator ()
+		ISimpleCollator GetCollator ()
 		{
+#pragma warning disable 162
+			// This is `const bool SupportsManagedCollation = false` on WASM.
+			if (!GlobalizationSupport.SupportsManagedCollation)
+				return null;
+
+#if !WASM
 			if (collator != null)
 				return collator;
 
 			if (collators == null) {
-				Interlocked.CompareExchange (ref collators, new Dictionary<string, SimpleCollator> (StringComparer.Ordinal), null);
+				Interlocked.CompareExchange (ref collators, new Dictionary<string, ISimpleCollator> (StringComparer.Ordinal), null);
 			}
 
 			lock (collators) {
@@ -71,6 +106,8 @@ namespace System.Globalization
 			}
 
 			return collator;
+#endif
+#pragma warning restore 162
 		}
 
 		SortKey CreateSortKeyCore (string source, CompareOptions options)
