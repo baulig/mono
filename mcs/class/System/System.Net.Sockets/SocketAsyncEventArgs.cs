@@ -36,7 +36,7 @@ using System.Threading;
 
 namespace System.Net.Sockets
 {
-	public class SocketAsyncEventArgs : EventArgs, IDisposable
+	public partial class SocketAsyncEventArgs : EventArgs, IDisposable
 	{
 		bool disposed;
 
@@ -46,116 +46,12 @@ namespace System.Net.Sockets
 
 		internal SocketAsyncResult socket_async_result = new SocketAsyncResult ();
 
-		public Exception ConnectByNameError {
-			get;
-			internal set;
-		}
-
-		public Socket AcceptSocket {
-			get;
-			set;
-		}
-
-		public byte[] Buffer {
-			get;
-			private set;
-		}
-
-		public Memory<byte> MemoryBuffer => Buffer;
-
 		internal IList<ArraySegment<byte>> m_BufferList;
-		public IList<ArraySegment<byte>> BufferList {
-			get { return m_BufferList; }
-			set {
-				if (Buffer != null && value != null)
-					throw new ArgumentException ("Buffer and BufferList properties cannot both be non-null.");
-				m_BufferList = value;
-			}
-		}
-
-		public int BytesTransferred {
-			get;
-			internal set;
-		}
-
-		public int Count {
-			get;
-			internal set;
-		}
-
-		public bool DisconnectReuseSocket {
-			get;
-			set;
-		}
-
-		public SocketAsyncOperation LastOperation {
-			get;
-			private set;
-		}
-
-		public int Offset {
-			get;
-			private set;
-		}
-
-		public EndPoint RemoteEndPoint {
-			get { return remote_ep; }
-			set { remote_ep = value; }
-		}
-
-		public IPPacketInformation ReceiveMessageFromPacketInfo {
-			get;
-			private set;
-		}
-
-		public SendPacketsElement[] SendPacketsElements {
-			get;
-			set;
-		}
-
-		public TransmitFileOptions SendPacketsFlags {
-			get;
-			set;
-		}
-
-		[MonoTODO ("unused property")]
-		public int SendPacketsSendSize {
-			get;
-			set;
-		}
-
-		public SocketError SocketError {
-			get;
-			set;
-		}
-
-		public SocketFlags SocketFlags {
-			get;
-			set;
-		}
-
-		public object UserToken {
-			get;
-			set;
-		}
-
-		public Socket ConnectSocket {
-			get {
-				switch (SocketError) {
-				case SocketError.AccessDenied:
-					return null;
-				default:
-					return current_socket;
-				}
-			}
-		}
 
 		internal bool PolicyRestricted {
 			get;
 			private set;
 		}
-
-		public event EventHandler<SocketAsyncEventArgs> Completed;
 
 		internal SocketAsyncEventArgs (bool policy)
 			: this ()
@@ -168,25 +64,6 @@ namespace System.Net.Sockets
 			SendPacketsSendSize = -1;
 		}
 
-		~SocketAsyncEventArgs ()
-		{
-			Dispose (false);
-		}
-
-		void Dispose (bool disposing)
-		{
-			disposed = true;
-
-			if (disposing && in_progress != 0)
-				return;
-		}
-
-		public void Dispose ()
-		{
-			Dispose (true);
-			GC.SuppressFinalize (this);
-		}
-
 		internal void SetLastOperation (SocketAsyncOperation op)
 		{
 			if (disposed)
@@ -195,52 +72,6 @@ namespace System.Net.Sockets
 				throw new InvalidOperationException ("Operation already in progress");
 
 			LastOperation = op;
-		}
-
-		internal void Complete ()
-		{
-			in_progress = 0;
-			OnCompleted (this);
-		}
-
-		protected virtual void OnCompleted (SocketAsyncEventArgs e)
-		{
-			if (e == null)
-				return;
-			
-			EventHandler<SocketAsyncEventArgs> handler = e.Completed;
-			if (handler != null)
-				handler (e.current_socket, e);
-		}
-
-		public void SetBuffer (int offset, int count)
-		{
-			SetBuffer (Buffer, offset, count);
-		}
-
-		public void SetBuffer (byte[] buffer, int offset, int count)
-		{
-			if (buffer != null) {
-				if (BufferList != null)
-					throw new ArgumentException ("Buffer and BufferList properties cannot both be non-null.");
-				
-				int buflen = buffer.Length;
-				if (offset < 0 || (offset != 0 && offset >= buflen))
-					throw new ArgumentOutOfRangeException ("offset");
-
-				if (count < 0 || count > buflen - offset)
-					throw new ArgumentOutOfRangeException ("count");
-
-				Count = count;
-				Offset = offset;
-			}
-
-			Buffer = buffer;
-		}
-
-		public void SetBuffer(Memory<byte> buffer)
-		{
-			SetBuffer(buffer.ToArray(), 0, buffer.Length);
 		}
 
 		internal void StartOperationCommon (Socket socket)
@@ -281,34 +112,6 @@ namespace System.Net.Sockets
 			current_socket = connectSocket;
 
 			Complete ();
-		}
-
-		internal void SetResults (SocketError socketError, int bytesTransferred, SocketFlags flags)
-		{
-			SocketError = socketError;
-			ConnectByNameError = null;
-			BytesTransferred = bytesTransferred;
-			SocketFlags = flags;
-		}
-
-		internal void SetResults (Exception exception, int bytesTransferred, SocketFlags flags)
-		{
-			ConnectByNameError = exception;
-			BytesTransferred = bytesTransferred;
-			SocketFlags = flags;
-
-			if (exception == null)
-			{
-				SocketError = SocketError.Success;
-			}
-			else
-			{
-				var socketException = exception as SocketException;
-				if (socketException != null)
-					SocketError = socketException.SocketErrorCode;
-				else
-					SocketError = SocketError.SocketError;
-			}
 		}
 	}
 }
