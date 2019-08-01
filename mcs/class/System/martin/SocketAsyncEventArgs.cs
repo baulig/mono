@@ -13,6 +13,7 @@ namespace System.Net.Sockets
     {
         // AcceptSocket property variables.
         private Socket _acceptSocket;
+        private Socket _connectSocket;
 
         // Single buffer.
         private Memory<byte> _buffer;
@@ -75,6 +76,8 @@ namespace System.Net.Sockets
         private const int InProgress = 1;
         private const int Disposed = 2;
         private int _operating;
+
+        private MultipleConnectAsync _multipleConnect;
 
         public Socket AcceptSocket
         {
@@ -511,5 +514,33 @@ namespace System.Net.Sockets
         }
 
         partial void StartOperationCommonCore();
+
+        internal void StartOperationConnect(MultipleConnectAsync multipleConnect = null)
+        {
+            _multipleConnect = multipleConnect;
+            _connectSocket = null;
+        }
+
+        internal void CancelConnectAsync()
+        {
+            if (_operating == InProgress && _completedOperation == SocketAsyncOperation.Connect)
+            {
+                if (_multipleConnect != null)
+                {
+                    // If a multiple connect is in progress, abort it.
+                    _multipleConnect.Cancel();
+                }
+                else
+                {
+                    // Otherwise we're doing a normal ConnectAsync - cancel it by closing the socket.
+                    // _currentSocket will only be null if _multipleConnect was set, so we don't have to check.
+                    if (_currentSocket == null)
+                    {
+                        NetEventSource.Fail(this, "CurrentSocket and MultipleConnect both null!");
+                    }
+                    _currentSocket.Dispose();
+                }
+            }
+        }
     }
 }

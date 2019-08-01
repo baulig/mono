@@ -896,6 +896,7 @@ namespace System.Net.Sockets
 			is_bound = true;
 		}
 
+#if MARTIN_FIXME
 		public bool ConnectAsync (SocketAsyncEventArgs e)
 		{
 			// NO check is made whether e != null in MS.NET (NRE is thrown in such case)
@@ -972,8 +973,88 @@ namespace System.Net.Sockets
 				return false;
 			}
 		}
+#else
+		public bool ConnectAsync (SocketAsyncEventArgs e)
+		{
+			bool pending;
 
-		public static void CancelConnectAsync (SocketAsyncEventArgs e)
+			ThrowIfDisposedAndClosed ();
+
+			if (e == null)
+				throw new ArgumentNullException (nameof (e));
+			if (e.HasMultipleBuffers)
+				throw new ArgumentException (SR.net_multibuffernotsupported, "BufferList");
+			if (e.RemoteEndPoint == null)
+				throw new ArgumentNullException ("remoteEP");
+			if (is_listening)
+				throw new InvalidOperationException (SR.net_sockets_mustnotlisten);
+			if (is_connected)
+				throw new SocketException ((int)SocketError.IsConnected);
+
+			// Prepare SocketAddress.
+			EndPoint endPointSnapshot = e.RemoteEndPoint;
+			DnsEndPoint dnsEP = endPointSnapshot as DnsEndPoint;
+
+			if (dnsEP != null) {
+				// ValidateForMultiConnect(isMultiEndpoint: true); // needs to come before CanTryAddressFamily call
+
+				if (dnsEP.AddressFamily != AddressFamily.Unspecified && !CanTryAddressFamily (dnsEP.AddressFamily))
+					throw new NotSupportedException (SR.net_invalidversion);
+
+				MultipleConnectAsync multipleConnectAsync = new SingleSocketMultipleConnectAsync (this, true);
+
+				e.StartOperationCommon (this, SocketAsyncOperation.Connect);
+				e.StartOperationConnect (multipleConnectAsync);
+
+				pending = multipleConnectAsync.StartConnectAsync (e, dnsEP);
+			} else {
+#if MARTIN_FIXME
+				// Throw if remote address family doesn't match socket.
+				if (!CanTryAddressFamily (e.RemoteEndPoint.AddressFamily))
+					throw new NotSupportedException (SR.net_invalidversion);
+
+				e._socketAddress = SnapshotAndSerialize (ref endPointSnapshot);
+
+				// Do wildcard bind if socket not bound.
+				if (_rightEndPoint == null) {
+					if (endPointSnapshot.AddressFamily == AddressFamily.InterNetwork)
+						InternalBind (new IPEndPoint (IPAddress.Any, 0));
+					else if (endPointSnapshot.AddressFamily != AddressFamily.Unix)
+						InternalBind (new IPEndPoint (IPAddress.IPv6Any, 0));
+				}
+
+				// Save the old RightEndPoint and prep new RightEndPoint.
+				EndPoint oldEndPoint = _rightEndPoint;
+				if (_rightEndPoint == null)
+					_rightEndPoint = endPointSnapshot;
+
+				// Prepare for the native call.
+				e.StartOperationCommon (this, SocketAsyncOperation.Connect);
+				e.StartOperationConnect ();
+
+				// Make the native call.
+				SocketError socketError = SocketError.Success;
+				try {
+					socketError = e.DoOperationConnect (this, _handle);
+				} catch {
+					_rightEndPoint = oldEndPoint;
+
+					// Clear in-use flag on event args object.
+					e.Complete ();
+					throw;
+				}
+
+				pending = (socketError == SocketError.IOPending);
+#else
+				throw new NotImplementedException();
+#endif
+			}
+
+			return pending;
+		}
+#endif
+
+				public static void CancelConnectAsync (SocketAsyncEventArgs e)
 		{
 			if (e == null)
 				throw new ArgumentNullException("e");
