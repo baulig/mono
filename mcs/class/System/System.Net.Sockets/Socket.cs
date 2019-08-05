@@ -1008,13 +1008,13 @@ namespace System.Net.Sockets
 
 				pending = multipleConnectAsync.StartConnectAsync (e, dnsEP);
 			} else {
-#if MARTIN_FIXME
 				// Throw if remote address family doesn't match socket.
 				if (!CanTryAddressFamily (e.RemoteEndPoint.AddressFamily))
 					throw new NotSupportedException (SR.net_invalidversion);
 
 				e._socketAddress = SnapshotAndSerialize (ref endPointSnapshot);
 
+#if MARTIN_FIXME
 				// Do wildcard bind if socket not bound.
 				if (_rightEndPoint == null) {
 					if (endPointSnapshot.AddressFamily == AddressFamily.InterNetwork)
@@ -1027,11 +1027,13 @@ namespace System.Net.Sockets
 				EndPoint oldEndPoint = _rightEndPoint;
 				if (_rightEndPoint == null)
 					_rightEndPoint = endPointSnapshot;
+#endif
 
 				// Prepare for the native call.
 				e.StartOperationCommon (this, SocketAsyncOperation.Connect);
 				e.StartOperationConnect ();
 
+#if MARTIN_FIXME
 				// Make the native call.
 				SocketError socketError = SocketError.Success;
 				try {
@@ -2989,7 +2991,22 @@ namespace System.Net.Sockets
 				throw new NotImplementedException (String.Format ("Operation {0} is not implemented", op));
 			}
 		}
-		
+
+		SocketAddress SnapshotAndSerialize (ref EndPoint remoteEP)
+		{
+			if (remoteEP is IPEndPoint ipSnapshot) {
+				// Snapshot to avoid external tampering and malicious derivations if IPEndPoint.
+				ipSnapshot = ipSnapshot.Snapshot ();
+
+				// DualMode: return an IPEndPoint mapped to an IPv6 address.
+				remoteEP = RemapIPEndPoint (ipSnapshot);
+			} else if (remoteEP is DnsEndPoint) {
+				throw new ArgumentException (SR.Format (SR.net_sockets_invalid_dnsendpoint, nameof (remoteEP)), nameof (remoteEP));
+			}
+
+			return IPEndPointExtensions.Serialize(remoteEP);
+		}
+
 		IPEndPoint RemapIPEndPoint (IPEndPoint input) {
 			// If socket is DualMode ensure we automatically handle mapping IPv4 addresses to IPv6.
 			if (IsDualMode && input.AddressFamily == AddressFamily.InterNetwork)

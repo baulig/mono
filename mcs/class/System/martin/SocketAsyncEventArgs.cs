@@ -63,6 +63,9 @@ namespace System.Net.Sockets
         // UserToken property variables.
         private object _userToken;
 
+        // Internal SocketAddress buffer.
+        internal SocketAddress _socketAddress;
+
         // Misc state variables.
         private readonly bool _flowExecutionContext;
         private ExecutionContext _context;
