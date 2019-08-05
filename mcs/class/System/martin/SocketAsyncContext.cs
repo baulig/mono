@@ -13,5 +13,10 @@ namespace System.Net.Sockets
 		{
 			_socket = socket;
 		}
+
+		public SocketError ConnectAsync (byte[] socketAddress, int socketAddressLen, Action<SocketError> callback)
+		{
+			throw new NotImplementedException ();
+		}
 	}
 }

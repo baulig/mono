@@ -11,6 +11,11 @@ namespace System.Net.Sockets
 {
     public partial class SocketAsyncEventArgs : EventArgs, IDisposable
     {
+        private void ConnectCompletionCallback(SocketError socketError)
+        {
+            CompletionCallback(0, SocketFlags.None, socketError);
+        }
+
         internal unsafe SocketError DoOperationConnect(Socket socket, SafeCloseSocket handle)
         {
             bool blk = socket.is_blocking;
@@ -21,16 +26,26 @@ namespace System.Net.Sockets
                 socket.Blocking = true;
             Console.Error.WriteLine($"DO OPERATION CONNECT: {error} {(SocketError)error}");
 
-#if MARTIN_FIXME
             SocketError socketError = handle.AsyncContext.ConnectAsync(_socketAddress.Buffer, _socketAddress.Size, ConnectCompletionCallback);
             if (socketError != SocketError.IOPending)
             {
                 FinishOperationSync(socketError, 0, SocketFlags.None);
             }
             return socketError;
-#else
-            throw new NotImplementedException ();
-#endif
+        }
+
+        private void FinishOperationSync(SocketError socketError, int bytesTransferred, SocketFlags flags)
+        {
+            Debug.Assert(socketError != SocketError.IOPending);
+
+            if (socketError == SocketError.Success)
+            {
+                FinishOperationSyncSuccess(bytesTransferred, flags);
+            }
+            else
+            {
+                FinishOperationSyncFailure(socketError, bytesTransferred, flags);
+            }
         }
 
         private void InitializeInternals()
@@ -54,5 +69,22 @@ namespace System.Net.Sockets
         }
 
         private void CompleteCore() { }
+
+        private void CompletionCallback(int bytesTransferred, SocketFlags flags, SocketError socketError)
+        {
+            if (socketError == SocketError.Success)
+            {
+                FinishOperationAsyncSuccess(bytesTransferred, flags);
+            }
+            else
+            {
+                if (_currentSocket.CleanedUp)
+                {
+                    socketError = SocketError.OperationAborted;
+                }
+
+                FinishOperationAsyncFailure(socketError, bytesTransferred, flags);
+            }
+        }
     }
 }

@@ -38,6 +38,8 @@ namespace System.Net {
         private bool m_changed = true;
         private int m_hash;
 
+        internal byte[] Buffer => m_Buffer;
+
         //
         // Address Family
         //

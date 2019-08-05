@@ -545,5 +545,39 @@ namespace System.Net.Sockets
                 }
             }
         }
+
+        internal void FinishOperationSyncSuccess(int bytesTransferred, SocketFlags flags)
+        {
+            throw new NotImplementedException();
+        }
+
+        internal void FinishOperationSyncFailure(SocketError socketError, int bytesTransferred, SocketFlags flags)
+        {
+            SetResults(socketError, bytesTransferred, flags);
+
+#if MARTIN_FIXME
+            // This will be null if we're doing a static ConnectAsync to a DnsEndPoint with AddressFamily.Unspecified;
+            // the attempt socket will be closed anyways, so not updating the state is OK.
+            _currentSocket?.UpdateStatusAfterSocketError(socketError);
+#endif
+
+            Complete();
+        }
+
+
+        internal void FinishOperationAsyncSuccess(int bytesTransferred, SocketFlags flags)
+        {
+            FinishOperationSyncSuccess(bytesTransferred, flags);
+
+            // Raise completion event.
+            if (_context == null)
+            {
+                OnCompleted(this);
+            }
+            else
+            {
+                ExecutionContext.Run(_context, s_executionCallback, this);
+            }
+        }
     }
 }
