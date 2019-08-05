@@ -11,7 +11,7 @@ namespace System.Net.Sockets
 {
     public partial class SocketAsyncEventArgs : EventArgs, IDisposable
     {
-        internal unsafe SocketError DoOperationConnect(Socket socket, SafeSocketHandle handle)
+        internal unsafe SocketError DoOperationConnect(Socket socket, SafeCloseSocket handle)
         {
             bool blk = socket.is_blocking;
             if (blk)
