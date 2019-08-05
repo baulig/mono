@@ -1054,7 +1054,7 @@ namespace System.Net.Sockets
 		}
 #endif
 
-				public static void CancelConnectAsync (SocketAsyncEventArgs e)
+		public static void CancelConnectAsync (SocketAsyncEventArgs e)
 		{
 			if (e == null)
 				throw new ArgumentNullException("e");
