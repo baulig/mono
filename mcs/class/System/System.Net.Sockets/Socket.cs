@@ -1048,6 +1048,17 @@ namespace System.Net.Sockets
 
 				pending = (socketError == SocketError.IOPending);
 #else
+				// Make the native call.
+				SocketError socketError = SocketError.Success;
+				try {
+					socketError = e.DoOperationConnect (this, m_Handle);
+				} catch {
+					// Clear in-use flag on event args object.
+					e.Complete ();
+					throw;
+				}
+
+				pending = (socketError == SocketError.IOPending);
 				throw new NotImplementedException();
 #endif
 			}
@@ -1303,7 +1314,7 @@ namespace System.Net.Sockets
 			sockares.CheckIfThrowDelayedException();
 		}
 
-		static void Connect_internal (SafeSocketHandle safeHandle, SocketAddress sa, out int error, bool blocking)
+		internal static void Connect_internal (SafeSocketHandle safeHandle, SocketAddress sa, out int error, bool blocking)
 		{
 			try {
 				safeHandle.RegisterForBlockingSyscall ();

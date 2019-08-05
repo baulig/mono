@@ -1,5 +1,6 @@
 Assembly/AssemblyInfo.cs
 corefx/*.cs
+martin/SafeCloseSocket.cs
 martin/SocketAsyncEventArgs.cs
 martin/SocketAsyncEventArgs.Mono.cs
 
