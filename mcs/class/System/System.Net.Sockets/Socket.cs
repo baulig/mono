@@ -322,7 +322,7 @@ namespace System.Net.Sockets
 			}
 		}
 
-		static void Blocking_internal (SafeSocketHandle safeHandle, bool block, out int error)
+		internal static void Blocking_internal (SafeSocketHandle safeHandle, bool block, out int error)
 		{
 			bool release = false;
 			try {
