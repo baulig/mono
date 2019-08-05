@@ -31,7 +31,21 @@ namespace System.Net.Sockets
 			Socket.Connect_internal (_socket, sa, out var error, false);
 			Console.Error.WriteLine ($"DO OPERATION CONNECT: {error} {(SocketError)error}");
 
-			return (SocketError)error;
+			if (error == 0)
+				return SocketError.Success;
+
+			if (error != (int) SocketError.InProgress && error != (int) SocketError.WouldBlock)
+				return (SocketError)error;
+
+			var sockares = new SocketAsyncResult ();
+
+			IOSelector.Add (_socket.DangerousGetHandle (), new IOSelectorJob (IOOperation.Write, BeginConnectCallback, sockares));
+			return SocketError.IOPending;
+		}
+
+		void BeginConnectCallback (IOAsyncResult ioares)
+		{
+			Console.Error.WriteLine ($"BEGIN CONNECT CALLBACK!");
 		}
 	}
 }

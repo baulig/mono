@@ -1059,7 +1059,6 @@ namespace System.Net.Sockets
 				}
 
 				pending = (socketError == SocketError.IOPending);
-				throw new NotImplementedException();
 #endif
 			}
 

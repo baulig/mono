@@ -18,16 +18,6 @@ namespace System.Net.Sockets
 
         internal unsafe SocketError DoOperationConnect(Socket socket, SafeCloseSocket handle)
         {
-#if FIXME
-            bool blk = socket.is_blocking;
-            if (blk)
-                socket.Blocking = false;
-            Socket.Connect_internal(socket.m_Handle, _socketAddress, out var error, false);
-            if (blk)
-                socket.Blocking = true;
-            Console.Error.WriteLine($"DO OPERATION CONNECT: {error} {(SocketError)error}");
-#endif
-
             SocketError socketError = handle.AsyncContext.ConnectAsync(_socketAddress.Buffer, _socketAddress.Size, ConnectCompletionCallback);
             if (socketError != SocketError.IOPending)
             {
