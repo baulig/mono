@@ -851,6 +851,20 @@ namespace System.Net.Sockets
 
 		public void Connect (IPAddress address, int port)
 		{
+			ThrowIfDisposedAndClosed ();
+
+			if (address == null)
+				throw new ArgumentNullException (nameof (address));
+
+			if (!TcpValidationHelpers.ValidatePortNumber (port))
+				throw new ArgumentOutOfRangeException (nameof (port));
+
+			if (is_listening)
+				throw new InvalidOperationException (SR.GetString (SR.net_sockets_mustnotlisten));
+
+			if (!CanTryAddressFamily (address.AddressFamily))
+				throw new NotSupportedException (SR.net_invalidversion);
+
 			Connect (new IPEndPoint (address, port));
 		}
 
@@ -864,7 +878,10 @@ namespace System.Net.Sockets
 			ThrowIfDisposedAndClosed ();
 
 			if (remoteEP == null)
-				throw new ArgumentNullException ("remoteEP");
+				throw new ArgumentNullException (nameof (remoteEP));
+
+			if (is_listening)
+				throw new InvalidOperationException (SR.GetString (SR.net_sockets_mustnotlisten));
 
 			IPEndPoint ep = remoteEP as IPEndPoint;
 			/* Dgram uses Any to 'disconnect' */
@@ -872,9 +889,6 @@ namespace System.Net.Sockets
 				if (ep.Address.Equals (IPAddress.Any) || ep.Address.Equals (IPAddress.IPv6Any))
 					throw new SocketException ((int) SocketError.AddressNotAvailable);
 			}
-
-			if (is_listening)
-				throw new InvalidOperationException ();
 
 			DnsEndPoint dnsEP = remoteEP as DnsEndPoint;
 			if (dnsEP != null) {
@@ -1015,13 +1029,13 @@ namespace System.Net.Sockets
 			ThrowIfDisposedAndClosed ();
 
 			if (host == null)
-				throw new ArgumentNullException ("host");
-			if (addressFamily != AddressFamily.InterNetwork && addressFamily != AddressFamily.InterNetworkV6)
-				throw new NotSupportedException ("This method is valid only for sockets in the InterNetwork and InterNetworkV6 families");
-			if (port <= 0 || port > 65535)
-				throw new ArgumentOutOfRangeException ("port", "Must be > 0 and < 65536");
+				throw new ArgumentNullException (nameof (host));
+
+			if (!TcpValidationHelpers.ValidatePortNumber (port))
+				throw new ArgumentOutOfRangeException (nameof (port));
+
 			if (is_listening)
-				throw new InvalidOperationException ();
+				throw new InvalidOperationException (SR.GetString (SR.net_sockets_mustnotlisten));
 
 			var callback = new AsyncCallback ((result) => {
 				var resultTask = ((Task<IPAddress[]>)result);
