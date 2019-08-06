@@ -546,6 +546,15 @@ namespace System.Net.Sockets
             }
         }
 
+        internal void FinishConnectByNameSyncFailure(Exception exception, int bytesTransferred, SocketFlags flags)
+        {
+            SetResults(exception, bytesTransferred, flags);
+
+            _currentSocket?.UpdateStatusAfterSocketError(_socketError);
+
+            Complete();
+        }
+
         internal void FinishOperationAsyncFailure(SocketError socketError, int bytesTransferred, SocketFlags flags)
         {
             SetResults(socketError, bytesTransferred, flags);

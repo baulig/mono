@@ -99,16 +99,6 @@ namespace System.Net.Sockets
 			OnCompleted (this);
 		}
 
-		internal void FinishConnectByNameSyncFailure (Exception exception, int bytesTransferred, SocketFlags flags)
-		{
-			SetResults (exception, bytesTransferred, flags);
-
-			if (_currentSocket != null)
-				_currentSocket.is_connected = false;
-			
-			Complete_internal ();
-		}
-
 		internal void FinishOperationAsyncFailure (Exception exception, int bytesTransferred, SocketFlags flags)
 		{
 			SetResults (exception, bytesTransferred, flags);
