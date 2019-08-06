@@ -78,11 +78,6 @@ namespace System.Net.Sockets
 			}
 		}
 
-		public SocketAsyncEventArgs ()
-		{
-			SendPacketsSendSize = -1;
-		}
-
 		internal void SetLastOperation (SocketAsyncOperation op)
 		{
 			if (_disposeCalled)

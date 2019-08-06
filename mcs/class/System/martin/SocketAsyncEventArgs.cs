@@ -82,6 +82,21 @@ namespace System.Net.Sockets
 
         private MultipleConnectAsync _multipleConnect;
 
+        public SocketAsyncEventArgs() : this(flowExecutionContext: true)
+        {
+        }
+
+        /// <summary>Initialize the SocketAsyncEventArgs</summary>
+        /// <param name="flowExecutionContext">
+        /// Whether to capture and flow ExecutionContext. ExecutionContext flow should only
+        /// be disabled if it's going to be handled by higher layers.
+        /// </param>
+        internal SocketAsyncEventArgs(bool flowExecutionContext)
+        {
+            _flowExecutionContext = flowExecutionContext;
+            InitializeInternals();
+        }
+
         public Socket AcceptSocket
         {
             get { return _acceptSocket; }
