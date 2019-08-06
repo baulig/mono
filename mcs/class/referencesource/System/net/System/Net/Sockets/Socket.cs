@@ -7873,8 +7873,8 @@ namespace System.Net.Sockets {
                     multipleConnectAsync = new SingleSocketMultipleConnectAsync(attemptSocket, false);
                 }
 
-                e.StartOperationCommon(attemptSocket);
-                e.StartOperationWrapperConnect(multipleConnectAsync);
+                e.StartOperationCommon(attemptSocket, SocketAsyncOperation.Connect);
+                e.StartOperationConnect(multipleConnectAsync);
 
                 retval = multipleConnectAsync.StartConnectAsync(e, dnsEP);
             } else {

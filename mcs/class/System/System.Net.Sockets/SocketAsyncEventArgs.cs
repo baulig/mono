@@ -99,18 +99,6 @@ namespace System.Net.Sockets
 			OnCompleted (this);
 		}
 
-		internal void StartOperationCommon (Socket socket)
-		{
-			_currentSocket = socket;
-		}
-
-		internal void StartOperationWrapperConnect (MultipleConnectAsync args)
-		{
-			SetLastOperation (SocketAsyncOperation.Connect);
-
-			//m_MultipleConnect = args;
-		}
-
 		internal void FinishConnectByNameSyncFailure (Exception exception, int bytesTransferred, SocketFlags flags)
 		{
 			SetResults (exception, bytesTransferred, flags);

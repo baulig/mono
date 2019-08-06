@@ -896,7 +896,7 @@ namespace System.Net.Sockets
 			is_bound = true;
 		}
 
-#if MARTIN_FIXME
+#if !MARTIN_FIXME
 		public bool ConnectAsync (SocketAsyncEventArgs e)
 		{
 			// NO check is made whether e != null in MS.NET (NRE is thrown in such case)
