@@ -4,6 +4,21 @@ namespace System.Net.Sockets
 {
     partial class Socket
     {
+        internal void SetToConnected()
+        {
+            if (is_connected)
+            {
+                // Socket was already connected.
+                return;
+            }
+
+            // Update the status: this socket was indeed connected at
+            // some point in time update the perf counter as well.
+            is_connected = true;
+            is_closed = false;
+            if (NetEventSource.IsEnabled) NetEventSource.Info(this, "now connected");
+        }
+
         internal void SetToDisconnected()
         {
             if (NetEventSource.IsEnabled) NetEventSource.Enter(this);

@@ -62,6 +62,12 @@ namespace System.Net.Sockets
 
         private void CompleteCore() { }
 
+        private SocketError FinishOperationConnect()
+        {
+            // No-op for *nix.
+            return SocketError.Success;
+        }
+
         private void CompletionCallback(int bytesTransferred, SocketFlags flags, SocketError socketError)
         {
             if (socketError == SocketError.Success)
