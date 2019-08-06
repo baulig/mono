@@ -774,21 +774,20 @@ namespace System.Net.Sockets
 
 			if (localEP == null)
 				throw new ArgumentNullException("localEP");
-				
-			var ipEndPoint = localEP as IPEndPoint;
-			if (ipEndPoint != null) {
-				localEP = RemapIPEndPoint (ipEndPoint);	
-			}
-			
+
+			// Ask the EndPoint to generate a SocketAddress that we can pass down to native code.
+			var endPointSnapshot = localEP;
+			var socketAddress = SnapshotAndSerialize (ref endPointSnapshot);
+
 			int error;
-			Bind_internal (m_Handle, localEP.Serialize(), out error);
+			Bind_internal (m_Handle, socketAddress, out error);
 
 			if (error != 0)
 				throw new SocketException (error);
 			if (error == 0)
 				is_bound = true;
 
-			seed_endpoint = localEP;
+			seed_endpoint = endPointSnapshot;
 #endif // FEATURE_NO_BSD_SOCKETS
 		}
 
@@ -2902,7 +2901,22 @@ namespace System.Net.Sockets
 				throw new NotImplementedException (String.Format ("Operation {0} is not implemented", op));
 			}
 		}
-		
+
+		SocketAddress SnapshotAndSerialize (ref EndPoint remoteEP)
+		{
+			if (remoteEP is IPEndPoint ipSnapshot) {
+				// Snapshot to avoid external tampering and malicious derivations if IPEndPoint.
+				ipSnapshot = ipSnapshot.Snapshot ();
+
+				// DualMode: return an IPEndPoint mapped to an IPv6 address.
+				remoteEP = RemapIPEndPoint (ipSnapshot);
+			} else if (remoteEP is DnsEndPoint) {
+				throw new ArgumentException (SR.Format (SR.net_sockets_invalid_dnsendpoint, nameof (remoteEP)), nameof (remoteEP));
+			}
+
+			return IPEndPointExtensions.Serialize (remoteEP);
+		}
+
 		IPEndPoint RemapIPEndPoint (IPEndPoint input) {
 			// If socket is DualMode ensure we automatically handle mapping IPv4 addresses to IPv6.
 			if (IsDualMode && input.AddressFamily == AddressFamily.InterNetwork)
