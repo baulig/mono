@@ -466,14 +466,14 @@ namespace System.Net.Sockets
 			}
 		}
 
-		static void AddSockets (List<Socket> sockets, IList list, string name)
+		static void AddSockets (List<Socket> sockets, IList socketList, string name)
 		{
-			if (list != null) {
-				int listCount = list.Count;
+			if (socketList != null) {
+				int listCount = socketList.Count;
 				for (int i = 0; i < listCount; i++) {
-					Socket socket = list[i] as Socket;
+					Socket socket = socketList[i] as Socket;
 					if (socket == null)
-						throw new ArgumentException (SR.Format (SR.net_sockets_select, socket?.GetType ().FullName ?? "null", typeof (Socket).FullName), nameof (list));
+						throw new ArgumentException (SR.Format (SR.net_sockets_select, socket?.GetType ().FullName ?? "null", typeof (Socket).FullName), nameof (socketList));
 
 					sockets.Add (socket);
 				}
@@ -941,6 +941,9 @@ namespace System.Net.Sockets
 						throw new NotSupportedException ("This method is only valid for addresses in the InterNetwork or InterNetworkV6 families");
 					if (dep.Port <= 0 || dep.Port > 65535)
 						throw new ArgumentOutOfRangeException ("port", "Must be > 0 and < 65536");
+
+					if (dep.AddressFamily != AddressFamily.Unspecified && !CanTryAddressFamily (dep.AddressFamily))
+						throw new NotSupportedException (SR.net_invalidversion);
 
 					ares = new SocketAsyncResult (this, ConnectAsyncCallback, e, SocketOperation.Connect) {
 						Addresses = addresses,
