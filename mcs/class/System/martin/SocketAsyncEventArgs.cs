@@ -561,6 +561,17 @@ namespace System.Net.Sockets
             }
         }
 
+        internal void FinishOperationSyncFailure(SocketError socketError, int bytesTransferred, SocketFlags flags)
+        {
+            SetResults(socketError, bytesTransferred, flags);
+
+            // This will be null if we're doing a static ConnectAsync to a DnsEndPoint with AddressFamily.Unspecified;
+            // the attempt socket will be closed anyways, so not updating the state is OK.
+            _currentSocket?.UpdateStatusAfterSocketError(socketError);
+
+            Complete();
+        }
+
         internal void FinishConnectByNameSyncFailure(Exception exception, int bytesTransferred, SocketFlags flags)
         {
             SetResults(exception, bytesTransferred, flags);
@@ -574,11 +585,9 @@ namespace System.Net.Sockets
         {
             SetResults(socketError, bytesTransferred, flags);
 
-#if MARTIN_FIXME
             // This will be null if we're doing a static ConnectAsync to a DnsEndPoint with AddressFamily.Unspecified;
             // the attempt socket will be closed anyways, so not updating the state is OK.
             _currentSocket?.UpdateStatusAfterSocketError(socketError);
-#endif
 
             Complete();
             if (_context == null)
@@ -591,7 +600,6 @@ namespace System.Net.Sockets
             }
         }
 
-#if MARTIN_FIXME
         internal void FinishOperationAsyncFailure(Exception exception, int bytesTransferred, SocketFlags flags)
         {
             SetResults(exception, bytesTransferred, flags);
@@ -608,26 +616,124 @@ namespace System.Net.Sockets
                 ExecutionContext.Run(_context, s_executionCallback, this);
             }
         }
-#endif
+
+        internal void FinishWrapperConnectSuccess(Socket connectSocket, int bytesTransferred, SocketFlags flags)
+        {
+            SetResults(SocketError.Success, bytesTransferred, flags);
+            _currentSocket = connectSocket;
+            _connectSocket = connectSocket;
+
+            // Complete the operation and raise the event.
+            Complete();
+            if (_context == null)
+            {
+                OnCompleted(this);
+            }
+            else
+            {
+                ExecutionContext.Run(_context, s_executionCallback, this);
+            }
+        }
 
         internal void FinishOperationSyncSuccess(int bytesTransferred, SocketFlags flags)
         {
-            throw new NotImplementedException();
-        }
-
-        internal void FinishOperationSyncFailure(SocketError socketError, int bytesTransferred, SocketFlags flags)
-        {
-            SetResults(socketError, bytesTransferred, flags);
-
 #if MARTIN_FIXME
-            // This will be null if we're doing a static ConnectAsync to a DnsEndPoint with AddressFamily.Unspecified;
-            // the attempt socket will be closed anyways, so not updating the state is OK.
-            _currentSocket?.UpdateStatusAfterSocketError(socketError);
-#endif
+            SetResults(SocketError.Success, bytesTransferred, flags);
+
+            if (NetEventSource.IsEnabled && bytesTransferred > 0)
+            {
+                LogBuffer(bytesTransferred);
+            }
+
+            SocketError socketError = SocketError.Success;
+            switch (_completedOperation)
+            {
+                case SocketAsyncOperation.Accept:
+                    // Get the endpoint.
+                    Internals.SocketAddress remoteSocketAddress = IPEndPointExtensions.Serialize(_currentSocket._rightEndPoint);
+
+                    socketError = FinishOperationAccept(remoteSocketAddress);
+
+                    if (socketError == SocketError.Success)
+                    {
+                        _acceptSocket = _currentSocket.UpdateAcceptSocket(_acceptSocket, _currentSocket._rightEndPoint.Create(remoteSocketAddress));
+
+                        if (NetEventSource.IsEnabled) NetEventSource.Accepted(_acceptSocket, _acceptSocket.RemoteEndPoint, _acceptSocket.LocalEndPoint);
+                    }
+                    else
+                    {
+                        SetResults(socketError, bytesTransferred, flags);
+                        _acceptSocket = null;
+                        _currentSocket.UpdateStatusAfterSocketError(socketError);
+                    }
+                    break;
+
+                case SocketAsyncOperation.Connect:
+                    socketError = FinishOperationConnect();
+                    if (socketError == SocketError.Success)
+                    {
+                        if (NetEventSource.IsEnabled) NetEventSource.Connected(_currentSocket, _currentSocket.LocalEndPoint, _currentSocket.RemoteEndPoint);
+
+                        // Mark socket connected.
+                        _currentSocket.SetToConnected();
+                        _connectSocket = _currentSocket;
+                    }
+                    else
+                    {
+                        SetResults(socketError, bytesTransferred, flags);
+                        _currentSocket.UpdateStatusAfterSocketError(socketError);
+                    }
+                    break;
+
+                case SocketAsyncOperation.Disconnect:
+                    _currentSocket.SetToDisconnected();
+                    _currentSocket._remoteEndPoint = null;
+                    break;
+
+                case SocketAsyncOperation.ReceiveFrom:
+                    // Deal with incoming address.
+                    _socketAddress.InternalSize = GetSocketAddressSize();
+                    Internals.SocketAddress socketAddressOriginal = IPEndPointExtensions.Serialize(_remoteEndPoint);
+                    if (!socketAddressOriginal.Equals(_socketAddress))
+                    {
+                        try
+                        {
+                            _remoteEndPoint = _remoteEndPoint.Create(_socketAddress);
+                        }
+                        catch
+                        {
+                        }
+                    }
+                    break;
+
+                case SocketAsyncOperation.ReceiveMessageFrom:
+                    // Deal with incoming address.
+                    _socketAddress.InternalSize = GetSocketAddressSize();
+                    socketAddressOriginal = IPEndPointExtensions.Serialize(_remoteEndPoint);
+                    if (!socketAddressOriginal.Equals(_socketAddress))
+                    {
+                        try
+                        {
+                            _remoteEndPoint = _remoteEndPoint.Create(_socketAddress);
+                        }
+                        catch
+                        {
+                        }
+                    }
+
+                    FinishOperationReceiveMessageFrom();
+                    break;
+
+                case SocketAsyncOperation.SendPackets:
+                    FinishOperationSendPackets();
+                    break;
+            }
 
             Complete();
+#else
+            throw new NotImplementedException ();
+#endif
         }
-
 
         internal void FinishOperationAsyncSuccess(int bytesTransferred, SocketFlags flags)
         {

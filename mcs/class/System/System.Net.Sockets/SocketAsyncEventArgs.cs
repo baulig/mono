@@ -93,23 +93,5 @@ namespace System.Net.Sockets
 			in_progress = 0;
 			OnCompleted (this);
 		}
-
-		internal void FinishOperationAsyncFailure (Exception exception, int bytesTransferred, SocketFlags flags)
-		{
-			SetResults (exception, bytesTransferred, flags);
-
-			if (_currentSocket != null)
-				_currentSocket.is_connected = false;
-			
-			Complete_internal ();
-		}
-
-		internal void FinishWrapperConnectSuccess (Socket connectSocket, int bytesTransferred, SocketFlags flags)
-		{
-			SetResults(SocketError.Success, bytesTransferred, flags);
-			_currentSocket = connectSocket;
-
-			Complete_internal ();
-		}
 	}
 }
