@@ -2563,11 +2563,8 @@ namespace System.Net.Sockets
 			int error;
 			SetSocketOption_internal (m_Handle, optionLevel, optionName, null, optionValue, 0, out error);
 
-			if (error != 0) {
-				if (error == (int) SocketError.InvalidArgument)
-					throw new ArgumentException ();
+			if (error != 0)
 				throw new SocketException (error);
-			}
 		}
 
 		public void SetSocketOption (SocketOptionLevel optionLevel, SocketOptionName optionName, object optionValue)
@@ -2599,11 +2596,8 @@ namespace System.Net.Sockets
 				throw new ArgumentException ("Invalid value specified.", "optionValue");
 			}
 
-			if (error != 0) {
-				if (error == (int) SocketError.InvalidArgument)
-					throw new ArgumentException ();
+			if (error != 0)
 				throw new SocketException (error);
-			}
 		}
 
 		public void SetSocketOption (SocketOptionLevel optionLevel, SocketOptionName optionName, bool optionValue)
@@ -2620,11 +2614,8 @@ namespace System.Net.Sockets
 			int error;
 			SetSocketOption_internal (m_Handle, optionLevel, optionName, null, null, optionValue, out error);
 
-			if (error != 0) {
-				if (error == (int) SocketError.InvalidArgument)
-					throw new ArgumentException ();
+			if (error != 0)
 				throw new SocketException (error);
-			}
 		}
 
 		static void SetSocketOption_internal (SafeSocketHandle safeHandle, SocketOptionLevel level, SocketOptionName name, object obj_val, byte [] byte_val, int int_val, out int error)
@@ -2692,6 +2683,9 @@ namespace System.Net.Sockets
 
 		public void Close (int timeout)
 		{
+			if (timeout < -1)
+				throw new ArgumentOutOfRangeException (nameof (timeout));
+
 			linger_timeout = timeout;
 			Dispose ();
 		}
