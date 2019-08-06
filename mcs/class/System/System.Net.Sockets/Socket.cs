@@ -875,18 +875,24 @@ namespace System.Net.Sockets
 
 			if (is_listening)
 				throw new InvalidOperationException ();
-				
-			if (ep != null) {
-				remoteEP = RemapIPEndPoint (ep);
+
+			DnsEndPoint dnsEP = remoteEP as DnsEndPoint;
+			if (dnsEP != null) {
+				if (dnsEP.AddressFamily != AddressFamily.Unspecified && !CanTryAddressFamily (dnsEP.AddressFamily))
+					throw new NotSupportedException (SR.net_invalidversion);
+
+				Connect (dnsEP.Host, dnsEP.Port);
+				return;
 			}
 
-			SocketAddress serial = remoteEP.Serialize ();
+			EndPoint endPointSnapshot = remoteEP;
+			SocketAddress socketAddress = SnapshotAndSerialize (ref endPointSnapshot);
 
 			int error = 0;
-			Connect_internal (m_Handle, serial, out error, is_blocking);
+			Connect_internal (m_Handle, socketAddress, out error, is_blocking);
 
 			if (error == 0 || error == 10035)
-				seed_endpoint = remoteEP; // Keep the ep around for non-blocking sockets
+				seed_endpoint = endPointSnapshot; // Keep the ep around for non-blocking sockets
 
 			if (error != 0) {
 				if (is_closed)
