@@ -2,7 +2,6 @@ Assembly/AssemblyInfo.cs
 corefx/*.cs
 martin/SafeCloseSocket.cs
 martin/SocketAsyncContext.cs
-martin/SocketAsyncEventArgs.cs
 martin/SocketAsyncEventArgs.Mono.cs
 
 Microsoft.Win32.SafeHandles/SafeX509ChainHandle.cs
@@ -670,18 +669,19 @@ ReferenceSources/Win32Exception.cs
 ../referencesource/System/net/System/Net/SecureProtocols/AuthenticatedStream.cs
 ../referencesource/System/net/System/Net/SecureProtocols/NegotiateEnumTypes.cs
 
-../../../external/corefx/src/System.Net.Sockets/src/System/Net/Sockets/MultipleConnectAsync.cs
 ../referencesource/System/net/System/Net/Sockets/AddressFamily.cs
 ../referencesource/System/net/System/Net/Sockets/IOControlCode.cs
 ../referencesource/System/net/System/Net/Sockets/IPPacketInformation.cs
 ../referencesource/System/net/System/Net/Sockets/IPProtectionLevel.cs
 ../referencesource/System/net/System/Net/Sockets/LingerOption.cs
 ../referencesource/System/net/System/Net/Sockets/MulticastOption.cs
+../../../external/corefx/src/System.Net.Sockets/src/System/Net/Sockets/MultipleConnectAsync.cs
 ../referencesource/System/net/System/Net/Sockets/NetworkStream.cs
 ../referencesource/System/net/System/Net/Sockets/ProtocolFamily.cs
 ../referencesource/System/net/System/Net/Sockets/ProtocolType.cs
 ../referencesource/System/net/System/Net/Sockets/SelectMode.cs
 ../referencesource/System/net/System/Net/Sockets/Socket.cs
+../../../external/corefx/src/System.Net.Sockets/src/System/Net/Sockets/SocketAsyncEventArgs.cs
 ../referencesource/System/net/System/Net/Sockets/SocketErrors.cs
 ../referencesource/System/net/System/Net/Sockets/SocketFlags.cs
 ../referencesource/System/net/System/Net/Sockets/SocketInformation.cs

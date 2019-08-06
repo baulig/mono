@@ -62,6 +62,11 @@ namespace System.Net.Sockets
 
         private void CompleteCore() { }
 
+        private void LogBuffer(int bytesTransferred)
+        {
+            // No-op
+        }
+
         private SocketError FinishOperationConnect()
         {
             // No-op for *nix.

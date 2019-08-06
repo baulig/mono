@@ -67,17 +67,6 @@ namespace System.Net.Sockets
 
 #endregion
 
-		public Socket ConnectSocket {
-			get {
-				switch (SocketError) {
-				case SocketError.AccessDenied:
-					return null;
-				default:
-					return _currentSocket;
-				}
-			}
-		}
-
 		internal void SetLastOperation (SocketAsyncOperation op)
 		{
 			if (_disposeCalled)
