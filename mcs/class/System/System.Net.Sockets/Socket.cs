@@ -469,10 +469,13 @@ namespace System.Net.Sockets
 		static void AddSockets (List<Socket> sockets, IList list, string name)
 		{
 			if (list != null) {
-				foreach (Socket sock in list) {
-					if (sock == null) // MS throws a NullRef
-						throw new ArgumentNullException (name, "Contains a null element");
-					sockets.Add (sock);
+				int listCount = list.Count;
+				for (int i = 0; i < listCount; i++) {
+					Socket socket = list[i] as Socket;
+					if (socket == null)
+						throw new ArgumentException (SR.Format (SR.net_sockets_select, socket?.GetType ().FullName ?? "null", typeof (Socket).FullName), nameof (list));
+
+					sockets.Add (socket);
 				}
 			}
 
