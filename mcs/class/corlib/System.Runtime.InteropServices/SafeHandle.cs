@@ -162,6 +162,9 @@ namespace System.Runtime.InteropServices
 
 		void InternalFinalize ()
 		{
+			if (ID == 1119 || ID == 1142)
+				Console.Error.WriteLine ($"SH INTERNAL FINALIZE: {this} {ID}\n{Environment.StackTrace}\n");
+
 			if (_fullyInitialized)
 				DangerousReleaseInternal (true);
 		}
