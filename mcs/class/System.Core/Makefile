@@ -25,7 +25,7 @@ RESX_RESOURCE_STRING = \
 	../../../external/corefx/src/System.Collections/src/Resources/Strings.resx \
 	../../../external/corefx/src/System.IO.MemoryMappedFiles/src/Resources/Strings.resx
 
-LIBRARY_WARN_AS_ERROR = yes
+#LIBRARY_WARN_AS_ERROR = yes
 
 ifneq (2.1, $(FRAMEWORK_VERSION))
 LIB_MCS_FLAGS += -d:NET_3_5
