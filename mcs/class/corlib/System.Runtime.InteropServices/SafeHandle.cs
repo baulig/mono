@@ -71,6 +71,8 @@ namespace System.Runtime.InteropServices
 			Disposed = 0x00000002,
 		}
 
+		bool MartinDebug => ID == 7 || ID == 1119 || ID == 1142;
+
 		/*
 		 * This should only be called for cases when you know for a fact that
 		 * your handle is invalid and you want to record that information.
@@ -80,7 +82,7 @@ namespace System.Runtime.InteropServices
 		[ReliabilityContract (Consistency.WillNotCorruptState, Cer.Success)]
 		public void SetHandleAsInvalid ()
 		{
-			if (ID == 1119 || ID == 1142)
+			if (MartinDebug)
 				Console.Error.WriteLine ($"SH SET AS INVALID: {this} {ID}\n{Environment.StackTrace}\n");
 
 			try {}
@@ -119,6 +121,9 @@ namespace System.Runtime.InteropServices
 				if (!_fullyInitialized)
 					throw new InvalidOperationException ();
 
+				if (MartinDebug)
+					Console.Error.WriteLine ($"SH DAR: {this} {ID} {_state}");
+
 				int old_state, new_state;
 
 				do {
@@ -129,6 +134,9 @@ namespace System.Runtime.InteropServices
 
 					new_state = old_state + RefCount_One;
 				} while (Interlocked.CompareExchange (ref _state, new_state, old_state) != old_state);
+
+				if (MartinDebug)
+					Console.Error.WriteLine ($"SH DAR DONE: {this} {ID} {_state}");
 
 				success = true;
 			}
@@ -148,6 +156,8 @@ namespace System.Runtime.InteropServices
 		[ReliabilityContract (Consistency.WillNotCorruptState, Cer.Success)]
 		public void DangerousRelease ()
 		{
+			if (MartinDebug)
+				Console.Error.WriteLine ($"SH DR: {this} {ID} {_state}");
 			DangerousReleaseInternal (false);
 		}
 
@@ -162,8 +172,8 @@ namespace System.Runtime.InteropServices
 
 		void InternalFinalize ()
 		{
-			if (ID == 1119 || ID == 1142)
-				Console.Error.WriteLine ($"SH INTERNAL FINALIZE: {this} {ID}\n{Environment.StackTrace}\n");
+			if (MartinDebug)
+				Console.Error.WriteLine ($"SH INTERNAL FINALIZE: {this} {ID} {_state}\n{Environment.StackTrace}\n");
 
 			if (_fullyInitialized)
 				DangerousReleaseInternal (true);
@@ -184,6 +194,8 @@ namespace System.Runtime.InteropServices
 				bool perform_release = false;
 
 				do {
+					if (MartinDebug)
+						Console.Error.WriteLine ($"SH DRI: {this} {ID} {dispose} {_state}\n{Environment.StackTrace}\n\n");
 					old_state = _state;
 
 					/* If this is a Dispose operation we have additional requirements (to
@@ -219,6 +231,9 @@ namespace System.Runtime.InteropServices
 					else
 						perform_release = true;
 
+					if (MartinDebug)
+						Console.Error.WriteLine ($"SH DRI #1: {this} {ID} {dispose} {_state} - {_ownsHandle} {IsInvalid} {perform_release}");
+			
 					/* Attempt the update to the new state, fail and retry if the initial
 					 * state has been modified in the meantime. Decrement the ref count by
 					 * substracting SH_RefCountOne from the state then OR in the bits for
