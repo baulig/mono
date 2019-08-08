@@ -184,6 +184,11 @@ public abstract partial class SafeHandle : CriticalFinalizerObject, IDisposable
         // ThreadAbortExceptions interrupting this constructor or the managed
         // constructors on subclasses that call this constructor.
         _fullyInitialized = true;
+
+        creator = Environment.StackTrace;
+
+        if (ID == 1119 || ID == 1142)
+            Console.Error.WriteLine ($"SH CTOR: {this} {ID}\n{Environment.StackTrace}\n");
     }
 
 #if FEATURE_CORECLR || MOBILE
@@ -326,5 +331,9 @@ public abstract partial class SafeHandle : CriticalFinalizerObject, IDisposable
     [MethodImplAttribute(MethodImplOptions.InternalCall)]
     public extern void DangerousRelease();
 #endif
+
+    static int nextId;
+    internal readonly int ID = ++nextId;
+    internal readonly string creator;
 }
 }

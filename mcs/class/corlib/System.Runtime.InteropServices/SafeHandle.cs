@@ -80,6 +80,9 @@ namespace System.Runtime.InteropServices
 		[ReliabilityContract (Consistency.WillNotCorruptState, Cer.Success)]
 		public void SetHandleAsInvalid ()
 		{
+			if (ID == 1119 || ID == 1142)
+				Console.Error.WriteLine ($"SH SET AS INVALID: {this} {ID}\n{Environment.StackTrace}\n");
+
 			try {}
 			finally {
 				int old_state, new_state;
@@ -197,8 +200,10 @@ namespace System.Runtime.InteropServices
 					 * unbalanced AddRef and Releases). (We might see a closed state before
 					 * hitting zero though -- that can happen if SetHandleAsInvalid is
 					 * used). */
-					if ((old_state & RefCount_Mask) == 0)
+					if ((old_state & RefCount_Mask) == 0) {
+						throw new InvalidTimeZoneException ($"I LIVE ON THE MOON: {this} {ID} {old_state}\nMY CREATOR IS:\n{creator}\n\n");
 						throw new ObjectDisposedException (null, "Safe handle has been closed");
+					}
 
 					if ((old_state & RefCount_Mask) != RefCount_One)
 						perform_release = false;
