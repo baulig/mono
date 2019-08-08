@@ -71,7 +71,12 @@ namespace System.Runtime.InteropServices
 			Disposed = 0x00000002,
 		}
 
-		bool MartinDebug => ID == 7 || ID == 1119 || ID == 1142;
+		bool MartinDebug => ID == 7 || ID == 13 || ID == 1119 || ID == 1142;
+
+		public override string ToString ()
+		{
+			return $"[{GetType ().Name}:{ID}:{_state}:{Thread.CurrentThread.ManagedThreadId}]";
+		}
 
 		/*
 		 * This should only be called for cases when you know for a fact that
@@ -172,11 +177,14 @@ namespace System.Runtime.InteropServices
 
 		void InternalFinalize ()
 		{
-			if (MartinDebug)
+			if (true || MartinDebug)
 				Console.Error.WriteLine ($"SH INTERNAL FINALIZE: {this} {ID} {_state}\n{Environment.StackTrace}\n");
 
 			if (_fullyInitialized)
 				DangerousReleaseInternal (true);
+
+			if (true || MartinDebug)
+				Console.Error.WriteLine ($"SH INTERNAL FINALIZE DONE: {this} {ID} {_state}\n{Environment.StackTrace}\n");
 		}
 
 		void DangerousReleaseInternal (bool dispose)
