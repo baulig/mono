@@ -108,8 +108,7 @@ System/RemoteExecutorTests.cs
 
 ../../../external/corefx/src/System.Net.Sockets/tests/FunctionalTests/Accept.cs
 ../../../external/corefx/src/System.Net.Sockets/tests/FunctionalTests/AgnosticListenerTest.cs
-# MARTIN FIXME - hangs
-# ../../../external/corefx/src/System.Net.Sockets/tests/FunctionalTests/ArgumentValidationTests.cs
+../../../external/corefx/src/System.Net.Sockets/tests/FunctionalTests/ArgumentValidationTests.cs
 ../../../external/corefx/src/System.Net.Sockets/tests/FunctionalTests/Close.cs
 ../../../external/corefx/src/System.Net.Sockets/tests/FunctionalTests/Connect.cs
 ../../../external/corefx/src/System.Net.Sockets/tests/FunctionalTests/CreateSocketTests.cs
@@ -122,8 +121,7 @@ System/RemoteExecutorTests.cs
 ../../../external/corefx/src/System.Net.Sockets/tests/FunctionalTests/HandleTest.cs
 ../../../external/corefx/src/System.Net.Sockets/tests/FunctionalTests/IPPacketInformationTest.cs
 ../../../external/corefx/src/System.Net.Sockets/tests/FunctionalTests/LingerStateTest.cs
-# MARTIN FIXME - requires SendReceive.cs
-# ../../../external/corefx/src/System.Net.Sockets/tests/FunctionalTests/LoggingTest.cs
+../../../external/corefx/src/System.Net.Sockets/tests/FunctionalTests/LoggingTest.cs
 ../../../external/corefx/src/System.Net.Sockets/tests/FunctionalTests/MulticastOptionTest.cs
 ../../../external/corefx/src/System.Net.Sockets/tests/FunctionalTests/NetworkStreamTest.cs
 ../../../external/corefx/src/System.Net.Sockets/tests/FunctionalTests/NetworkStreamTest.netcoreapp.cs

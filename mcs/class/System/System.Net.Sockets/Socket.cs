@@ -535,6 +535,12 @@ namespace System.Net.Sockets
 		{
 			ThrowIfDisposedAndClosed ();
 
+			if (!is_bound)
+				throw new InvalidOperationException (SR.net_sockets_mustbind);
+
+			if (!is_listening)
+				throw new InvalidOperationException (SR.net_sockets_mustlisten);
+
 			int error = 0;
 			SafeSocketHandle safe_handle = Accept_internal (this.m_Handle, out error, is_blocking);
 
@@ -1686,7 +1692,14 @@ namespace System.Net.Sockets
 			ThrowIfBufferOutOfRange (buffer, offset, size);
 
 			if (remoteEP == null)
-				throw new ArgumentNullException ("remoteEP");
+				throw new ArgumentNullException (nameof (remoteEP));
+
+			if (!CanTryAddressFamily (remoteEP.AddressFamily))
+				throw new ArgumentException (SR.Format (SR.net_InvalidEndPointAddressFamily,
+					remoteEP.AddressFamily, addressFamily), nameof (remoteEP));
+
+			if (!is_connected)
+				throw new InvalidOperationException (SR.net_sockets_mustbind);
 
 			SocketError errorCode;
 			int ret = ReceiveFrom (buffer, offset, size, socketFlags, ref remoteEP, out errorCode);
