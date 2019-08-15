@@ -40,8 +40,6 @@ namespace System.Net.Sockets
 {
 	public partial class SocketAsyncEventArgs : EventArgs, IDisposable
 	{
-		bool disposed;
-
 		internal volatile int in_progress;
 
 		internal SocketAsyncResult socket_async_result = new SocketAsyncResult ();
@@ -69,46 +67,9 @@ namespace System.Net.Sockets
 
 #endregion
 
-		public Socket ConnectSocket {
-			get {
-				switch (SocketError) {
-				case SocketError.AccessDenied:
-					return null;
-				default:
-					return _currentSocket;
-				}
-			}
-		}
-
-		public event EventHandler<SocketAsyncEventArgs> Completed;
-
-		public SocketAsyncEventArgs ()
-		{
-			SendPacketsSendSize = -1;
-		}
-
-		~SocketAsyncEventArgs ()
-		{
-			Dispose (false);
-		}
-
-		void Dispose (bool disposing)
-		{
-			disposed = true;
-
-			if (disposing && in_progress != 0)
-				return;
-		}
-
-		public void Dispose ()
-		{
-			Dispose (true);
-			GC.SuppressFinalize (this);
-		}
-
 		internal void SetLastOperation (SocketAsyncOperation op)
 		{
-			if (disposed)
+			if (_disposeCalled)
 				throw new ObjectDisposedException ("System.Net.Sockets.SocketAsyncEventArgs");
 			if (Interlocked.Exchange (ref in_progress, 1) != 0)
 				throw new InvalidOperationException ("Operation already in progress");
@@ -120,56 +81,6 @@ namespace System.Net.Sockets
 		{
 			in_progress = 0;
 			OnCompleted (this);
-		}
-
-		protected virtual void OnCompleted (SocketAsyncEventArgs e)
-		{
-			if (e == null)
-				return;
-			
-			EventHandler<SocketAsyncEventArgs> handler = e.Completed;
-			if (handler != null)
-				handler (e._currentSocket, e);
-		}
-
-		internal void StartOperationCommon (Socket socket)
-		{
-			_currentSocket = socket;
-		}
-
-		internal void StartOperationWrapperConnect (MultipleConnectAsync args)
-		{
-			SetLastOperation (SocketAsyncOperation.Connect);
-
-			//m_MultipleConnect = args;
-		}
-
-		internal void FinishConnectByNameSyncFailure (Exception exception, int bytesTransferred, SocketFlags flags)
-		{
-			SetResults (exception, bytesTransferred, flags);
-
-			if (_currentSocket != null)
-				_currentSocket.is_connected = false;
-			
-			Complete_internal ();
-		}
-
-		internal void FinishOperationAsyncFailure (Exception exception, int bytesTransferred, SocketFlags flags)
-		{
-			SetResults (exception, bytesTransferred, flags);
-
-			if (_currentSocket != null)
-				_currentSocket.is_connected = false;
-			
-			Complete_internal ();
-		}
-
-		internal void FinishWrapperConnectSuccess (Socket connectSocket, int bytesTransferred, SocketFlags flags)
-		{
-			SetResults(SocketError.Success, bytesTransferred, flags);
-			_currentSocket = connectSocket;
-
-			Complete_internal ();
 		}
 	}
 }

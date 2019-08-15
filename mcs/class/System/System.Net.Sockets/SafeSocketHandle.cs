@@ -15,7 +15,7 @@ using Microsoft.Win32.SafeHandles;
 
 namespace System.Net.Sockets {
 
-	sealed class SafeSocketHandle : SafeHandleZeroOrMinusOneIsInvalid {
+	sealed class SafeSocketHandle : SafeCloseSocket {
 
 		List<Thread> blocking_threads;
 		Dictionary<Thread, StackTrace> threads_stacktraces;

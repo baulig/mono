@@ -1,6 +1,7 @@
 Assembly/AssemblyInfo.cs
 corefx/*.cs
-martin/SocketAsyncEventArgs.cs
+martin/SafeCloseSocket.cs
+martin/SocketAsyncContext.cs
 martin/SocketAsyncEventArgs.Mono.cs
 
 Microsoft.Win32.SafeHandles/SafeX509ChainHandle.cs
@@ -268,6 +269,7 @@ ReferenceSources/ServerCertValidationCallback.cs
 ReferenceSources/SettingsSectionInternal.cs
 ReferenceSources/SecureStringHelper.cs
 ReferenceSources/Socket.cs
+ReferenceSources/SocketAddress.cs
 ReferenceSources/SRCategoryAttribute.cs
 ReferenceSources/Win32Exception.cs
 
@@ -679,6 +681,7 @@ ReferenceSources/Win32Exception.cs
 ../referencesource/System/net/System/Net/Sockets/ProtocolType.cs
 ../referencesource/System/net/System/Net/Sockets/SelectMode.cs
 ../referencesource/System/net/System/Net/Sockets/Socket.cs
+../../../external/corefx/src/System.Net.Sockets/src/System/Net/Sockets/SocketAsyncEventArgs.cs
 ../referencesource/System/net/System/Net/Sockets/SocketErrors.cs
 ../referencesource/System/net/System/Net/Sockets/SocketFlags.cs
 ../referencesource/System/net/System/Net/Sockets/SocketInformation.cs

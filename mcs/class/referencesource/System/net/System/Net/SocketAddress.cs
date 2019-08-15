@@ -25,7 +25,7 @@ namespace System.Net {
     ///       on how to format the memeory buffers that winsock uses for network addresses.
     ///    </para>
     /// </devdoc>
-    public class SocketAddress {
+    public partial class SocketAddress {
 
         internal const int IPv6AddressSize = 28;
         internal const int IPv4AddressSize = 16;
