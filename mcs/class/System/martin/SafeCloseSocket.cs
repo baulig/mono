@@ -5,22 +5,47 @@ using System.Threading;
 
 namespace System.Net.Sockets
 {
-	abstract class SafeCloseSocket : SafeHandleZeroOrMinusOneIsInvalid
-	{
-		SocketAsyncContext _asyncContext;
+    abstract class SafeCloseSocket : SafeHandleZeroOrMinusOneIsInvalid
+    {
+        private SocketAsyncContext _asyncContext;
 
-		protected SafeCloseSocket (bool ownsHandle) : base (ownsHandle)
-		{
-		}
+        internal bool LastConnectFailed { get; set; }
 
-		public SocketAsyncContext AsyncContext {
-			get {
-				if (Volatile.Read (ref _asyncContext) == null)
-					Interlocked.CompareExchange (ref _asyncContext, new SocketAsyncContext (this), null);
+        protected SafeCloseSocket(bool ownsHandle) : base(ownsHandle)
+        {
+        }
 
-				return _asyncContext;
-			}
-		}
+        public SocketAsyncContext AsyncContext
+        {
+            get
+            {
+                if (Volatile.Read(ref _asyncContext) == null)
+                {
+                    Interlocked.CompareExchange(ref _asyncContext, new SocketAsyncContext(this), null);
+                }
 
-	}
+                return _asyncContext;
+            }
+        }
+
+        public void RegisterConnectResult(SocketError error)
+        {
+            switch (error)
+            {
+                case SocketError.Success:
+                case SocketError.WouldBlock:
+                    break;
+                default:
+                    LastConnectFailed = true;
+                    break;
+            }
+        }
+
+        public bool IsDisconnected { get; private set; } = false;
+
+        public void SetToDisconnected()
+        {
+            IsDisconnected = true;
+        }
+    }
 }

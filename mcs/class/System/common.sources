@@ -1,8 +1,6 @@
 Assembly/AssemblyInfo.cs
 corefx/*.cs
-martin/SafeCloseSocket.cs
-martin/SocketAsyncContext.cs
-martin/SocketAsyncEventArgs.Mono.cs
+martin/*.cs
 
 Microsoft.Win32.SafeHandles/SafeX509ChainHandle.cs
 
