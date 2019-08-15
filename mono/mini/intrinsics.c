@@ -1624,8 +1624,8 @@ mini_emit_inst_for_method (MonoCompile *cfg, MonoMethod *cmethod, MonoMethodSign
 
 			NULLIFY_INS (args [0]);
 
-			s = mono_ldstr_utf8 (ji->image, mono_metadata_token_index (ji->token), &cfg->error);
-			return_val_if_nok (&cfg->error, NULL);
+			s = mono_ldstr_utf8 (ji->image, mono_metadata_token_index (ji->token), cfg->error);
+			return_val_if_nok (cfg->error, NULL);
 
 			MONO_INST_NEW (cfg, ins, OP_OBJC_GET_SELECTOR);
 			ins->dreg = mono_alloc_ireg (cfg);
@@ -1688,6 +1688,18 @@ mini_emit_inst_for_method (MonoCompile *cfg, MonoMethod *cmethod, MonoMethodSign
 			return ins;
 		}
 	}
+
+#ifdef ENABLE_NETCORE
+	// Return false for IsSupported for all types in System.Runtime.Intrinsics.X86 
+	// as we don't support them now
+	if (in_corlib && 
+		!strcmp ("System.Runtime.Intrinsics.X86", cmethod_klass_name_space) && 
+		!strcmp (cmethod->name, "get_IsSupported")) {
+		EMIT_NEW_ICONST (cfg, ins, 0);
+		ins->type = STACK_I4;
+		return ins;
+	}
+#endif
 
 	ins = mono_emit_native_types_intrinsics (cfg, cmethod, fsig, args);
 	if (ins)

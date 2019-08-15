@@ -243,16 +243,6 @@ else
 LLVMMONOF=$(LLVM_LIBS) $(LLVM_LDFLAGS)
 endif
 
-if !HOST_WIN32
-if HAVE_ZLIB
-Z_LIBS= -lz
-else
-Z_LIBS=
-endif
-else
-Z_LIBS=
-endif
-
 mono_boehm_LDADD = \
 	libmain_a-main.$(OBJEXT) \
 	$(MONO_LIB)		\
@@ -701,7 +691,7 @@ libmonoldflags += $(JEMALLOC_LDFLAGS)
 endif
 
 libmono_ee_interp_la_SOURCES = $(interp_sources)
-libmono_ee_interp_la_CFLAGS = $(AM_CFLAGS) @CXX_ADD_CFLAGS@
+libmono_ee_interp_la_CFLAGS = $(AM_CFLAGS) @CXX_ADD_CFLAGS@ $(INTERP_CFLAGS)
 if BITCODE
 libmono_ee_interp_la_LDFLAGS = $(libmonoldflags)
 if DISABLE_INTERPRETER

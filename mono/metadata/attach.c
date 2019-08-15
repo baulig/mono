@@ -277,7 +277,7 @@ mono_attach_load_agent (MonoDomain *domain, char *agent, char *args, MonoObject 
 	MonoImageOpenStatus open_status;
 
 	MonoAssemblyOpenRequest req;
-	mono_assembly_request_prepare (&req.request, sizeof (req), MONO_ASMCTX_DEFAULT);
+	mono_assembly_request_prepare_open (&req, MONO_ASMCTX_DEFAULT, mono_domain_default_alc (mono_domain_get ()));
 	agent_assembly = mono_assembly_request_open (agent, &req, &open_status);
 	if (!agent_assembly) {
 		fprintf (stderr, "Cannot open agent assembly '%s': %s.\n", agent, mono_image_strerror (open_status));
@@ -513,7 +513,7 @@ receiver_thread (void *arg)
 	internal = mono_thread_internal_current ();
 	MonoString *attach_str = mono_string_new_checked (mono_domain_get (), "Attach receiver", error);
 	mono_error_assert_ok (error);
-	mono_thread_set_name_internal (internal, attach_str, MonoSetThreadNameFlag_Permanent, error);
+	mono_thread_set_name (internal, attach_str, MonoSetThreadNameFlag_Permanent, error);
 	mono_error_assert_ok (error);
 	/* Ask the runtime to not abort this thread */
 	//internal->flags |= MONO_THREAD_FLAG_DONT_MANAGE;

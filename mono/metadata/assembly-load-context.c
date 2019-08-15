@@ -1,4 +1,8 @@
 #include "config.h"
+#include "mono/utils/mono-compiler.h"
+
+#ifdef ENABLE_NETCORE // MonoAssemblyLoadContext support only in netcore Mono
+
 #include "mono/metadata/assembly.h"
 #include "mono/metadata/domain-internals.h"
 #include "mono/metadata/icall-decl.h"
@@ -6,9 +10,6 @@
 #include "mono/metadata/loaded-images-internals.h"
 #include "mono/utils/mono-error-internals.h"
 #include "mono/utils/mono-logger-internals.h"
-
-#ifdef ENABLE_NETCORE
-/* MonoAssemblyLoadContext support only in netcore Mono */
 
 static
 GENERATE_GET_CLASS_WITH_CACHE_DECL (assembly_load_context);
@@ -118,6 +119,10 @@ invoke_resolve_method (MonoMethod *resolve_method, MonoAssemblyLoadContext *alc,
 {
 	MonoAssembly *result = NULL;
 	char* aname_str = NULL;
+
+	if (mono_runtime_get_no_exec ())
+		return NULL;
+
 	HANDLE_FUNCTION_ENTER ();
 
 	aname_str = mono_stringify_assembly_name (aname);
@@ -126,7 +131,7 @@ invoke_resolve_method (MonoMethod *resolve_method, MonoAssemblyLoadContext *alc,
 	goto_if_nok (error, leave);
 
 	MonoReflectionAssemblyHandle assm;
-	gpointer args[2];
+	gpointer args [2];
 	args [0] = GUINT_TO_POINTER (alc->gchandle);
 	args [1] = MONO_HANDLE_RAW (aname_obj);
 	assm = MONO_HANDLE_CAST (MonoReflectionAssembly, mono_runtime_try_invoke_handle (resolve_method, NULL_HANDLE, args, error));
@@ -239,6 +244,6 @@ mono_alc_invoke_resolve_using_resolve_satellite_nofail (MonoAssemblyLoadContext 
 	return result;
 }
 
-
-
 #endif /* ENABLE_NETCORE */
+
+MONO_EMPTY_SOURCE_FILE (assembly_load_context)

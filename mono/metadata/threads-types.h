@@ -350,10 +350,10 @@ typedef enum {
 G_ENUM_FUNCTIONS (MonoSetThreadNameFlags)
 
 MONO_PROFILER_API
-void
-mono_thread_set_name_internal (MonoInternalThread *thread,
-			       MonoString *name,
-			       MonoSetThreadNameFlags flags, MonoError *error);
+gsize
+mono_thread_set_name (MonoInternalThread *thread,
+		      MonoString *name,
+		      MonoSetThreadNameFlags flags, MonoError *error);
 
 void mono_thread_suspend_all_other_threads (void);
 gboolean mono_threads_abort_appdomain_threads (MonoDomain *domain, int timeout);
@@ -539,6 +539,9 @@ typedef struct {
 	MonoContext *ctx;
 	MonoContext ctx_mem;
 } MonoThreadSummary;
+
+void
+mono_threads_summarize_init (const char *timeline_dir);
 
 gboolean
 mono_threads_summarize (MonoContext *ctx, gchar **out, MonoStackHash *hashes, gboolean silent, gboolean signal_handler_controller, gchar *mem, size_t provided_size);

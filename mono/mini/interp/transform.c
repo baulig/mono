@@ -857,7 +857,7 @@ jit_call_supported (MonoMethod *method, MonoMethodSignature *sig)
 	if (mono_aot_only && m_class_get_image (method->klass)->aot_module && !(method->iflags & METHOD_IMPL_ATTRIBUTE_SYNCHRONIZED)) {
 		ERROR_DECL (error);
 		gpointer addr = mono_jit_compile_method_jit_only (method, error);
-		if (addr && mono_error_ok (error))
+		if (addr && is_ok (error))
 			return TRUE;
 	}
 
@@ -908,7 +908,7 @@ interp_generate_bie_throw (TransformData *td)
 {
 	MonoJitICallInfo *info = &mono_get_jit_icall_info ()->mono_throw_bad_image;
 
-	interp_add_ins (td, MINT_ICALL_PP_V);
+	interp_add_ins (td, MINT_ICALL_V_V);
 	td->last_ins->data [0] = get_data_item_index (td, (gpointer)info->func);
 }
 
@@ -5477,8 +5477,7 @@ generate_code (TransformData *td, MonoMethod *method, MonoMethodHeader *header, 
 				td->ip += 5;
 				interp_add_ins (td, MINT_MONO_LDPTR);
 				td->last_ins->data [0] = get_data_item_index (td, mono_method_get_wrapper_data (method, token));
-				td->sp [0].type = STACK_TYPE_I;
-				++td->sp;
+				PUSH_SIMPLE_TYPE (td, STACK_TYPE_I);
 				break;
 			case CEE_MONO_OBJADDR:
 				CHECK_STACK (td, 1);
@@ -5491,8 +5490,7 @@ generate_code (TransformData *td, MonoMethod *method, MonoMethodHeader *header, 
 				td->ip += 5;
 				interp_add_ins (td, MINT_MONO_NEWOBJ);
 				td->last_ins->data [0] = get_data_item_index (td, mono_method_get_wrapper_data (method, token));
-				td->sp [0].type = STACK_TYPE_O;
-				++td->sp;
+				PUSH_SIMPLE_TYPE (td, STACK_TYPE_O);
 				break;
 			case CEE_MONO_RETOBJ:
 				CHECK_STACK (td, 1);
@@ -5546,8 +5544,7 @@ generate_code (TransformData *td, MonoMethod *method, MonoMethodHeader *header, 
 				break;
 			case CEE_MONO_LDDOMAIN:
 				interp_add_ins (td, MINT_MONO_LDDOMAIN);
-				td->sp [0].type = STACK_TYPE_I;
-				++td->sp;
+				PUSH_SIMPLE_TYPE (td, STACK_TYPE_I);
 				++td->ip;
 				break;
 			case CEE_MONO_SAVE_LAST_ERROR:

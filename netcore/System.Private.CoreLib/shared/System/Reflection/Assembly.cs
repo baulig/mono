@@ -296,7 +296,7 @@ namespace System.Reflection
         {
             if (assemblyFile == null)
                 throw new ArgumentNullException(nameof(assemblyFile));
-            
+
             string fullPath = Path.GetFullPath(assemblyFile);
 
             if (!s_loadFromHandlerSet)
@@ -313,7 +313,7 @@ namespace System.Reflection
 
             // Add the path to the LoadFrom path list which we will consult
             // before handling the resolves in our handler.
-            lock(s_loadFromAssemblyList)
+            lock (s_loadFromAssemblyList)
             {
                 if (!s_loadFromAssemblyList.Contains(fullPath))
                 {

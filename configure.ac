@@ -62,7 +62,7 @@ MONO_VERSION_BUILD=`echo $VERSION | cut -d . -f 3`
 # This line is parsed by tools besides autoconf, such as msvc/mono.winconfig.targets.
 # It should remain in the format they expect.
 #
-MONO_CORLIB_VERSION=2cfaeda3-94a9-44e5-8fcb-51979a3398c9
+MONO_CORLIB_VERSION=1b5be199-6637-495c-9baa-a95056f2137f
 
 #
 # Put a quoted #define in config.h.
@@ -692,12 +692,12 @@ AC_CHECK_HEADERS(linux/serial.h)
 case "$host" in
 	# Use bundled zlib on Windows to be sure it is static.
 	*-mingw*|*-cygwin*)
-		have_zlib=no
+		have_sys_zlib=no
 		zlib_msg="bundled zlib"
 		;;
-	default)
-		AC_CHECK_HEADER(zlib.h, [have_zlib=yes], [have_zlib=no])
-		if test x$have_zlib = xyes; then
+	*)
+		AC_CHECK_HEADER(zlib.h, [have_sys_zlib=yes], [have_sys_zlib=no])
+		if test x$have_sys_zlib = xyes; then
 			AC_TRY_COMPILE([#include <zlib.h>], [
 				#if defined(ZLIB_VERNUM) && (ZLIB_VERNUM >= 0x1230)
 				#else
@@ -706,12 +706,16 @@ case "$host" in
 			],[
 				AC_MSG_RESULT(Using system zlib)
 				zlib_msg="system zlib"
-				AC_DEFINE(HAVE_SYS_ZLIB,1,[Have system zlib])
+				have_sys_zlib=yes
 			],[
-				AC_MSG_RESULT(Using embedded zlib)
-				have_zlib=no
+				AC_MSG_RESULT(zlib too old, using embedded zlib)
+				have_sys_zlib=no
 				zlib_msg="bundled zlib"
 			])
+		else
+			AC_MSG_RESULT(zlib not found, using embedded zlib)
+			have_sys_zlib=no
+			zlib_msg="bundled zlib"
 		fi
 		;;
 esac
@@ -719,13 +723,19 @@ esac
 AC_ARG_WITH(static-zlib, [  --with-static-zlib=PATH    use the specified static zlib instead of -lz],[STATIC_ZLIB_PATH=$with_static_zlib],[STATIC_ZLIB_PATH=])
 if test "x$STATIC_ZLIB_PATH" != "x"; then
 	have_static_zlib=yes
+	have_sys_zlib=no
+	zlib_msg="static zlib from $STATIC_ZLIB_PATH"
 	AC_SUBST(STATIC_ZLIB_PATH)
 fi
 
 AM_CONDITIONAL(HAVE_STATIC_ZLIB, test x$have_static_zlib = xyes)
-AM_CONDITIONAL(HAVE_ZLIB, test x$have_zlib = xyes)
-AC_DEFINE(HAVE_ZLIB,1,[Have system zlib])
-
+AM_CONDITIONAL(HAVE_SYS_ZLIB, test x$have_sys_zlib = xyes)
+if test x$have_static_zlib = xyes; then
+	AC_DEFINE(HAVE_STATIC_ZLIB, 1, [Use static zlib])
+fi
+if test x$have_sys_zlib = xyes; then
+	AC_DEFINE(HAVE_SYS_ZLIB, 1, [Use OS-provided zlib])
+fi
 # for mono/metadata/debug-symfile.c
 AC_CHECK_HEADERS(elf.h)
 
@@ -1351,7 +1361,6 @@ elif test x$with_runtime_preset = xnetcore; then
    mono_feature_disable_com='yes'
    mono_feature_disable_gac='yes'
    mono_feature_disable_perfcounters='yes'
-   mono_feature_disable_sockets='yes'
    disable_mono_native=yes
    support_boehm=no
 elif test x$with_runtime_preset = xnet_4_x; then
@@ -4275,6 +4284,7 @@ jit_wanted=true
 boehm_supported=true
 BTLS_SUPPORTED=no
 BTLS_PLATFORM=
+INTERP_CFLAGS=""
 
 case "$host" in
 	wasm32*)
@@ -4284,6 +4294,10 @@ case "$host" in
 		ACCESS_UNALIGNED="no"
 		with_tls=pthread
 		target_wasm=yes
+		if test "x$mono_cv_clang" = "xyes"; then
+		   INTERP_CFLAGS="-mllvm -join-liveintervals=false"
+		   AC_SUBST(INTERP_CFLAGS)
+		fi
 		;;
 	mips*)
 		TARGET=MIPS;
@@ -6032,8 +6046,8 @@ fi
 AC_SUBST(mono_runtime)
 AC_SUBST(mono_runtime_wrapper)
 
-CSC_LOCATION=`cd $srcdir && pwd`/external/roslyn-binaries/Microsoft.Net.Compilers/3.1.0-release/csc.exe
-VBCS_LOCATION=`cd $srcdir && pwd`/external/roslyn-binaries/Microsoft.Net.Compilers/3.1.0-release/VBCSCompiler.exe
+CSC_LOCATION=`cd $srcdir && pwd`/external/roslyn-binaries/Microsoft.Net.Compilers/3.3.0/csc.exe
+VBCS_LOCATION=`cd $srcdir && pwd`/external/roslyn-binaries/Microsoft.Net.Compilers/3.3.0/VBCSCompiler.exe
 
 if test $csc_compiler = mcs; then
   CSC=$mcs_topdir/class/lib/build/mcs.exe
@@ -6070,6 +6084,7 @@ AC_CONFIG_FILES([po/mcs/Makefile.in])
 AC_CONFIG_FILES([acceptance-tests/microbench-perf.sh],[chmod +x acceptance-tests/microbench-perf.sh])
 AC_CONFIG_FILES([runtime/mono-wrapper],[chmod +x runtime/mono-wrapper])
 AC_CONFIG_FILES([runtime/monodis-wrapper],[chmod +x runtime/monodis-wrapper])
+AC_CONFIG_FILES([runtime/bin/mono-hang-watchdog],[chmod +x runtime/bin/mono-hang-watchdog])
 
 AC_CONFIG_COMMANDS([runtime/etc/mono/1.0/machine.config],
 [   depth=../../../..
@@ -6468,6 +6483,22 @@ elif case $host_os in freebsd*) true;; *) false;; esac; then
 	AC_MSG_RESULT(freebsd)
 
 	MONO_NATIVE_PLATFORM_TYPE="MONO_NATIVE_PLATFORM_TYPE_FREEBSD"
+elif case $host_os in netbsd*) true;; *) false;; esac; then
+	mono_native_text="NetBSD"
+	MONO_NATIVE_CC=$CC
+	MONO_NATIVE_CXX=$CXX
+	MONO_NATIVE_CPPFLAGS=$CPPFLAGS
+	MONO_NATIVE_CXXFLAGS=$CXXFLAGS
+	MONO_NATIVE_CFLAGS=$CFLAGS
+	MONO_NATIVE_LDFLAGS=$LDFLAGS
+
+	mono_native=yes
+	mono_native_compat=no
+	MONO_NATIVE_PLATFORM=netbsd
+	AC_MSG_CHECKING([Mono.Native support])
+	AC_MSG_RESULT(netbsd)
+
+	MONO_NATIVE_PLATFORM_TYPE="MONO_NATIVE_PLATFORM_TYPE_NETBSD"
 elif case $host_os in haiku*) true;; *) false;; esac; then
 	mono_native_text="Haiku"
 	MONO_NATIVE_CC=$CC
@@ -6541,6 +6572,7 @@ AM_CONDITIONAL(MONO_NATIVE_PLATFORM_LINUX, test x$MONO_NATIVE_PLATFORM = xlinux)
 AM_CONDITIONAL(MONO_NATIVE_PLATFORM_AIX, test x$MONO_NATIVE_PLATFORM = xaix)
 AM_CONDITIONAL(MONO_NATIVE_PLATFORM_ANDROID, test x$MONO_NATIVE_PLATFORM = xandroid)
 AM_CONDITIONAL(MONO_NATIVE_PLATFORM_FREEBSD, test x$MONO_NATIVE_PLATFORM = xfreebsd)
+AM_CONDITIONAL(MONO_NATIVE_PLATFORM_NETBSD, test x$MONO_NATIVE_PLATFORM = xnetbsd)
 AM_CONDITIONAL(MONO_NATIVE_PLATFORM_HAIKU, test x$MONO_NATIVE_PLATFORM = xhaiku)
 
 MONO_NATIVE_PLATFORM_TYPE_COMPAT="$MONO_NATIVE_PLATFORM_TYPE | MONO_NATIVE_PLATFORM_TYPE_COMPAT"
@@ -6621,10 +6653,10 @@ fi
 #
 AC_MSG_CHECKING([for large file support])
 AC_COMPILE_IFELSE(
-	[
+	[AC_LANG_SOURCE([
 		#include <sys/types.h>
 		off64_t dummy = 0;
-	], [
+	])], [
 		AC_MSG_RESULT(yes)
 		# FIXME The ramifications of _LARGEFILE64_SOURCE are not understood.
 		# ZLIB_CFLAGS="$ZLIB_CFLAGS -D_LARGEFILE64_SOURCE=1"
@@ -6724,6 +6756,7 @@ tools/Makefile
 tools/locale-builder/Makefile
 tools/sgen/Makefile
 tools/pedump/Makefile
+tools/mono-hang-watchdog/Makefile
 runtime/Makefile
 msvc/Makefile
 po/Makefile
@@ -6799,9 +6832,7 @@ fi
     echo "sysconfdir=$sysconfdir" >> $mcs_topdir/build/config.make
     echo 'mono_libdir=${exec_prefix}/lib' >> $mcs_topdir/build/config.make
     echo "mono_build_root=$mono_build_root" >> $mcs_topdir/build/config.make
-    echo 'IL_FLAGS = /debug' >> $mcs_topdir/build/config.make
     echo "RUNTIME = $mono_build_root/runtime/mono-wrapper" >> $mcs_topdir/build/config.make
-    echo "ILDISASM = $mono_build_root/runtime/monodis-wrapper" >> $mcs_topdir/build/config.make
     echo "JAY_CFLAGS = $JAY_CFLAGS" >> $mcs_topdir/build/config.make
     echo "VERSION = $VERSION" >> $mcs_topdir/build/config.make
 
