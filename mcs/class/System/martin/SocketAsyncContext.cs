@@ -61,7 +61,7 @@ namespace System.Net.Sockets
 
             internal override void CompleteDisposed()
             {
-                throw new NotImplementedException();
+                Abort();
             }
 
             protected AsyncOperation(SocketAsyncContext context)
@@ -69,13 +69,25 @@ namespace System.Net.Sockets
                 AssociatedContext = context;
             }
 
-            protected abstract void Complete();
-
             internal static void CompletionCallback(IOAsyncResult ioares)
             {
                 var operation = (AsyncOperation)ioares;
-                operation.Complete();
+                if (operation.TryComplete(operation.AssociatedContext))
+                {
+                    operation.InvokeCallback(true);
+                }
             }
+
+            public bool TryComplete(SocketAsyncContext context)
+            {
+                return DoTryComplete(context);
+            }
+
+            protected abstract void Abort();
+
+            protected abstract bool DoTryComplete(SocketAsyncContext context);
+
+            public abstract void InvokeCallback(bool allowPooling);
         }
 
         class ConnectOperation : AsyncOperation
@@ -89,12 +101,17 @@ namespace System.Net.Sockets
             {
             }
 
-            protected override void Complete()
+            protected override void Abort() { }
+
+            protected override bool DoTryComplete(SocketAsyncContext context)
             {
-                bool result = SocketPal.TryCompleteConnect(AssociatedContext._socket, SocketAddressLen, out ErrorCode);
-                AssociatedContext._socket.RegisterConnectResult(ErrorCode);
-                // return result;
+                bool result = SocketPal.TryCompleteConnect(context._socket, SocketAddressLen, out ErrorCode);
+                context._socket.RegisterConnectResult(ErrorCode);
+                return result;
             }
+
+            public override void InvokeCallback(bool allowPooling) =>
+                ((Action<SocketError>)CallbackOrEvent)(ErrorCode);
         }
 
 #if MARTIN_FIXME
