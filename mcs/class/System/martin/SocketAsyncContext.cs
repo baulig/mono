@@ -91,7 +91,9 @@ namespace System.Net.Sockets
 
             protected override void Complete()
             {
-                throw new NotImplementedException();
+                bool result = SocketPal.TryCompleteConnect(AssociatedContext._socket, SocketAddressLen, out ErrorCode);
+                AssociatedContext._socket.RegisterConnectResult(ErrorCode);
+                // return result;
             }
         }
 
