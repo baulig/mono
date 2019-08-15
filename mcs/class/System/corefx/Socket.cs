@@ -4,6 +4,10 @@ namespace System.Net.Sockets
 {
     partial class Socket
     {
+        void ValidateForMultiConnect(bool isMultiEndpoint)
+        {
+        }
+
         internal void SetToConnected()
         {
             if (is_connected)

@@ -924,87 +924,6 @@ namespace System.Net.Sockets
 			is_bound = true;
 		}
 
-#if MARTIN_FIXME
-		public bool ConnectAsync (SocketAsyncEventArgs e)
-		{
-			// NO check is made whether e != null in MS.NET (NRE is thrown in such case)
-
-			ThrowIfDisposedAndClosed ();
-
-			if (is_listening)
-				throw new InvalidOperationException ("You may not perform this operation after calling the Listen method.");
-			if (e.RemoteEndPoint == null)
-				throw new ArgumentNullException ("remoteEP");
-
-			InitSocketAsyncEventArgs (e, null, e, SocketOperation.Connect);
-
-			try {
-				IPAddress [] addresses;
-				SocketAsyncResult ares;
-				bool pending;
-
-				/*
-				 * Both BeginSConnect() and BeginMConnect() now return a `bool` indicating whether or
-				 * not an async operation is pending.
-				 */
-
-				if (!GetCheckedIPs (e, out addresses)) {
-					//NOTE: DualMode may cause Socket's RemoteEndpoint to differ in AddressFamily from the
-					// SocketAsyncEventArgs, but the SocketAsyncEventArgs itself is not changed
-
-					ares = new SocketAsyncResult (this, ConnectAsyncCallback, e, SocketOperation.Connect) {
-						EndPoint = e.RemoteEndPoint
-					};
-
-					pending = BeginSConnect (ares);
-				} else {
-					DnsEndPoint dep = (DnsEndPoint)e.RemoteEndPoint;
-
-					if (addresses == null)
-						throw new ArgumentNullException ("addresses");
-					if (addresses.Length == 0)
-						throw new ArgumentException ("Empty addresses list");
-					if (this.AddressFamily != AddressFamily.InterNetwork && this.AddressFamily != AddressFamily.InterNetworkV6)
-						throw new NotSupportedException ("This method is only valid for addresses in the InterNetwork or InterNetworkV6 families");
-					if (dep.Port <= 0 || dep.Port > 65535)
-						throw new ArgumentOutOfRangeException ("port", "Must be > 0 and < 65536");
-
-					if (dep.AddressFamily != AddressFamily.Unspecified && !CanTryAddressFamily (dep.AddressFamily))
-						throw new NotSupportedException (SR.net_invalidversion);
-
-					ares = new SocketAsyncResult (this, ConnectAsyncCallback, e, SocketOperation.Connect) {
-						Addresses = addresses,
-						Port = dep.Port,
-					};
-
-					is_connected = false;
-
-					pending = BeginMConnect (ares);
-				}
-
-				if (!pending) {
-					/*
-					 * On synchronous completion, the async callback will not be invoked.
-					 *
-					 * We need to call `EndConnect ()` here to close the socket and make sure
-					 * that any pending exceptions are properly propagated.
-					 *
-					 * Note that we're not calling `e.Complete ()` (or resetting `e.in_progress`) here.
-					 */
-					e.CurrentSocket.EndConnect (ares);
-				}
-
-				return pending;
-			} catch (SocketException exc) {
-				e.SocketError = exc.SocketErrorCode;
-				e.socket_async_result.Complete (exc, true);
-				return false;
-			} catch (Exception exc) {
-				e.socket_async_result.Complete (exc, true);
-				return false;
-			}
-		}
-#else
 		public bool ConnectAsync (SocketAsyncEventArgs e)
 		{
 			bool pending;
@@ -1027,7 +946,7 @@ namespace System.Net.Sockets
 			DnsEndPoint dnsEP = endPointSnapshot as DnsEndPoint;
 
 			if (dnsEP != null) {
-				// ValidateForMultiConnect(isMultiEndpoint: true); // needs to come before CanTryAddressFamily call
+				ValidateForMultiConnect(isMultiEndpoint: true); // needs to come before CanTryAddressFamily call
 
 				if (dnsEP.AddressFamily != AddressFamily.Unspecified && !CanTryAddressFamily (dnsEP.AddressFamily))
 					throw new NotSupportedException (SR.net_invalidversion);
@@ -1039,6 +958,8 @@ namespace System.Net.Sockets
 
 				pending = multipleConnectAsync.StartConnectAsync (e, dnsEP);
 			} else {
+				ValidateForMultiConnect (isMultiEndpoint: false); // needs to come before CanTryAddressFamily call
+
 				// Throw if remote address family doesn't match socket.
 				if (!CanTryAddressFamily (e.RemoteEndPoint.AddressFamily))
 					throw new NotSupportedException (SR.net_invalidversion);
@@ -1053,49 +974,34 @@ namespace System.Net.Sockets
 					else if (endPointSnapshot.AddressFamily != AddressFamily.Unix)
 						InternalBind (new IPEndPoint (IPAddress.IPv6Any, 0));
 				}
+#endif
 
 				// Save the old RightEndPoint and prep new RightEndPoint.
-				EndPoint oldEndPoint = _rightEndPoint;
-				if (_rightEndPoint == null)
-					_rightEndPoint = endPointSnapshot;
-#endif
+				EndPoint oldEndPoint = seed_endpoint;
+				if (seed_endpoint == null)
+					seed_endpoint = endPointSnapshot;
 
 				// Prepare for the native call.
 				e.StartOperationCommon (this, SocketAsyncOperation.Connect);
 				e.StartOperationConnect ();
 
-#if MARTIN_FIXME
-				// Make the native call.
-				SocketError socketError = SocketError.Success;
-				try {
-					socketError = e.DoOperationConnect (this, _handle);
-				} catch {
-					_rightEndPoint = oldEndPoint;
-
-					// Clear in-use flag on event args object.
-					e.Complete ();
-					throw;
-				}
-
-				pending = (socketError == SocketError.IOPending);
-#else
 				// Make the native call.
 				SocketError socketError = SocketError.Success;
 				try {
 					socketError = e.DoOperationConnect (this, m_Handle);
 				} catch {
+					seed_endpoint = oldEndPoint;
+
 					// Clear in-use flag on event args object.
 					e.Complete ();
 					throw;
 				}
 
 				pending = (socketError == SocketError.IOPending);
-#endif
 			}
 
 			return pending;
 		}
-#endif
 
 		public static void CancelConnectAsync (SocketAsyncEventArgs e)
 		{
