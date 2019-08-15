@@ -924,7 +924,7 @@ namespace System.Net.Sockets
 			is_bound = true;
 		}
 
-#if !MARTIN_FIXME
+#if MARTIN_FIXME
 		public bool ConnectAsync (SocketAsyncEventArgs e)
 		{
 			// NO check is made whether e != null in MS.NET (NRE is thrown in such case)
@@ -2635,6 +2635,25 @@ namespace System.Net.Sockets
 			int error;
 			object obj_val;
 			GetSocketOption_obj_internal (m_Handle, optionLevel, optionName, out obj_val, out error);
+
+			if (error != 0)
+				throw new SocketException (error);
+
+			if (optionName == SocketOptionName.Linger)
+				return (LingerOption) obj_val;
+			else if (optionName == SocketOptionName.AddMembership || optionName == SocketOptionName.DropMembership)
+				return (MulticastOption) obj_val;
+			else if (obj_val is int)
+				return (int) obj_val;
+			else
+				return obj_val;
+		}
+
+		internal static object GetSocketOption (SafeSocketHandle safeHandle, SocketOptionLevel optionLevel, SocketOptionName optionName)
+		{
+			int error;
+			object obj_val;
+			GetSocketOption_obj_internal (safeHandle, optionLevel, optionName, out obj_val, out error);
 
 			if (error != 0)
 				throw new SocketException (error);
