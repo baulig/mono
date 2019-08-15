@@ -4,6 +4,11 @@ namespace System.Net.Sockets
 {
     static class SocketPal
     {
+        public static SocketError CreateSocket(AddressFamily addressFamily, SocketType socketType, ProtocolType protocolType, out SafeSocketHandle socket)
+        {
+            return SafeCloseSocket.CreateSocket(addressFamily, socketType, protocolType, out socket);
+        }
+
         public static bool TryStartConnect(SafeSocketHandle socket, byte[] socketAddress, int socketAddressLen, out SocketError errorCode)
         {
             Debug.Assert(socketAddress != null, "Expected non-null socketAddress");

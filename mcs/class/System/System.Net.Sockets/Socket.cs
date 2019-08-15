@@ -163,7 +163,12 @@ namespace System.Net.Sockets
 
 		/* Creates a new system socket, returning the handle */
 		[MethodImplAttribute(MethodImplOptions.InternalCall)]
-		extern IntPtr Socket_internal (AddressFamily family, SocketType type, ProtocolType proto, out int error);
+		extern static IntPtr Socket_internal (AddressFamily family, SocketType type, ProtocolType proto, out int error);
+
+		internal static SafeSocketHandle Create_Socket_internal (AddressFamily family, SocketType type, ProtocolType proto, out int error)
+		{
+			return new SafeSocketHandle (Socket_internal (family, type, proto, out error), true);
+		}
 
 #endregion
 
@@ -1160,7 +1165,7 @@ namespace System.Net.Sockets
 				// an error. Better to just close the socket and move on.
 				sockares.socket.connect_in_progress = false;
 				sockares.socket.m_Handle.Dispose ();
-				sockares.socket.m_Handle = new SafeSocketHandle (sockares.socket.Socket_internal (sockares.socket.addressFamily, sockares.socket.socketType, sockares.socket.protocolType, out error), true);
+				sockares.socket.m_Handle = new SafeSocketHandle (Socket_internal (sockares.socket.addressFamily, sockares.socket.socketType, sockares.socket.protocolType, out error), true);
 				if (error != 0) {
 					sockares.Complete (new SocketException (error), true);
 					return false;
@@ -3027,15 +3032,6 @@ namespace System.Net.Sockets
 
 			return false;
 #endif
-		}
-
-		internal void ReplaceHandleIfNecessaryAfterFailedConnect ()
-		{
-			/*
-			 * This is called from `DualSocketMultipleConnectAsync.GetNextAddress(out Socket)`
-			 * and `SingleSocketMultipleConnectAsync.GetNextAddress(out Socket)` when using
-			 * the CoreFX version of `MultipleConnectAsync`.
-			 */
 		}
 	}
 }
