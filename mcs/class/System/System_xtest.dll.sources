@@ -135,8 +135,7 @@ System/RemoteExecutorTests.cs
 ../../../external/corefx/src/System.Net.Sockets/tests/FunctionalTests/SendFile.cs
 ../../../external/corefx/src/System.Net.Sockets/tests/FunctionalTests/SendPacketsAsync.cs
 ../../../external/corefx/src/System.Net.Sockets/tests/FunctionalTests/SendPacketsElementTest.cs
-# MARTIN FIXME - hangs
-# ../../../external/corefx/src/System.Net.Sockets/tests/FunctionalTests/SendReceive.cs
+../../../external/corefx/src/System.Net.Sockets/tests/FunctionalTests/SendReceive.cs
 # MARTIN FIXME - missing APIs
 # ../../../external/corefx/src/System.Net.Sockets/tests/FunctionalTests/SendReceive.netcoreapp.cs
 ../../../external/corefx/src/System.Net.Sockets/tests/FunctionalTests/Shutdown.cs

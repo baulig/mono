@@ -1438,8 +1438,11 @@ namespace System.Net.Sockets
 		{
 			ThrowIfDisposedAndClosed ();
 
-			if (buffers == null || buffers.Count == 0)
-				throw new ArgumentNullException ("buffers");
+			if (buffers == null)
+				throw new ArgumentNullException (nameof (buffers));
+
+			if (buffers.Count == 0)
+				throw new ArgumentException (SR.Format (SR.net_sockets_zerolist, nameof (buffers)), nameof (buffers));
 
 			int numsegments = buffers.Count;
 			int nativeError;
@@ -1451,9 +1454,7 @@ namespace System.Net.Sockets
 					fixed (WSABUF* bufarray = new WSABUF[numsegments]) {
 						for (int i = 0; i < numsegments; i++) {
 							ArraySegment<byte> segment = buffers[i];
-
-							if (segment.Offset < 0 || segment.Count < 0 || segment.Count > segment.Array.Length - segment.Offset)
-								throw new ArgumentOutOfRangeException ("segment");
+							RangeValidationHelpers.ValidateSegment (segment);
 
 							try {} finally {
 								gch[i] = GCHandle.Alloc (segment.Array, GCHandleType.Pinned);
@@ -1960,9 +1961,10 @@ namespace System.Net.Sockets
 			ThrowIfDisposedAndClosed ();
 
 			if (buffers == null)
-				throw new ArgumentNullException ("buffers");
+				throw new ArgumentNullException (nameof (buffers));
+
 			if (buffers.Count == 0)
-				throw new ArgumentException ("Buffer is empty", "buffers");
+				throw new ArgumentException (SR.Format (SR.net_sockets_zerolist, nameof (buffers)), nameof (buffers));
 
 			int numsegments = buffers.Count;
 			int nativeError;
@@ -1974,9 +1976,7 @@ namespace System.Net.Sockets
 					fixed (WSABUF* bufarray = new WSABUF[numsegments]) {
 						for(int i = 0; i < numsegments; i++) {
 							ArraySegment<byte> segment = buffers[i];
-
-							if (segment.Offset < 0 || segment.Count < 0 || segment.Count > segment.Array.Length - segment.Offset)
-								throw new ArgumentOutOfRangeException ("segment");
+							RangeValidationHelpers.ValidateSegment (segment);
 
 							try {} finally {
 								gch[i] = GCHandle.Alloc (segment.Array, GCHandleType.Pinned);
