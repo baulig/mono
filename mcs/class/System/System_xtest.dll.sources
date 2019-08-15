@@ -99,54 +99,7 @@ System/RemoteExecutorTests.cs
 ../../../external/corefx/src/Common/tests/System/Net/Sockets/SocketTestServerAPM.cs
 ../../../external/corefx/src/Common/tests/System/Net/Sockets/SocketTestServerAsync.cs
 ../../../external/corefx/src/Common/tests/System/Net/Sockets/TestSettings.cs
-# ../../../external/corefx/src/System.Net.Sockets/tests/FunctionalTests/*.cs:NetworkStreamTest.netcoreapp.cs,SocketTestHelper.netcoreapp.cs,SendReceive.netcoreapp.cs,SocketAsyncEventArgsTest.cs,LoggingTest.cs,SendReceive.cs
-
-# MARTIN TEST
-
-../../../external/corefx/src/System.Net.Sockets/tests/FunctionalTests/SocketTestHelper.cs
-../../../external/corefx/src/System.Net.Sockets/tests/FunctionalTests/SocketTestHelper.netcoreapp.cs
-
-../../../external/corefx/src/System.Net.Sockets/tests/FunctionalTests/Accept.cs
-../../../external/corefx/src/System.Net.Sockets/tests/FunctionalTests/AgnosticListenerTest.cs
-../../../external/corefx/src/System.Net.Sockets/tests/FunctionalTests/ArgumentValidationTests.cs
-../../../external/corefx/src/System.Net.Sockets/tests/FunctionalTests/Close.cs
-../../../external/corefx/src/System.Net.Sockets/tests/FunctionalTests/Connect.cs
-../../../external/corefx/src/System.Net.Sockets/tests/FunctionalTests/CreateSocketTests.cs
-../../../external/corefx/src/System.Net.Sockets/tests/FunctionalTests/DisconnectTest.cs
-../../../external/corefx/src/System.Net.Sockets/tests/FunctionalTests/DisposedSocketTests.cs
-../../../external/corefx/src/System.Net.Sockets/tests/FunctionalTests/DnsEndPointTest.cs
-../../../external/corefx/src/System.Net.Sockets/tests/FunctionalTests/DualModeSocketTest.cs
-../../../external/corefx/src/System.Net.Sockets/tests/FunctionalTests/ExecutionContextFlowTest.cs
-../../../external/corefx/src/System.Net.Sockets/tests/FunctionalTests/ExecutionContextFlowTest.netcoreapp.cs
-../../../external/corefx/src/System.Net.Sockets/tests/FunctionalTests/HandleTest.cs
-../../../external/corefx/src/System.Net.Sockets/tests/FunctionalTests/IPPacketInformationTest.cs
-../../../external/corefx/src/System.Net.Sockets/tests/FunctionalTests/LingerStateTest.cs
-../../../external/corefx/src/System.Net.Sockets/tests/FunctionalTests/LoggingTest.cs
-../../../external/corefx/src/System.Net.Sockets/tests/FunctionalTests/MulticastOptionTest.cs
-../../../external/corefx/src/System.Net.Sockets/tests/FunctionalTests/NetworkStreamTest.cs
-../../../external/corefx/src/System.Net.Sockets/tests/FunctionalTests/NetworkStreamTest.netcoreapp.cs
-../../../external/corefx/src/System.Net.Sockets/tests/FunctionalTests/OSSupport.cs
-../../../external/corefx/src/System.Net.Sockets/tests/FunctionalTests/ReceiveMessageFrom.cs
-../../../external/corefx/src/System.Net.Sockets/tests/FunctionalTests/ReceiveMessageFromAsync.cs
-../../../external/corefx/src/System.Net.Sockets/tests/FunctionalTests/SelectAndPollTests.cs
-../../../external/corefx/src/System.Net.Sockets/tests/FunctionalTests/SelectTest.cs
-../../../external/corefx/src/System.Net.Sockets/tests/FunctionalTests/SendFile.cs
-../../../external/corefx/src/System.Net.Sockets/tests/FunctionalTests/SendPacketsAsync.cs
-../../../external/corefx/src/System.Net.Sockets/tests/FunctionalTests/SendPacketsElementTest.cs
-../../../external/corefx/src/System.Net.Sockets/tests/FunctionalTests/SendReceive.cs
-# MARTIN FIXME - missing APIs
-# ../../../external/corefx/src/System.Net.Sockets/tests/FunctionalTests/SendReceive.netcoreapp.cs
-../../../external/corefx/src/System.Net.Sockets/tests/FunctionalTests/Shutdown.cs
-# MARTIN FIXME - crashes xunit
-# ../../../external/corefx/src/System.Net.Sockets/tests/FunctionalTests/SocketAsyncEventArgsTest.cs
-../../../external/corefx/src/System.Net.Sockets/tests/FunctionalTests/SocketAsyncEventArgsTest.netcoreapp.cs
-../../../external/corefx/src/System.Net.Sockets/tests/FunctionalTests/SocketInformationTest.cs
-../../../external/corefx/src/System.Net.Sockets/tests/FunctionalTests/SocketOptionNameTest.cs
-../../../external/corefx/src/System.Net.Sockets/tests/FunctionalTests/TcpClientTest.cs
-../../../external/corefx/src/System.Net.Sockets/tests/FunctionalTests/TcpListenerTest.cs
-../../../external/corefx/src/System.Net.Sockets/tests/FunctionalTests/TimeoutTest.cs
-../../../external/corefx/src/System.Net.Sockets/tests/FunctionalTests/UdpClientTest.cs
-../../../external/corefx/src/System.Net.Sockets/tests/FunctionalTests/UnixDomainSocketTest.netcoreapp.cs
+../../../external/corefx/src/System.Net.Sockets/tests/FunctionalTests/*.cs
 
 # System.Net.Primitives
 ../../../external/corefx/src/System.Net.Primitives/tests/FunctionalTests/CookieTest/*.cs

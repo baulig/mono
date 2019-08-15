@@ -1698,7 +1698,7 @@ namespace System.Net.Sockets
 				throw new ArgumentException (SR.Format (SR.net_InvalidEndPointAddressFamily,
 					remoteEP.AddressFamily, addressFamily), nameof (remoteEP));
 
-			if (!is_connected)
+			if (!is_bound)
 				throw new InvalidOperationException (SR.net_sockets_mustbind);
 
 			SocketError errorCode;
