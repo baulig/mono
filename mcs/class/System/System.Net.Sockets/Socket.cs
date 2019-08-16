@@ -1103,6 +1103,7 @@ namespace System.Net.Sockets
 			return tcs.Task;
 		}
 
+#if MARTIN_FIXME
 		public IAsyncResult BeginConnect (EndPoint remoteEP, AsyncCallback callback, object state)
 		{
 			ThrowIfDisposedAndClosed ();
@@ -1136,7 +1137,6 @@ namespace System.Net.Sockets
 			return sockares;
 		}
 
-#if MARTIN_FIXME
 		public IAsyncResult BeginConnect (IPAddress[] addresses, int port, AsyncCallback requestCallback, object state)
 		{
 			ThrowIfDisposedAndClosed ();
@@ -1163,6 +1163,119 @@ namespace System.Net.Sockets
 			return sockares;
 		}
 #else
+		public IAsyncResult BeginConnect (EndPoint remoteEP, AsyncCallback callback, object state)
+		{
+			ThrowIfDisposedAndClosed ();
+
+			if (remoteEP == null)
+				throw new ArgumentNullException (nameof (remoteEP));
+
+			if (is_listening)
+				throw new InvalidOperationException (SR.net_sockets_mustnotlisten);
+
+			if (is_connected)
+				throw new SocketException ((int)SocketError.IsConnected);
+
+			DnsEndPoint dnsEP = remoteEP as DnsEndPoint;
+			if (dnsEP != null) {
+				ValidateForMultiConnect (isMultiEndpoint: true); // needs to come before CanTryAddressFamily call
+
+				if (dnsEP.AddressFamily != AddressFamily.Unspecified && !CanTryAddressFamily (dnsEP.AddressFamily))
+					throw new NotSupportedException (SR.net_invalidversion);
+
+				return BeginConnect (dnsEP.Host, dnsEP.Port, callback, state);
+			}
+
+			ValidateForMultiConnect (isMultiEndpoint: false);
+			return UnsafeBeginConnect (remoteEP, callback, state, flowContext: true);
+		}
+
+		private bool CanUseConnectEx (EndPoint remoteEP)
+		{
+			return (socketType == SocketType.Stream) &&
+				(seed_endpoint != null || remoteEP.GetType () == typeof (IPEndPoint));
+		}
+
+		internal IAsyncResult UnsafeBeginConnect (EndPoint remoteEP, AsyncCallback callback, object state, bool flowContext = false)
+		{
+			if (CanUseConnectEx (remoteEP))
+				return BeginConnectEx (remoteEP, flowContext, callback, state);
+
+			EndPoint endPointSnapshot = remoteEP;
+			var asyncResult = new ConnectAsyncResult (this, endPointSnapshot, state, callback);
+
+			// For connectionless protocols, Connect is not an I/O call.
+			Connect (remoteEP);
+			asyncResult.FinishPostingAsyncOp ();
+
+			// Synchronously complete the I/O and call the user's callback.
+			asyncResult.InvokeCallback ();
+			return asyncResult;
+		}
+
+		// Implements ConnectEx - this provides completion port IO and support for disconnect and reconnects.
+		// Since this is private, the unsafe mode is specified with a flag instead of an overload.
+		private IAsyncResult BeginConnectEx (EndPoint remoteEP, bool flowContext, AsyncCallback callback, object state)
+		{
+			EndPoint endPointSnapshot = remoteEP;
+			SocketAddress socketAddress = SnapshotAndSerialize (ref endPointSnapshot);
+
+#if MARTIN_FIXME
+			// The socket must be bound first.
+			// The calling method--BeginConnect--will ensure that this method is only
+			// called if _rightEndPoint is not null, of that the endpoint is an IPEndPoint.
+			if (_rightEndPoint == null)
+			{
+				if (endPointSnapshot.AddressFamily == AddressFamily.InterNetwork)
+				{
+					InternalBind(new IPEndPoint(IPAddress.Any, 0));
+				}
+				else if (endPointSnapshot.AddressFamily != AddressFamily.Unix)
+				{
+					InternalBind(new IPEndPoint(IPAddress.IPv6Any, 0));
+				}
+			}
+#endif
+
+			// Allocate the async result and the event we'll pass to the thread pool.
+			ConnectOverlappedAsyncResult asyncResult = new ConnectOverlappedAsyncResult (this, endPointSnapshot, state, callback);
+
+			// If context flowing is enabled, set it up here.  No need to lock since the context isn't used until the callback.
+			if (flowContext)
+				asyncResult.StartPostingAsyncOp (false);
+
+			EndPoint oldEndPoint = seed_endpoint;
+			if (seed_endpoint == null)
+				seed_endpoint = endPointSnapshot;
+
+			SocketError errorCode;
+			try {
+				errorCode = SocketPal.ConnectAsync (this, m_Handle, socketAddress.Buffer, socketAddress.Size, asyncResult);
+			} catch {
+				// _rightEndPoint will always equal oldEndPoint.
+				seed_endpoint = oldEndPoint;
+				throw;
+			}
+
+			if (errorCode == SocketError.Success) {
+				// Synchronous success. Indicate that we're connected.
+				SetToConnected ();
+			}
+
+			if (!CheckErrorAndUpdateStatus (errorCode)) {
+				// Update the internal state of this socket according to the error before throwing.
+				seed_endpoint = oldEndPoint;
+
+				throw new SocketException ((int)errorCode);
+			}
+
+			// We didn't throw, so indicate that we're returning this result to the user.  This may call the callback.
+			// This is a nop if the context isn't being flowed.
+			asyncResult.FinishPostingAsyncOp (ref Caches.ConnectClosureCache);
+
+			return asyncResult;
+		}
+
 		public IAsyncResult BeginConnect (IPAddress[] addresses, int port, AsyncCallback requestCallback, object state)
 		{
 			ThrowIfDisposedAndClosed ();

@@ -9,6 +9,16 @@ namespace System.Net.Sockets
             return SafeCloseSocket.CreateSocket(addressFamily, socketType, protocolType, out socket);
         }
 
+        public static SocketError ConnectAsync(Socket socket, SafeCloseSocket handle, byte[] socketAddress, int socketAddressLen, ConnectOverlappedAsyncResult asyncResult)
+        {
+            SocketError socketError = handle.AsyncContext.ConnectAsync(socketAddress, socketAddressLen, asyncResult.CompletionCallback);
+            if (socketError == SocketError.Success)
+            {
+                asyncResult.CompletionCallback(SocketError.Success);
+            }
+            return socketError;
+        }
+
         public static SocketError Connect(SafeSocketHandle handle, byte[] socketAddress, int socketAddressLen)
         {
             SocketError errorCode;
