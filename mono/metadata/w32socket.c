@@ -911,7 +911,7 @@ create_object_handle_from_sockaddr (struct sockaddr *saddr, int sa_size, gint32 
 
 	/* Locate the SocketAddress data buffer length in the object */
 	if (!domain->sockaddr_data_length_field) {
-		domain->sockaddr_data_length_field = mono_class_get_field_from_name_full (domain->sockaddr_class, "m_Size", NULL);
+		domain->sockaddr_data_length_field = mono_class_get_field_from_name_full (domain->sockaddr_class, "InternalSize", NULL);
 		g_assert (domain->sockaddr_data_length_field);
 	}
 
@@ -1145,7 +1145,7 @@ create_sockaddr_from_handle (MonoObjectHandle saddr_obj, socklen_t *sa_size, gin
 
 	/* Locate the SocketAddress data buffer length in the object */
 	if (!domain->sockaddr_data_length_field) {
-		domain->sockaddr_data_length_field = mono_class_get_field_from_name_full (domain->sockaddr_class, "m_Size", NULL);
+		domain->sockaddr_data_length_field = mono_class_get_field_from_name_full (domain->sockaddr_class, "InternalSize", NULL);
 		g_assert (domain->sockaddr_data_length_field);
 	}
 
