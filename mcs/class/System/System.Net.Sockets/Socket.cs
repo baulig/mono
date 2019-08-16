@@ -1135,6 +1135,7 @@ namespace System.Net.Sockets
 			return sockares;
 		}
 
+#if MARTIN_FIXME
 		public IAsyncResult BeginConnect (IPAddress[] addresses, int port, AsyncCallback requestCallback, object state)
 		{
 			ThrowIfDisposedAndClosed ();
@@ -1160,6 +1161,44 @@ namespace System.Net.Sockets
 			BeginMConnect (sockares);
 			return sockares;
 		}
+#else
+		public IAsyncResult BeginConnect (IPAddress[] addresses, int port, AsyncCallback requestCallback, object state)
+		{
+			ThrowIfDisposedAndClosed ();
+
+			if (addresses == null)
+				throw new ArgumentNullException (nameof (addresses));
+			if (addresses.Length == 0)
+				throw new ArgumentException (SR.net_invalidAddressList, nameof (addresses));
+			if (!TcpValidationHelpers.ValidatePortNumber (port))
+				throw new ArgumentOutOfRangeException (nameof (port));
+			if (addressFamily != AddressFamily.InterNetwork && addressFamily != AddressFamily.InterNetworkV6)
+				throw new NotSupportedException (SR.net_invalidversion);
+
+			if (is_listening)
+				throw new InvalidOperationException (SR.net_sockets_mustnotlisten);
+
+			if (is_connected)
+				throw new SocketException ((int)SocketError.IsConnected);
+
+			ValidateForMultiConnect (isMultiEndpoint: true);
+
+			// Set up the result to capture the context.  No need for a lock.
+			MultipleAddressConnectAsyncResult result = new MultipleAddressConnectAsyncResult (addresses, port, this, state, requestCallback);
+			result.StartPostingAsyncOp (false);
+
+			if (DoMultipleAddressConnectCallback (PostOneBeginConnect (result), result))
+			{
+				// If the call completes synchronously, invoke the callback from here.
+				result.InvokeCallback ();
+			}
+
+			// Finished posting async op.  Possibly will call callback.
+			result.FinishPostingAsyncOp (ref Caches.ConnectClosureCache);
+
+			return result;
+		}
+#endif
 
 		static bool BeginMConnect (SocketAsyncResult sockares)
 		{

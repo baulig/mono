@@ -1,5 +1,7 @@
+using System.Threading;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Runtime.ExceptionServices;
 
 namespace System.Net.Sockets
 {
@@ -174,6 +176,174 @@ namespace System.Net.Sockets
 
             UpdateStatusAfterSocketError(errorCode);
             return false;
+        }
+
+        private sealed class MultipleAddressConnectAsyncResult : ContextAwareResult
+        {
+            internal MultipleAddressConnectAsyncResult(IPAddress[] addresses, int port, Socket socket, object myState, AsyncCallback myCallBack) :
+                base(socket, myState, myCallBack)
+            {
+                _addresses = addresses;
+                _port = port;
+                _socket = socket;
+            }
+
+            internal Socket _socket;   // Keep this member just to avoid all the casting.
+            internal IPAddress[] _addresses;
+            internal int _index;
+            internal int _port;
+            internal Exception _lastException;
+
+            internal override EndPoint RemoteEndPoint
+            {
+                get
+                {
+                    if (_addresses != null && _index > 0 && _index < _addresses.Length)
+                    {
+                        return new IPEndPoint(_addresses[_index], _port);
+                    }
+                    else
+                    {
+                        return null;
+                    }
+                }
+            }
+        }
+
+        private static AsyncCallback s_multipleAddressConnectCallback;
+        private static AsyncCallback CachedMultipleAddressConnectCallback
+        {
+            get
+            {
+                if (s_multipleAddressConnectCallback == null)
+                {
+                    s_multipleAddressConnectCallback = new AsyncCallback(MultipleAddressConnectCallback);
+                }
+                return s_multipleAddressConnectCallback;
+            }
+        }
+
+        private static object PostOneBeginConnect(MultipleAddressConnectAsyncResult context)
+        {
+            IPAddress currentAddressSnapshot = context._addresses[context._index];
+
+            context._socket.ReplaceHandleIfNecessaryAfterFailedConnect();
+
+            if (!context._socket.CanTryAddressFamily(currentAddressSnapshot.AddressFamily))
+            {
+                return context._lastException != null ? context._lastException : new ArgumentException(SR.net_invalidAddressList, nameof(context));
+            }
+
+            try
+            {
+                EndPoint endPoint = new IPEndPoint(currentAddressSnapshot, context._port);
+
+                context._socket.SnapshotAndSerialize(ref endPoint);
+
+                IAsyncResult connectResult = context._socket.UnsafeBeginConnect(endPoint, CachedMultipleAddressConnectCallback, context);
+                if (connectResult.CompletedSynchronously)
+                {
+                    return connectResult;
+                }
+            }
+            catch (Exception exception) when (!(exception is OutOfMemoryException))
+            {
+                return exception;
+            }
+
+            return null;
+        }
+
+        private static void MultipleAddressConnectCallback(IAsyncResult result)
+        {
+            if (result.CompletedSynchronously)
+            {
+                return;
+            }
+
+            bool invokeCallback = false;
+
+            MultipleAddressConnectAsyncResult context = (MultipleAddressConnectAsyncResult)result.AsyncState;
+            try
+            {
+                invokeCallback = DoMultipleAddressConnectCallback(result, context);
+            }
+            catch (Exception exception)
+            {
+                context.InvokeCallback(exception);
+            }
+
+            // Invoke the callback outside of the try block so we don't catch user Exceptions.
+            if (invokeCallback)
+            {
+                context.InvokeCallback();
+            }
+        }
+
+        // This is like a regular async callback worker, except the result can be an exception.  This is a useful pattern when
+        // processing should continue whether or not an async step failed.
+        private static bool DoMultipleAddressConnectCallback(object result, MultipleAddressConnectAsyncResult context)
+        {
+            while (result != null)
+            {
+                Exception ex = result as Exception;
+                if (ex == null)
+                {
+                    try
+                    {
+                        context._socket.EndConnect((IAsyncResult)result);
+                    }
+                    catch (Exception exception)
+                    {
+                        ex = exception;
+                    }
+                }
+
+                if (ex == null)
+                {
+                    // Don't invoke the callback from here, because we're probably inside
+                    // a catch-all block that would eat exceptions from the callback.
+                    // Instead tell our caller to invoke the callback outside of its catchall.
+                    return true;
+                }
+                else
+                {
+                    if (++context._index >= context._addresses.Length)
+                    {
+                        ExceptionDispatchInfo.Throw(ex);
+                    }
+
+                    context._lastException = ex;
+                    result = PostOneBeginConnect(context);
+                }
+            }
+
+            // Don't invoke the callback at all, because we've posted another async connection attempt.
+            return false;
+        }
+
+        // These caches are one degree off of Socket since they're not used in the sync case/when disabled in config.
+        private CacheSet _caches;
+
+        private class CacheSet
+        {
+            internal CallbackClosure ConnectClosureCache;
+            internal CallbackClosure AcceptClosureCache;
+            internal CallbackClosure SendClosureCache;
+            internal CallbackClosure ReceiveClosureCache;
+        }
+
+        private CacheSet Caches
+        {
+            get
+            {
+                if (_caches == null)
+                {
+                    // It's not too bad if extra of these are created and lost.
+                    _caches = new CacheSet();
+                }
+                return _caches;
+            }
         }
     }
 }
