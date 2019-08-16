@@ -175,6 +175,204 @@ namespace System.Net.Sockets
             }
         }
 
+        // Establishes a connection to a remote system.
+        public void Connect(EndPoint remoteEP)
+        {
+            if (CleanedUp)
+            {
+                throw new ObjectDisposedException(this.GetType().FullName);
+            }
+
+            // Validate input parameters.
+            if (remoteEP == null)
+            {
+                throw new ArgumentNullException(nameof(remoteEP));
+            }
+
+            if (_isDisconnected)
+            {
+                throw new InvalidOperationException(SR.net_sockets_disconnectedConnect);
+            }
+
+            if (_isListening)
+            {
+                throw new InvalidOperationException(SR.net_sockets_mustnotlisten);
+            }
+
+            if (_isConnected)
+            {
+                throw new SocketException((int)SocketError.IsConnected);
+            }
+
+            ValidateBlockingMode();
+
+            if (NetEventSource.IsEnabled)
+            {
+                if (NetEventSource.IsEnabled) NetEventSource.Info(this, $"DST:{remoteEP}");
+            }
+
+            DnsEndPoint dnsEP = remoteEP as DnsEndPoint;
+            if (dnsEP != null)
+            {
+                ValidateForMultiConnect(isMultiEndpoint: true); // needs to come before CanTryAddressFamily call
+
+                if (dnsEP.AddressFamily != AddressFamily.Unspecified && !CanTryAddressFamily(dnsEP.AddressFamily))
+                {
+                    throw new NotSupportedException(SR.net_invalidversion);
+                }
+
+                Connect(dnsEP.Host, dnsEP.Port);
+                return;
+            }
+
+            ValidateForMultiConnect(isMultiEndpoint: false);
+
+            EndPoint endPointSnapshot = remoteEP;
+            Internals.SocketAddress socketAddress = SnapshotAndSerialize(ref endPointSnapshot);
+
+            if (!Blocking)
+            {
+                _nonBlockingConnectRightEndPoint = endPointSnapshot;
+                _nonBlockingConnectInProgress = true;
+            }
+
+            DoConnect(endPointSnapshot, socketAddress);
+        }
+
+        public void Connect(IPAddress address, int port)
+        {
+            if (NetEventSource.IsEnabled) NetEventSource.Enter(this, address);
+
+            if (CleanedUp)
+            {
+                throw new ObjectDisposedException(this.GetType().FullName);
+            }
+            if (address == null)
+            {
+                throw new ArgumentNullException(nameof(address));
+            }
+
+            if (!TcpValidationHelpers.ValidatePortNumber(port))
+            {
+                throw new ArgumentOutOfRangeException(nameof(port));
+            }
+
+            if (_isConnected)
+            {
+                throw new SocketException((int)SocketError.IsConnected);
+            }
+
+            ValidateForMultiConnect(isMultiEndpoint: false); // needs to come before CanTryAddressFamily call
+
+            if (!CanTryAddressFamily(address.AddressFamily))
+            {
+                throw new NotSupportedException(SR.net_invalidversion);
+            }
+
+            IPEndPoint remoteEP = new IPEndPoint(address, port);
+            Connect(remoteEP);
+            if (NetEventSource.IsEnabled) NetEventSource.Exit(this);
+        }
+
+        public void Connect(string host, int port)
+        {
+            if (NetEventSource.IsEnabled) NetEventSource.Enter(this, host);
+
+            if (CleanedUp)
+            {
+                throw new ObjectDisposedException(this.GetType().FullName);
+            }
+            if (host == null)
+            {
+                throw new ArgumentNullException(nameof(host));
+            }
+            if (!TcpValidationHelpers.ValidatePortNumber(port))
+            {
+                throw new ArgumentOutOfRangeException(nameof(port));
+            }
+            if (_addressFamily != AddressFamily.InterNetwork && _addressFamily != AddressFamily.InterNetworkV6)
+            {
+                throw new NotSupportedException(SR.net_invalidversion);
+            }
+
+            // No need to call ValidateForMultiConnect(), as the validation
+            // will be handled by the delegated Connect overloads.
+
+            IPAddress parsedAddress;
+            if (IPAddress.TryParse(host, out parsedAddress))
+            {
+                Connect(parsedAddress, port);
+            }
+            else
+            {
+                IPAddress[] addresses = Dns.GetHostAddressesAsync(host).GetAwaiter().GetResult();
+                Connect(addresses, port);
+            }
+
+            if (NetEventSource.IsEnabled) NetEventSource.Exit(this);
+        }
+
+        public void Connect(IPAddress[] addresses, int port)
+        {
+            if (NetEventSource.IsEnabled) NetEventSource.Enter(this, addresses);
+
+            if (CleanedUp)
+            {
+                throw new ObjectDisposedException(this.GetType().FullName);
+            }
+            if (addresses == null)
+            {
+                throw new ArgumentNullException(nameof(addresses));
+            }
+            if (addresses.Length == 0)
+            {
+                throw new ArgumentException(SR.net_sockets_invalid_ipaddress_length, nameof(addresses));
+            }
+            if (!TcpValidationHelpers.ValidatePortNumber(port))
+            {
+                throw new ArgumentOutOfRangeException(nameof(port));
+            }
+            if (_addressFamily != AddressFamily.InterNetwork && _addressFamily != AddressFamily.InterNetworkV6)
+            {
+                throw new NotSupportedException(SR.net_invalidversion);
+            }
+
+            if (_isConnected)
+            {
+                throw new SocketException((int)SocketError.IsConnected);
+            }
+
+            ValidateForMultiConnect(isMultiEndpoint: true); // needs to come before CanTryAddressFamily call
+
+            ExceptionDispatchInfo lastex = null;
+            foreach (IPAddress address in addresses)
+            {
+                if (CanTryAddressFamily(address.AddressFamily))
+                {
+                    try
+                    {
+                        Connect(new IPEndPoint(address, port));
+                        lastex = null;
+                        break;
+                    }
+                    catch (Exception ex) when (!ExceptionCheck.IsFatal(ex))
+                    {
+                        lastex = ExceptionDispatchInfo.Capture(ex);
+                    }
+                }
+            }
+
+            lastex?.Throw();
+
+            // If we're not connected, then we didn't get a valid ipaddress in the list.
+            if (!Connected)
+            {
+                throw new ArgumentException(SR.net_invalidAddressList, nameof(addresses));
+            }
+
+            if (NetEventSource.IsEnabled) NetEventSource.Exit(this);
+        }
+
         // This method will ignore failures, but returns the win32
         // error code, and will update internal state on success.
         private SocketError InternalSetBlocking(bool desired, out bool current)
