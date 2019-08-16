@@ -1106,9 +1106,25 @@ namespace System.Net.Sockets
 			ThrowIfDisposedAndClosed ();
 
 			if (remoteEP == null)
-				throw new ArgumentNullException ("remoteEP");
+				throw new ArgumentNullException (nameof (remoteEP));
+
 			if (is_listening)
-				throw new InvalidOperationException ();
+				throw new InvalidOperationException (SR.net_sockets_mustnotlisten);
+
+			if (is_connected)
+				throw new SocketException ((int)SocketError.IsConnected);
+
+			DnsEndPoint dnsEP = remoteEP as DnsEndPoint;
+			if (dnsEP != null) {
+				ValidateForMultiConnect (isMultiEndpoint: true); // needs to come before CanTryAddressFamily call
+
+				if (dnsEP.AddressFamily != AddressFamily.Unspecified && !CanTryAddressFamily (dnsEP.AddressFamily))
+					throw new NotSupportedException (SR.net_invalidversion);
+
+				return BeginConnect (dnsEP.Host, dnsEP.Port, callback, state);
+			}
+
+			ValidateForMultiConnect (isMultiEndpoint: false);
 
 			SocketAsyncResult sockares = new SocketAsyncResult (this, callback, state, SocketOperation.Connect) {
 				EndPoint = remoteEP,
