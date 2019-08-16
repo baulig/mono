@@ -7,9 +7,29 @@ namespace System.Net.Sockets
 {
     partial class Socket
     {
+#region CoreFX Code
+
         // These flags monitor if the socket was ever connected at any time and if it still is.
         private bool _isConnected;
         private bool _isDisconnected;
+
+        // These are constants initialized by constructor.
+        private AddressFamily _addressFamily;
+        private SocketType _socketType;
+        private ProtocolType _protocolType;
+
+        // These caches are one degree off of Socket since they're not used in the sync case/when disabled in config.
+        private CacheSet _caches;
+
+        private class CacheSet
+        {
+            internal CallbackClosure ConnectClosureCache;
+            internal CallbackClosure AcceptClosureCache;
+            internal CallbackClosure SendClosureCache;
+            internal CallbackClosure ReceiveClosureCache;
+        }
+
+#endregion
 
         void ValidateForMultiConnect(bool isMultiEndpoint)
         {
@@ -71,7 +91,7 @@ namespace System.Net.Sockets
 
             // Then replace the handle with a new one
             SafeCloseSocket oldHandle = _handle;
-            SocketError errorCode = SocketPal.CreateSocket(addressFamily, socketType, protocolType, out _handle);
+            SocketError errorCode = SocketPal.CreateSocket(_addressFamily, _socketType, _protocolType, out _handle);
             oldHandle.TransferTrackedState(_handle);
             oldHandle.Dispose();
             if (errorCode != SocketError.Success)
@@ -344,17 +364,6 @@ namespace System.Net.Sockets
 
             // Don't invoke the callback at all, because we've posted another async connection attempt.
             return false;
-        }
-
-        // These caches are one degree off of Socket since they're not used in the sync case/when disabled in config.
-        private CacheSet _caches;
-
-        private class CacheSet
-        {
-            internal CallbackClosure ConnectClosureCache;
-            internal CallbackClosure AcceptClosureCache;
-            internal CallbackClosure SendClosureCache;
-            internal CallbackClosure ReceiveClosureCache;
         }
 
         private CacheSet Caches

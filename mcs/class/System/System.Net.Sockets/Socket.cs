@@ -66,10 +66,6 @@ namespace System.Net.Sockets
 
 		int linger_timeout;
 
-		AddressFamily addressFamily;
-		SocketType socketType;
-		ProtocolType protocolType;
-
 		/* the field "_handle" is looked up by name by the runtime */
 		internal SafeSocketHandle _handle;
 
@@ -110,9 +106,9 @@ namespace System.Net.Sockets
 
 			var result = Mono.DataConverter.Unpack ("iiiil", socketInformation.ProtocolInformation, 0);
 
-			this.addressFamily = (AddressFamily) (int) result [0];
-			this.socketType = (SocketType) (int) result [1];
-			this.protocolType = (ProtocolType) (int) result [2];
+			this._addressFamily = (AddressFamily) (int) result [0];
+			this._socketType = (SocketType) (int) result [1];
+			this._protocolType = (ProtocolType) (int) result [2];
 			this.is_bound = (ProtocolType) (int) result [3] != 0;
 			this._handle = new SafeSocketHandle ((IntPtr) (long) result [4], true);
 
@@ -124,9 +120,9 @@ namespace System.Net.Sockets
 		/* private constructor used by Accept, which already has a socket handle to use */
 		internal Socket(AddressFamily family, SocketType type, ProtocolType proto, SafeSocketHandle safe_handle)
 		{
-			this.addressFamily = family;
-			this.socketType = type;
-			this.protocolType = proto;
+			this._addressFamily = family;
+			this._socketType = type;
+			this._protocolType = proto;
 			
 			this._handle = safe_handle;
 			this._isConnected = true;
@@ -138,16 +134,16 @@ namespace System.Net.Sockets
 		{
 			try {
 				/* Need to test IPv6 further */
-				if (addressFamily == AddressFamily.InterNetwork
-					// || addressFamily == AddressFamily.InterNetworkV6
+				if (_addressFamily == AddressFamily.InterNetwork
+					// || _addressFamily == AddressFamily.InterNetworkV6
 				) {
 					/* This is the default, but it probably has nasty side
 					 * effects on Linux, as the socket option is kludged by
 					 * turning on or off PMTU discovery... */
 					this.DontFragment = false;
-					if (protocolType == ProtocolType.Tcp)
+					if (_protocolType == ProtocolType.Tcp)
 						this.NoDelay = false;
-				} else if (addressFamily == AddressFamily.InterNetworkV6) {
+				} else if (_addressFamily == AddressFamily.InterNetworkV6) {
 					this.DualMode = true;
 				}
 
@@ -208,7 +204,7 @@ namespace System.Net.Sockets
 			get {
 				ThrowIfDisposedAndClosed ();
 
-				if (protocolType != ProtocolType.Udp)
+				if (_protocolType != ProtocolType.Udp)
 					throw new SocketException ((int) SocketError.ProtocolOption);
 
 				return ((int) GetSocketOption (SocketOptionLevel.Socket, SocketOptionName.Broadcast)) != 0;
@@ -216,7 +212,7 @@ namespace System.Net.Sockets
 			set {
 				ThrowIfDisposedAndClosed ();
 
-				if (protocolType != ProtocolType.Udp)
+				if (_protocolType != ProtocolType.Udp)
 					throw new SocketException ((int) SocketError.ProtocolOption);
 
 				SetSocketOption (SocketOptionLevel.Socket, SocketOptionName.Broadcast, value ? 1 : 0);
@@ -239,10 +235,10 @@ namespace System.Net.Sockets
 				 * "Setting this property on a Transmission Control Protocol (TCP)
 				 * socket will have no effect." but the MS runtime throws the
 				 * exception...) */
-				if (protocolType == ProtocolType.Tcp)
+				if (_protocolType == ProtocolType.Tcp)
 					throw new SocketException ((int)SocketError.ProtocolOption);
 
-				switch (addressFamily) {
+				switch (_addressFamily) {
 				case AddressFamily.InterNetwork:
 					return ((int) GetSocketOption (SocketOptionLevel.IP, SocketOptionName.MulticastLoopback)) != 0;
 				case AddressFamily.InterNetworkV6:
@@ -259,10 +255,10 @@ namespace System.Net.Sockets
 				 * "Setting this property on a Transmission Control Protocol (TCP)
 				 * socket will have no effect." but the MS runtime throws the
 				 * exception...) */
-				if (protocolType == ProtocolType.Tcp)
+				if (_protocolType == ProtocolType.Tcp)
 					throw new SocketException ((int)SocketError.ProtocolOption);
 
-				switch (addressFamily) {
+				switch (_addressFamily) {
 				case AddressFamily.InterNetwork:
 					SetSocketOption (SocketOptionLevel.IP, SocketOptionName.MulticastLoopback, value ? 1 : 0);
 					break;
@@ -286,7 +282,7 @@ namespace System.Net.Sockets
 					return null;
 
 				int error;
-				SocketAddress sa = LocalEndPoint_internal (_handle, (int) addressFamily, out error);
+				SocketAddress sa = LocalEndPoint_internal (_handle, (int) _addressFamily, out error);
 
 				if (error != 0)
 					throw new SocketException (error);
@@ -372,7 +368,7 @@ namespace System.Net.Sockets
 					return null;
 
 				int error;
-				SocketAddress sa = RemoteEndPoint_internal (_handle, (int) addressFamily, out error);
+				SocketAddress sa = RemoteEndPoint_internal (_handle, (int) _addressFamily, out error);
 
 				if (error != 0)
 					throw new SocketException (error);
@@ -575,9 +571,9 @@ namespace System.Net.Sockets
 				throw new SocketException (error);
 			}
 
-			acceptSocket.addressFamily = this.AddressFamily;
-			acceptSocket.socketType = this.SocketType;
-			acceptSocket.protocolType = this.ProtocolType;
+			acceptSocket._addressFamily = this.AddressFamily;
+			acceptSocket._socketType = this.SocketType;
+			acceptSocket._protocolType = this.ProtocolType;
 			acceptSocket._handle = safe_handle;
 			acceptSocket._isConnected = true;
 			acceptSocket.seed_endpoint = this.seed_endpoint;
@@ -1129,7 +1125,7 @@ namespace System.Net.Sockets
 
 		private bool CanUseConnectEx (EndPoint remoteEP)
 		{
-			return (socketType == SocketType.Stream) &&
+			return (_socketType == SocketType.Stream) &&
 				(seed_endpoint != null || remoteEP.GetType () == typeof (IPEndPoint));
 		}
 
@@ -1223,7 +1219,7 @@ namespace System.Net.Sockets
 				throw new ArgumentException (SR.net_invalidAddressList, nameof (addresses));
 			if (!TcpValidationHelpers.ValidatePortNumber (port))
 				throw new ArgumentOutOfRangeException (nameof (port));
-			if (addressFamily != AddressFamily.InterNetwork && addressFamily != AddressFamily.InterNetworkV6)
+			if (_addressFamily != AddressFamily.InterNetwork && _addressFamily != AddressFamily.InterNetworkV6)
 				throw new NotSupportedException (SR.net_invalidversion);
 
 			if (is_listening)
@@ -1737,7 +1733,7 @@ namespace System.Net.Sockets
 
 			if (!CanTryAddressFamily (remoteEP.AddressFamily))
 				throw new ArgumentException (SR.Format (SR.net_InvalidEndPointAddressFamily,
-					remoteEP.AddressFamily, addressFamily), nameof (remoteEP));
+					remoteEP.AddressFamily, _addressFamily), nameof (remoteEP));
 
 			if (!is_bound)
 				throw new InvalidOperationException (SR.net_sockets_mustbind);
@@ -2538,7 +2534,7 @@ namespace System.Net.Sockets
 			if (!Duplicate_internal (Handle, targetProcessId, out duplicateHandle, out MonoIOError error))
 				throw MonoIO.GetException (error);
 
-			si.ProtocolInformation = Mono.DataConverter.Pack ("iiiil", (int)addressFamily, (int)socketType, (int)protocolType, is_bound ? 1 : 0, (long)duplicateHandle);
+			si.ProtocolInformation = Mono.DataConverter.Pack ("iiiil", (int)_addressFamily, (int)_socketType, (int)_protocolType, is_bound ? 1 : 0, (long)duplicateHandle);
  			_handle = null;
  
  			return si;
@@ -2924,7 +2920,7 @@ namespace System.Net.Sockets
 
 		void ThrowIfUdp ()
 		{
-			if (protocolType == ProtocolType.Udp)
+			if (_protocolType == ProtocolType.Udp)
 				throw new SocketException ((int)SocketError.ProtocolOption);
 		}
 

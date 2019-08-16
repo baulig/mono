@@ -64,9 +64,9 @@ namespace System.Net.Sockets {
         private EndPoint m_NonBlockingConnectRightEndPoint;
 
         // These are constants initialized by constructor
-        private AddressFamily   addressFamily;
-        private SocketType      socketType;
-        private ProtocolType    protocolType;
+        private AddressFamily   _addressFamily;
+        private SocketType      _socketType;
+        private ProtocolType    _protocolType;
 
         // These caches are one degree off of Socket since they're not used in the sync case/when disabled in config.
         private CacheSet m_Caches;
@@ -135,8 +135,8 @@ namespace System.Net.Sockets {
         //------------------------------------
 
         // Creates a Dual Mode socket for working with both IPv4 and IPv6
-        public Socket(SocketType socketType, ProtocolType protocolType)
-            : this(AddressFamily.InterNetworkV6, socketType, protocolType) {
+        public Socket(SocketType _socketType, ProtocolType _protocolType)
+            : this(AddressFamily.InterNetworkV6, _socketType, _protocolType) {
             DualMode = true;
         }
 
@@ -145,19 +145,19 @@ namespace System.Net.Sockets {
         ///       Initializes a new instance of the <see cref='Sockets.Socket'/> class.
         ///    </para>
         /// </devdoc>
-        public Socket(AddressFamily addressFamily, SocketType socketType, ProtocolType protocolType) {
+        public Socket(AddressFamily _addressFamily, SocketType _socketType, ProtocolType _protocolType) {
             s_LoggingEnabled = Logging.On;
-            if(s_LoggingEnabled)Logging.Enter(Logging.Sockets, this, "Socket", addressFamily);
+            if(s_LoggingEnabled)Logging.Enter(Logging.Sockets, this, "Socket", _addressFamily);
             InitializeSockets();
 
 #if MONO
             int error;
-            _handle = new SafeSocketHandle (Socket_internal (addressFamily, socketType, protocolType, out error), true);
+            _handle = new SafeSocketHandle (Socket_internal (_addressFamily, _socketType, _protocolType, out error), true);
 #else
             _handle = SafeCloseSocket.CreateWSASocket(
-                    addressFamily,
-                    socketType,
-                    protocolType);
+                    _addressFamily,
+                    _socketType,
+                    _protocolType);
 #endif
 
             if (_handle.IsInvalid) {
@@ -167,9 +167,9 @@ namespace System.Net.Sockets {
                 throw new SocketException();
             }
 
-            this.addressFamily = addressFamily;
-            this.socketType = socketType;
-            this.protocolType = protocolType;
+            this._addressFamily = _addressFamily;
+            this._socketType = _socketType;
+            this._protocolType = _protocolType;
 
             IPProtectionLevel defaultProtectionLevel = SettingsSectionInternal.Section.IPProtectionLevel;
             if (defaultProtectionLevel != IPProtectionLevel.Unspecified) {
@@ -186,7 +186,7 @@ namespace System.Net.Sockets {
 #if !MONO
         public Socket(SocketInformation socketInformation) {
             s_LoggingEnabled = Logging.On;
-            if(s_LoggingEnabled)Logging.Enter(Logging.Sockets, this, "Socket", addressFamily);
+            if(s_LoggingEnabled)Logging.Enter(Logging.Sockets, this, "Socket", _addressFamily);
 
             ExceptionHelper.UnrestrictedSocketPermission.Demand();
 
@@ -200,9 +200,9 @@ namespace System.Net.Sockets {
                     _handle = SafeCloseSocket.CreateWSASocket(pinnedBuffer);
 
                     UnsafeNclNativeMethods.OSSOCK.WSAPROTOCOL_INFO protocolInfo = (UnsafeNclNativeMethods.OSSOCK.WSAPROTOCOL_INFO)Marshal.PtrToStructure((IntPtr)pinnedBuffer, typeof(UnsafeNclNativeMethods.OSSOCK.WSAPROTOCOL_INFO));
-                    addressFamily = protocolInfo.iAddressFamily;
-                    socketType = (SocketType)protocolInfo.iSocketType;
-                    protocolType = (ProtocolType)protocolInfo.iProtocol;
+                    _addressFamily = protocolInfo.iAddressFamily;
+                    _socketType = (SocketType)protocolInfo.iSocketType;
+                    _protocolType = (ProtocolType)protocolInfo.iProtocol;
                 }
             }
 
@@ -216,7 +216,7 @@ namespace System.Net.Sockets {
                 }
             }
 
-            if (addressFamily != AddressFamily.InterNetwork && addressFamily != AddressFamily.InterNetworkV6) {
+            if (_addressFamily != AddressFamily.InterNetwork && _addressFamily != AddressFamily.InterNetworkV6) {
                 throw new NotSupportedException(SR.GetString(SR.net_invalidversion));
             }
 
@@ -235,10 +235,10 @@ namespace System.Net.Sockets {
             }
             else {
                 EndPoint ep = null;
-                if (addressFamily == AddressFamily.InterNetwork ) {
+                if (_addressFamily == AddressFamily.InterNetwork ) {
                     ep = IPEndPoint.Any;
                 }
-                else if(addressFamily == AddressFamily.InterNetworkV6) {
+                else if(_addressFamily == AddressFamily.InterNetworkV6) {
                     ep = IPEndPoint.IPv6Any;
                 }
 
@@ -296,9 +296,9 @@ namespace System.Net.Sockets {
 
             _handle = fd;
 
-            addressFamily = Sockets.AddressFamily.Unknown;
-            socketType = Sockets.SocketType.Unknown;
-            protocolType = Sockets.ProtocolType.Unknown;
+            _addressFamily = Sockets.AddressFamily.Unknown;
+            _socketType = Sockets.SocketType.Unknown;
+            _protocolType = Sockets.ProtocolType.Unknown;
             if(s_LoggingEnabled)Logging.Exit(Logging.Sockets, this, "Socket", null);
         }
 #endif
@@ -611,29 +611,29 @@ namespace System.Net.Sockets {
         /// </devdoc>
         public AddressFamily AddressFamily {
             get {
-                return addressFamily;
+                return _addressFamily;
             }
         }
 
         /// <devdoc>
         ///    <para>
-        ///       Gets the socket's socketType.
+        ///       Gets the socket's _socketType.
         ///    </para>
         /// </devdoc>
         public SocketType SocketType {
             get {
-                return socketType;
+                return _socketType;
             }
         }
 
         /// <devdoc>
         ///    <para>
-        ///       Gets the socket's protocol socketType.
+        ///       Gets the socket's protocol _socketType.
         ///    </para>
         /// </devdoc>
         public ProtocolType ProtocolType {
             get {
-                return protocolType;
+                return _protocolType;
             }
         }
 
@@ -746,10 +746,10 @@ namespace System.Net.Sockets {
 
         public short Ttl{
             get {
-                if (addressFamily == AddressFamily.InterNetwork) {
+                if (_addressFamily == AddressFamily.InterNetwork) {
                     return (short)(int)GetSocketOption(SocketOptionLevel.IP, SocketOptionName.IpTimeToLive);
                 }
-                else if (addressFamily == AddressFamily.InterNetworkV6) {
+                else if (_addressFamily == AddressFamily.InterNetworkV6) {
                     return (short)(int)GetSocketOption(SocketOptionLevel.IPv6, SocketOptionName.IpTimeToLive);
                 }
                 else{
@@ -764,11 +764,11 @@ namespace System.Net.Sockets {
                     throw new ArgumentOutOfRangeException("value");
                 }
 
-                if (addressFamily == AddressFamily.InterNetwork) {
+                if (_addressFamily == AddressFamily.InterNetwork) {
                     SetSocketOption(SocketOptionLevel.IP, SocketOptionName.IpTimeToLive, value);
                 }
 
-                else if (addressFamily == AddressFamily.InterNetworkV6) {
+                else if (_addressFamily == AddressFamily.InterNetworkV6) {
                     SetSocketOption(SocketOptionLevel.IPv6, SocketOptionName.IpTimeToLive, value);
                 }
                 else{
@@ -779,7 +779,7 @@ namespace System.Net.Sockets {
 
         public bool DontFragment{
             get {
-                if (addressFamily == AddressFamily.InterNetwork) {
+                if (_addressFamily == AddressFamily.InterNetwork) {
                     return (int)GetSocketOption(SocketOptionLevel.IP, SocketOptionName.DontFragment) != 0 ? true : false;
                 }
                 else{
@@ -788,7 +788,7 @@ namespace System.Net.Sockets {
             }
 
             set {
-                if (addressFamily == AddressFamily.InterNetwork) {
+                if (_addressFamily == AddressFamily.InterNetwork) {
                     SetSocketOption(SocketOptionLevel.IP, SocketOptionName.DontFragment, value ? 1 : 0);
                 }
                 else{
@@ -800,10 +800,10 @@ namespace System.Net.Sockets {
 #if !MONO
         public bool MulticastLoopback{
             get {
-                if (addressFamily == AddressFamily.InterNetwork) {
+                if (_addressFamily == AddressFamily.InterNetwork) {
                     return (int)GetSocketOption(SocketOptionLevel.IP, SocketOptionName.MulticastLoopback) != 0 ? true : false;
                 }
-                else if (addressFamily == AddressFamily.InterNetworkV6) {
+                else if (_addressFamily == AddressFamily.InterNetworkV6) {
                     return (int)GetSocketOption(SocketOptionLevel.IPv6, SocketOptionName.MulticastLoopback) != 0 ? true : false;
                 }
                 else{
@@ -812,11 +812,11 @@ namespace System.Net.Sockets {
             }
 
             set {
-                if (addressFamily == AddressFamily.InterNetwork) {
+                if (_addressFamily == AddressFamily.InterNetwork) {
                     SetSocketOption(SocketOptionLevel.IP, SocketOptionName.MulticastLoopback, value ? 1 : 0);
                 }
 
-                else if (addressFamily == AddressFamily.InterNetworkV6) {
+                else if (_addressFamily == AddressFamily.InterNetworkV6) {
                     SetSocketOption(SocketOptionLevel.IPv6, SocketOptionName.MulticastLoopback, value ? 1 : 0);
                 }
                 else{
@@ -857,7 +857,7 @@ namespace System.Net.Sockets {
         }
 
         internal bool CanTryAddressFamily(AddressFamily family) {
-            return (family == addressFamily) || (family == AddressFamily.InterNetwork && IsDualMode);
+            return (family == _addressFamily) || (family == AddressFamily.InterNetwork && IsDualMode);
         }
 
 
@@ -1100,7 +1100,7 @@ namespace System.Net.Sockets {
             if (!ValidationHelper.ValidateTcpPort(port)){
                 throw new ArgumentOutOfRangeException("port");
             }
-            if (addressFamily != AddressFamily.InterNetwork && addressFamily != AddressFamily.InterNetworkV6) {
+            if (_addressFamily != AddressFamily.InterNetwork && _addressFamily != AddressFamily.InterNetworkV6) {
                 throw new NotSupportedException(SR.GetString(SR.net_invalidversion));
             }
 
@@ -1125,7 +1125,7 @@ namespace System.Net.Sockets {
             if (!ValidationHelper.ValidateTcpPort(port)) {
                 throw new ArgumentOutOfRangeException("port");
             }
-            if (addressFamily != AddressFamily.InterNetwork && addressFamily != AddressFamily.InterNetworkV6) {
+            if (_addressFamily != AddressFamily.InterNetwork && _addressFamily != AddressFamily.InterNetworkV6) {
                 throw new NotSupportedException(SR.GetString(SR.net_invalidversion));
             }
 
@@ -1995,7 +1995,7 @@ namespace System.Net.Sockets {
             }
             if (!CanTryAddressFamily(remoteEP.AddressFamily)) {
                 throw new ArgumentException(SR.GetString(SR.net_InvalidEndPointAddressFamily, 
-                    remoteEP.AddressFamily, addressFamily), "remoteEP");
+                    remoteEP.AddressFamily, _addressFamily), "remoteEP");
             }
             if (offset<0 || offset>buffer.Length) {
                 throw new ArgumentOutOfRangeException("offset");
@@ -2102,7 +2102,7 @@ namespace System.Net.Sockets {
             }
             if (!CanTryAddressFamily(remoteEP.AddressFamily)) {
                 throw new ArgumentException(SR.GetString(SR.net_InvalidEndPointAddressFamily, 
-                    remoteEP.AddressFamily, addressFamily), "remoteEP");
+                    remoteEP.AddressFamily, _addressFamily), "remoteEP");
             }
             if (offset<0 || offset>buffer.Length) {
                 throw new ArgumentOutOfRangeException("offset");
@@ -2314,10 +2314,10 @@ namespace System.Net.Sockets {
                 throw new ArgumentException(SR.GetString(SR.net_sockets_invalid_optionValue_all), "level");
             }
 
-            if (addressFamily == AddressFamily.InterNetworkV6) {
+            if (_addressFamily == AddressFamily.InterNetworkV6) {
                 SetSocketOption(SocketOptionLevel.IPv6, SocketOptionName.IPProtectionLevel, (int)level);
             }
-            else if (addressFamily == AddressFamily.InterNetwork) {
+            else if (_addressFamily == AddressFamily.InterNetwork) {
                 SetSocketOption(SocketOptionLevel.IP, SocketOptionName.IPProtectionLevel, (int)level);
             }
             else {
@@ -2975,7 +2975,7 @@ namespace System.Net.Sockets {
         private bool CanUseConnectEx(EndPoint remoteEP)
         {
 #if !FEATURE_PAL
-            return socketType == SocketType.Stream &&
+            return _socketType == SocketType.Stream &&
                 (m_RightEndPoint != null || remoteEP.GetType() == typeof(IPEndPoint)) &&
                 (Thread.CurrentThread.IsThreadPoolThread || SettingsSectionInternal.Section.AlwaysUseCompletionPortsForConnect || m_IsDisconnected);
 #else
@@ -3109,7 +3109,7 @@ namespace System.Net.Sockets {
             if (!ValidationHelper.ValidateTcpPort(port)){
                 throw new ArgumentOutOfRangeException("port");
             }
-            if (addressFamily != AddressFamily.InterNetwork && addressFamily != AddressFamily.InterNetworkV6) {
+            if (_addressFamily != AddressFamily.InterNetwork && _addressFamily != AddressFamily.InterNetworkV6) {
                 throw new NotSupportedException(SR.GetString(SR.net_invalidversion));
             }
 
@@ -3180,7 +3180,7 @@ namespace System.Net.Sockets {
             if (!ValidationHelper.ValidateTcpPort(port)) {
                 throw new ArgumentOutOfRangeException("port");
             }
-            if (addressFamily != AddressFamily.InterNetwork && addressFamily != AddressFamily.InterNetworkV6) {
+            if (_addressFamily != AddressFamily.InterNetwork && _addressFamily != AddressFamily.InterNetworkV6) {
                 throw new NotSupportedException(SR.GetString(SR.net_invalidversion));
             }
 
@@ -3319,7 +3319,7 @@ namespace System.Net.Sockets {
 
         Routine Description:
 
-           EndConnect - Called addressFamilyter receiving callback from BeginConnect,
+           EndConnect - Called _addressFamilyter receiving callback from BeginConnect,
             in order to retrive the result of async call
 
         Arguments:
@@ -3457,7 +3457,7 @@ namespace System.Net.Sockets {
 
         Routine Description:
 
-           BeginSend - Async implimentation of Send call, mirrored addressFamilyter BeginReceive
+           BeginSend - Async implimentation of Send call, mirrored _addressFamilyter BeginReceive
            This routine may go pending at which time,
            but any case the callback Delegate will be called upon completion
 
@@ -3850,7 +3850,7 @@ namespace System.Net.Sockets {
 
         Routine Description:
 
-           EndSend -  Called by user code addressFamilyter I/O is done or the user wants to wait.
+           EndSend -  Called by user code _addressFamilyter I/O is done or the user wants to wait.
                         until Async completion, needed to retrieve error result from call
 
         Arguments:
@@ -4132,7 +4132,7 @@ namespace System.Net.Sockets {
 
         Routine Description:
 
-           EndSendTo -  Called by user code addressFamilyter I/O is done or the user wants to wait.
+           EndSendTo -  Called by user code _addressFamilyter I/O is done or the user wants to wait.
                         until Async completion, needed to retrieve error result from call
 
         Arguments:
@@ -4605,7 +4605,7 @@ namespace System.Net.Sockets {
             }
             if (!CanTryAddressFamily(remoteEP.AddressFamily)) {
                 throw new ArgumentException(SR.GetString(SR.net_InvalidEndPointAddressFamily, 
-                    remoteEP.AddressFamily, addressFamily), "remoteEP");
+                    remoteEP.AddressFamily, _addressFamily), "remoteEP");
             }
             if (offset<0 || offset>buffer.Length) {
                 throw new ArgumentOutOfRangeException("offset");
@@ -4726,7 +4726,7 @@ namespace System.Net.Sockets {
             }
             if (!CanTryAddressFamily(endPoint.AddressFamily)) {
                 throw new ArgumentException(SR.GetString(SR.net_InvalidEndPointAddressFamily, 
-                    endPoint.AddressFamily, addressFamily), "endPoint");
+                    endPoint.AddressFamily, _addressFamily), "endPoint");
             }
             if (asyncResult==null) {
                 throw new ArgumentNullException("asyncResult");
@@ -4844,7 +4844,7 @@ namespace System.Net.Sockets {
             }
             if (!CanTryAddressFamily(remoteEP.AddressFamily)) {
                 throw new ArgumentException(SR.GetString(SR.net_InvalidEndPointAddressFamily, 
-                    remoteEP.AddressFamily, addressFamily), "remoteEP");
+                    remoteEP.AddressFamily, _addressFamily), "remoteEP");
             }
             if (offset<0 || offset>buffer.Length) {
                 throw new ArgumentOutOfRangeException("offset");
@@ -4986,7 +4986,7 @@ namespace System.Net.Sockets {
             }
             if (!CanTryAddressFamily(endPoint.AddressFamily)) {
                 throw new ArgumentException(SR.GetString(SR.net_InvalidEndPointAddressFamily, 
-                    endPoint.AddressFamily, addressFamily), "endPoint");
+                    endPoint.AddressFamily, _addressFamily), "endPoint");
             }
             if (asyncResult==null) {
                 throw new ArgumentNullException("asyncResult");
@@ -5453,7 +5453,7 @@ namespace System.Net.Sockets {
 
             // if a acceptSocket isn't specified, then we need to create it.
             if (acceptSocket == null) {
-                acceptSocket = new Socket(addressFamily,socketType,protocolType);
+                acceptSocket = new Socket(_addressFamily,_socketType,_protocolType);
             }
             else
             {
@@ -5515,7 +5515,7 @@ namespace System.Net.Sockets {
 
         Routine Description:
 
-           EndAccept -  Called by user code addressFamilyter I/O is done or the user wants to wait.
+           EndAccept -  Called by user code _addressFamilyter I/O is done or the user wants to wait.
                         until Async completion, so it provides End handling for aync Accept calls,
                         and retrieves new Socket object
 
@@ -5763,7 +5763,7 @@ namespace System.Net.Sockets {
         {
             if (m_DynamicWinsockMethods == null)
             {
-                m_DynamicWinsockMethods = DynamicWinsockMethods.GetMethods(addressFamily, socketType, protocolType);
+                m_DynamicWinsockMethods = DynamicWinsockMethods.GetMethods(_addressFamily, _socketType, _protocolType);
             }
         }
 
@@ -5882,9 +5882,9 @@ namespace System.Net.Sockets {
         internal TransportType Transport {
             get {
                 return
-                    protocolType==Sockets.ProtocolType.Tcp ?
+                    _protocolType==Sockets.ProtocolType.Tcp ?
                         TransportType.Tcp :
-                        protocolType==Sockets.ProtocolType.Udp ?
+                        _protocolType==Sockets.ProtocolType.Udp ?
                             TransportType.Udp :
                             TransportType.All;
             }
@@ -6428,14 +6428,14 @@ namespace System.Net.Sockets {
                 IPEndPoint ipEndPoint = m_RightEndPoint as IPEndPoint;
                 IPAddress boundAddress = (ipEndPoint != null ? ipEndPoint.Address : null);
                 Debug.Assert(boundAddress != null, "Not Bound");
-                if (this.addressFamily == AddressFamily.InterNetwork
+                if (this._addressFamily == AddressFamily.InterNetwork
                     || (boundAddress != null && IsDualMode 
                         && (boundAddress.IsIPv4MappedToIPv6 || boundAddress.Equals(IPAddress.IPv6Any))))
                 {
                     SetSocketOption(SocketOptionLevel.IP, SocketOptionName.PacketInformation, true);
                 }
 
-                if (this.addressFamily == AddressFamily.InterNetworkV6
+                if (this._addressFamily == AddressFamily.InterNetworkV6
                     && (boundAddress == null || !boundAddress.IsIPv4MappedToIPv6))
                 {
                     SetSocketOption(SocketOptionLevel.IPv6, SocketOptionName.PacketInformation, true);
@@ -7310,9 +7310,9 @@ namespace System.Net.Sockets {
             //
             // Internal state of the socket is inherited from listener
             //
-            socket.addressFamily    = addressFamily;
-            socket.socketType       = socketType;
-            socket.protocolType     = protocolType;
+            socket._addressFamily    = _addressFamily;
+            socket._socketType       = _socketType;
+            socket._protocolType     = _protocolType;
             socket.m_RightEndPoint  = m_RightEndPoint;
             socket.m_RemoteEndPoint = remoteEP;
             //
@@ -7683,7 +7683,7 @@ namespace System.Net.Sockets {
             // Handle AcceptSocket property.
             if(e.AcceptSocket == null) {
                 // Accept socket not specified - create it.
-                e.AcceptSocket = new Socket(addressFamily, socketType, protocolType);
+                e.AcceptSocket = new Socket(_addressFamily, _socketType, _protocolType);
             } else {
                 // Validate accept socket for use here.
                 if(e.AcceptSocket.m_RightEndPoint != null && !e.AcceptSocket.m_IsDisconnected) {
@@ -7844,7 +7844,7 @@ namespace System.Net.Sockets {
         }
 
 #endif // MONO
-        public static bool ConnectAsync(SocketType socketType, ProtocolType protocolType, SocketAsyncEventArgs e) {
+        public static bool ConnectAsync(SocketType _socketType, ProtocolType _protocolType, SocketAsyncEventArgs e) {
 
             bool retval;
 
@@ -7867,9 +7867,9 @@ namespace System.Net.Sockets {
                 Socket attemptSocket = null;
                 MultipleConnectAsync multipleConnectAsync = null;
                 if (dnsEP.AddressFamily == AddressFamily.Unspecified) {
-                    multipleConnectAsync = new DualSocketMultipleConnectAsync(socketType, protocolType);
+                    multipleConnectAsync = new DualSocketMultipleConnectAsync(_socketType, _protocolType);
                 } else {
-                    attemptSocket = new Socket(dnsEP.AddressFamily, socketType, protocolType);
+                    attemptSocket = new Socket(dnsEP.AddressFamily, _socketType, _protocolType);
                     multipleConnectAsync = new SingleSocketMultipleConnectAsync(attemptSocket, false);
                 }
 
@@ -7878,7 +7878,7 @@ namespace System.Net.Sockets {
 
                 retval = multipleConnectAsync.StartConnectAsync(e, dnsEP);
             } else {
-                Socket attemptSocket = new Socket(endPointSnapshot.AddressFamily, socketType, protocolType);
+                Socket attemptSocket = new Socket(endPointSnapshot.AddressFamily, _socketType, _protocolType);
                 retval = attemptSocket.ConnectAsync(e);
             }
 
@@ -8037,7 +8037,7 @@ namespace System.Net.Sockets {
 
             if(!CanTryAddressFamily(e.RemoteEndPoint.AddressFamily)) {
                 throw new ArgumentException(SR.GetString(SR.net_InvalidEndPointAddressFamily, 
-                    e.RemoteEndPoint.AddressFamily, addressFamily), "RemoteEndPoint");
+                    e.RemoteEndPoint.AddressFamily, _addressFamily), "RemoteEndPoint");
             }
 
             // We don't do a CAS demand here because the contents of remoteEP aren't used by
@@ -8129,7 +8129,7 @@ namespace System.Net.Sockets {
 
             if(!CanTryAddressFamily(e.RemoteEndPoint.AddressFamily)) {
                 throw new ArgumentException(SR.GetString(SR.net_InvalidEndPointAddressFamily, 
-                    e.RemoteEndPoint.AddressFamily, addressFamily), "RemoteEndPoint");
+                    e.RemoteEndPoint.AddressFamily, _addressFamily), "RemoteEndPoint");
             }
 
             // We don't do a CAS demand here because the contents of remoteEP aren't used by
