@@ -89,7 +89,7 @@ namespace System.Net.Sockets
 		internal bool is_bound;
 
 		/* When true, the socket was connected at the time of the last IO operation */
-		internal bool is_connected;
+		internal bool _isConnected;
 
 		int m_IntCleanedUp;
 		internal bool connect_in_progress;
@@ -107,7 +107,7 @@ namespace System.Net.Sockets
 		public Socket (SocketInformation socketInformation)
 		{
 			this.is_listening      = (socketInformation.Options & SocketInformationOptions.Listening) != 0;
-			this.is_connected      = (socketInformation.Options & SocketInformationOptions.Connected) != 0;
+			this._isConnected      = (socketInformation.Options & SocketInformationOptions.Connected) != 0;
 			this.is_blocking       = (socketInformation.Options & SocketInformationOptions.NonBlocking) == 0;
 			this.useOverlappedIO = (socketInformation.Options & SocketInformationOptions.UseOnlyOverlappedIO) != 0;
 
@@ -132,7 +132,7 @@ namespace System.Net.Sockets
 			this.protocolType = proto;
 			
 			this._handle = safe_handle;
-			this.is_connected = true;
+			this._isConnected = true;
 
 			InitializeSockets ();	
 		}
@@ -345,8 +345,8 @@ namespace System.Net.Sockets
 		internal extern static void Blocking_internal(IntPtr socket, bool block, out int error);
 
 		public bool Connected {
-			get { return is_connected; }
-			internal set { is_connected = value; }
+			get { return _isConnected; }
+			internal set { _isConnected = value; }
 		}
 
 		// FIXME: import from referencesource
@@ -371,7 +371,7 @@ namespace System.Net.Sockets
 
 				/* If the seed EndPoint is null, Connect, Bind, etc has
 				 * not yet been called. MS returns null in this case. */
-				if (!is_connected || seed_endpoint == null)
+				if (!_isConnected || seed_endpoint == null)
 					return null;
 
 				int error;
@@ -460,9 +460,9 @@ namespace System.Net.Sockets
 					continue;
 				}
 
-				if (mode == 1 && currentList == checkWrite && !sock.is_connected) {
+				if (mode == 1 && currentList == checkWrite && !sock._isConnected) {
 					if ((int) sock.GetSocketOption (SocketOptionLevel.Socket, SocketOptionName.Error) == 0)
-						sock.is_connected = true;
+						sock._isConnected = true;
 				}
 
 				/* Remove non-signaled sockets before the current one */
@@ -509,11 +509,11 @@ namespace System.Net.Sockets
 			if (error != 0)
 				throw new SocketException (error);
 
-			if (mode == SelectMode.SelectWrite && result && !is_connected) {
-				/* Update the is_connected state; for non-blocking Connect()
+			if (mode == SelectMode.SelectWrite && result && !_isConnected) {
+				/* Update the _isConnected state; for non-blocking Connect()
 				 * this is when we can find out that the connect succeeded. */
 				if ((int) GetSocketOption (SocketOptionLevel.Socket, SocketOptionName.Error) == 0)
-					is_connected = true;
+					_isConnected = true;
 			}
 
 			return result;
@@ -582,7 +582,7 @@ namespace System.Net.Sockets
 			acceptSocket.socketType = this.SocketType;
 			acceptSocket.protocolType = this.ProtocolType;
 			acceptSocket._handle = safe_handle;
-			acceptSocket.is_connected = true;
+			acceptSocket._isConnected = true;
 			acceptSocket.seed_endpoint = this.seed_endpoint;
 			acceptSocket.Blocking = this.Blocking;
 
@@ -606,7 +606,7 @@ namespace System.Net.Sockets
 
 			Socket acceptSocket = e.AcceptSocket;
 			if (acceptSocket != null) {
-				if (acceptSocket.is_bound || acceptSocket.is_connected)
+				if (acceptSocket.is_bound || acceptSocket._isConnected)
 					throw new InvalidOperationException ("AcceptSocket: The socket must not be bound or connected.");
 			}
 
@@ -903,7 +903,7 @@ namespace System.Net.Sockets
 			if (is_listening)
 				throw new InvalidOperationException (SR.net_sockets_mustnotlisten);
 
-			if (is_connected)
+			if (_isConnected)
 				throw new SocketException((int)SocketError.IsConnected);
 
 			ValidateBlockingMode ();
@@ -971,7 +971,7 @@ namespace System.Net.Sockets
 				throw new ArgumentNullException ("remoteEP");
 			if (is_listening)
 				throw new InvalidOperationException (SR.net_sockets_mustnotlisten);
-			if (is_connected)
+			if (_isConnected)
 				throw new SocketException ((int)SocketError.IsConnected);
 
 			// Prepare SocketAddress.
@@ -1113,7 +1113,7 @@ namespace System.Net.Sockets
 			if (is_listening)
 				throw new InvalidOperationException (SR.net_sockets_mustnotlisten);
 
-			if (is_connected)
+			if (_isConnected)
 				throw new SocketException ((int)SocketError.IsConnected);
 
 			DnsEndPoint dnsEP = remoteEP as DnsEndPoint;
@@ -1232,7 +1232,7 @@ namespace System.Net.Sockets
 			if (is_listening)
 				throw new InvalidOperationException (SR.net_sockets_mustnotlisten);
 
-			if (is_connected)
+			if (_isConnected)
 				throw new SocketException ((int)SocketError.IsConnected);
 
 			ValidateForMultiConnect (isMultiEndpoint: true);
@@ -1365,7 +1365,7 @@ namespace System.Net.Sockets
 				}
 			}
 
-			is_connected = false;
+			_isConnected = false;
 			if (reuseSocket) {
 				/* Do managed housekeeping here... */
 			}
@@ -1474,10 +1474,10 @@ namespace System.Net.Sockets
 
 			errorCode = (SocketError) nativeError;
 			if (errorCode != SocketError.Success && errorCode != SocketError.WouldBlock && errorCode != SocketError.InProgress) {
-				is_connected = false;
+				_isConnected = false;
 				is_bound = false;
 			} else {
-				is_connected = true;
+				_isConnected = true;
 			}
 
 			return ret;
@@ -1689,7 +1689,7 @@ namespace System.Net.Sockets
 			errorCode = sockares.ErrorCode;
 
 			if (errorCode != SocketError.Success && errorCode != SocketError.WouldBlock && errorCode != SocketError.InProgress)
-				is_connected = false;
+				_isConnected = false;
 
 			// If no socket error occurred, call CheckIfThrowDelayedException in case there are other
 			// kinds of exceptions that should be thrown.
@@ -1769,7 +1769,7 @@ namespace System.Net.Sockets
 			errorCode = (SocketError) nativeError;
 			if (errorCode != SocketError.Success) {
 				if (errorCode != SocketError.WouldBlock && errorCode != SocketError.InProgress) {
-					is_connected = false;
+					_isConnected = false;
 				} else if (errorCode == SocketError.WouldBlock && is_blocking) { // This might happen when ReceiveTimeout is set
 					errorCode = SocketError.TimedOut;
 				}
@@ -1777,7 +1777,7 @@ namespace System.Net.Sockets
 				return 0;
 			}
 
-			is_connected = true;
+			_isConnected = true;
 			is_bound = true;
 
 			/* If sockaddr is null then we're a connection oriented protocol and should ignore the
@@ -2001,11 +2001,11 @@ namespace System.Net.Sockets
 
 				errorCode = (SocketError)nativeError;
 				if (errorCode != SocketError.Success && errorCode != SocketError.WouldBlock && errorCode != SocketError.InProgress) {
-					is_connected = false;
+					_isConnected = false;
 					is_bound = false;
 					break;
 				} else {
-					is_connected = true;
+					_isConnected = true;
 				}
 			} while (sent < size);
 
@@ -2116,7 +2116,7 @@ namespace System.Net.Sockets
 			ThrowIfBufferNull (buffer);
 			ThrowIfBufferOutOfRange (buffer, offset, size);
 
-			if (!is_connected) {
+			if (!_isConnected) {
 				errorCode = SocketError.NotConnected;
 				return null;
 			}
@@ -2179,7 +2179,7 @@ namespace System.Net.Sockets
 			if (buffers == null)
 				throw new ArgumentNullException ("buffers");
 
-			if (!is_connected) {
+			if (!_isConnected) {
 				errorCode = SocketError.NotConnected;
 				return null;
 			}
@@ -2222,7 +2222,7 @@ namespace System.Net.Sockets
 			errorCode = sockares.ErrorCode;
 
 			if (errorCode != SocketError.Success && errorCode != SocketError.WouldBlock && errorCode != SocketError.InProgress)
-				is_connected = false;
+				_isConnected = false;
 
 			/* If no socket error occurred, call CheckIfThrowDelayedException in
 			 * case there are other kinds of exceptions that should be thrown.*/
@@ -2282,11 +2282,11 @@ namespace System.Net.Sockets
 			SocketError err = (SocketError) error;
 			if (err != 0) {
 				if (err != SocketError.WouldBlock && err != SocketError.InProgress)
-					is_connected = false;
+					_isConnected = false;
 				throw new SocketException (error);
 			}
 
-			is_connected = true;
+			_isConnected = true;
 			is_bound = true;
 			seed_endpoint = remoteEP;
 
@@ -2414,7 +2414,7 @@ namespace System.Net.Sockets
 		{
 			ThrowIfDisposedAndClosed ();
 
-			if (!is_connected)
+			if (!_isConnected)
 				throw new NotSupportedException ();
 			if (!is_blocking)
 				throw new InvalidOperationException ();
@@ -2432,7 +2432,7 @@ namespace System.Net.Sockets
 		{
 			ThrowIfDisposedAndClosed ();
 
-			if (!is_connected)
+			if (!_isConnected)
 				throw new NotSupportedException ();
 			if (!File.Exists (fileName))
 				throw new FileNotFoundException ();
@@ -2533,7 +2533,7 @@ namespace System.Net.Sockets
 			var si = new SocketInformation ();
 			si.Options =
 				(is_listening      ? SocketInformationOptions.Listening : 0) |
-				(is_connected      ? SocketInformationOptions.Connected : 0) |
+				(_isConnected      ? SocketInformationOptions.Connected : 0) |
 				(is_blocking       ? 0 : SocketInformationOptions.NonBlocking) |
 				(useOverlappedIO ? SocketInformationOptions.UseOnlyOverlappedIO : 0);
 
@@ -2804,7 +2804,7 @@ namespace System.Net.Sockets
 
 			ThrowIfDisposedAndClosed ();
 
-			if (!is_connected)
+			if (!_isConnected)
 				throw new SocketException (enotconn); // Not connected
 
 			int error;
@@ -2813,7 +2813,7 @@ namespace System.Net.Sockets
 			if (error == enotconn) {
 				// POSIX requires this error to be returned from shutdown in some cases,
 				//  even if the socket is actually connected.
-				// We have already checked is_connected so it isn't meaningful or useful for
+				// We have already checked _isConnected so it isn't meaningful or useful for
 				//  us to throw if the OS says the socket was already closed when we tried to
 				//  shut it down.
 				// See https://bugs.freebsd.org/bugzilla/show_bug.cgi?id=227259
@@ -2849,8 +2849,8 @@ namespace System.Net.Sockets
 				return;
 
 			m_IntCleanedUp = 1;
-			bool was_connected = is_connected;
-			is_connected = false;
+			bool was_connected = _isConnected;
+			_isConnected = false;
 
 			if (_handle != null) {
 				is_closed = true;
@@ -2865,7 +2865,7 @@ namespace System.Net.Sockets
 
 		void Linger (IntPtr handle)
 		{
-			if (!is_connected || linger_timeout <= 0)
+			if (!_isConnected || linger_timeout <= 0)
 				return;
 
 			/* We don't want to receive any more data */

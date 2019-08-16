@@ -37,7 +37,7 @@ namespace System.Net.Sockets
 		// this version does not throw.
 		internal void InternalShutdown (SocketShutdown how)
 		{
-			if (!is_connected || CleanedUp)
+			if (!_isConnected || CleanedUp)
 				return;
 			int error;
 			Shutdown_internal (_handle, how, out error);

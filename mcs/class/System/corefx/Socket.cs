@@ -99,7 +99,7 @@ namespace System.Net.Sockets
 
         internal void SetToConnected()
         {
-            if (is_connected)
+            if (_isConnected)
             {
                 // Socket was already connected.
                 return;
@@ -107,7 +107,7 @@ namespace System.Net.Sockets
 
             // Update the status: this socket was indeed connected at
             // some point in time update the perf counter as well.
-            is_connected = true;
+            _isConnected = true;
             is_closed = false;
             if (NetEventSource.IsEnabled) NetEventSource.Info(this, "now connected");
         }
@@ -116,7 +116,7 @@ namespace System.Net.Sockets
         {
             if (NetEventSource.IsEnabled) NetEventSource.Enter(this);
 
-            if (!is_connected)
+            if (!_isConnected)
             {
                 // Socket was already disconnected.
                 return;
@@ -124,7 +124,7 @@ namespace System.Net.Sockets
 
             // Update the status: this socket was indeed disconnected at
             // some point in time, clear any async select bits.
-            is_connected = false;
+            _isConnected = false;
             is_closed = true;
 
             if (!CleanedUp)
@@ -157,7 +157,7 @@ namespace System.Net.Sockets
             if (NetEventSource.IsEnabled) NetEventSource.Enter(this);
             if (NetEventSource.IsEnabled) NetEventSource.Error(this, $"errorCode:{errorCode}");
 
-            if (is_connected && (_handle.IsInvalid || (errorCode != SocketError.WouldBlock &&
+            if (_isConnected && (_handle.IsInvalid || (errorCode != SocketError.WouldBlock &&
                     errorCode != SocketError.IOPending && errorCode != SocketError.NoBufferSpaceAvailable &&
                     errorCode != SocketError.TimedOut)))
             {
