@@ -1562,7 +1562,7 @@ Socket_to_SOCKET (MonoObjectHandle sockobj)
 {
 	MonoClassField *field;
 	
-	field = mono_class_get_field_from_name_full (mono_handle_class (sockobj), "m_Handle", NULL);
+	field = mono_class_get_field_from_name_full (mono_handle_class (sockobj), "_handle", NULL);
 	MonoSafeHandleHandle safe_handle = MONO_HANDLE_NEW_GET_FIELD(sockobj, MonoSafeHandle, field);
 
 	if (MONO_HANDLE_IS_NULL (safe_handle))
