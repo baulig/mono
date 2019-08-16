@@ -17,7 +17,7 @@ namespace System.Net.Sockets
             // only targeting a single address, but it already experienced a failure in a
             // previous connect call, then this is logically part of a multi endpoint connect,
             // and the same logic applies.  Either way, in such a situation we throw.
-            if (m_Handle.ExposedHandleOrUntrackedConfiguration && (isMultiEndpoint || m_Handle.LastConnectFailed))
+            if (_handle.ExposedHandleOrUntrackedConfiguration && (isMultiEndpoint || _handle.LastConnectFailed))
             {
                 ThrowMultiConnectNotSupported();
             }
@@ -25,12 +25,12 @@ namespace System.Net.Sockets
             // If the socket was already used for a failed connect attempt, replace it
             // with a fresh one, copying over all of the state we've tracked.
             ReplaceHandleIfNecessaryAfterFailedConnect();
-            Debug.Assert(!m_Handle.LastConnectFailed);
+            Debug.Assert(!_handle.LastConnectFailed);
         }
 
         internal void ReplaceHandleIfNecessaryAfterFailedConnect()
         {
-            if (!m_Handle.LastConnectFailed)
+            if (!_handle.LastConnectFailed)
             {
                 return;
             }
@@ -41,34 +41,34 @@ namespace System.Net.Sockets
                 throw new SocketException((int) errorCode);
             }
 
-            m_Handle.LastConnectFailed = false;
+            _handle.LastConnectFailed = false;
         }
 
         internal SocketError ReplaceHandle()
         {
             // Copy out values from key options. The copied values should be kept in sync with the
             // handling in SafeCloseSocket.TrackOption.  Note that we copy these values out first, before
-            // we change m_Handle, so that we can use the helpers on Socket which internally access m_Handle.
-            // Then once m_Handle is switched to the new one, we can call the setters to propagate the retrieved
+            // we change _handle, so that we can use the helpers on Socket which internally access _handle.
+            // Then once _handle is switched to the new one, we can call the setters to propagate the retrieved
             // values back out to the new underlying socket.
             bool broadcast = false, dontFragment = false, noDelay = false;
             int receiveSize = -1, receiveTimeout = -1, sendSize = -1, sendTimeout = -1;
             short ttl = -1;
             LingerOption linger = null;
-            if (m_Handle.IsTrackedOption(TrackedSocketOptions.DontFragment)) dontFragment = DontFragment;
-            if (m_Handle.IsTrackedOption(TrackedSocketOptions.EnableBroadcast)) broadcast = EnableBroadcast;
-            if (m_Handle.IsTrackedOption(TrackedSocketOptions.LingerState)) linger = LingerState;
-            if (m_Handle.IsTrackedOption(TrackedSocketOptions.NoDelay)) noDelay = NoDelay;
-            if (m_Handle.IsTrackedOption(TrackedSocketOptions.ReceiveBufferSize)) receiveSize = ReceiveBufferSize;
-            if (m_Handle.IsTrackedOption(TrackedSocketOptions.ReceiveTimeout)) receiveTimeout = ReceiveTimeout;
-            if (m_Handle.IsTrackedOption(TrackedSocketOptions.SendBufferSize)) sendSize = SendBufferSize;
-            if (m_Handle.IsTrackedOption(TrackedSocketOptions.SendTimeout)) sendTimeout = SendTimeout;
-            if (m_Handle.IsTrackedOption(TrackedSocketOptions.Ttl)) ttl = Ttl;
+            if (_handle.IsTrackedOption(TrackedSocketOptions.DontFragment)) dontFragment = DontFragment;
+            if (_handle.IsTrackedOption(TrackedSocketOptions.EnableBroadcast)) broadcast = EnableBroadcast;
+            if (_handle.IsTrackedOption(TrackedSocketOptions.LingerState)) linger = LingerState;
+            if (_handle.IsTrackedOption(TrackedSocketOptions.NoDelay)) noDelay = NoDelay;
+            if (_handle.IsTrackedOption(TrackedSocketOptions.ReceiveBufferSize)) receiveSize = ReceiveBufferSize;
+            if (_handle.IsTrackedOption(TrackedSocketOptions.ReceiveTimeout)) receiveTimeout = ReceiveTimeout;
+            if (_handle.IsTrackedOption(TrackedSocketOptions.SendBufferSize)) sendSize = SendBufferSize;
+            if (_handle.IsTrackedOption(TrackedSocketOptions.SendTimeout)) sendTimeout = SendTimeout;
+            if (_handle.IsTrackedOption(TrackedSocketOptions.Ttl)) ttl = Ttl;
 
             // Then replace the handle with a new one
-            SafeCloseSocket oldHandle = m_Handle;
-            SocketError errorCode = SocketPal.CreateSocket(addressFamily, socketType, protocolType, out m_Handle);
-            oldHandle.TransferTrackedState(m_Handle);
+            SafeCloseSocket oldHandle = _handle;
+            SocketError errorCode = SocketPal.CreateSocket(addressFamily, socketType, protocolType, out _handle);
+            oldHandle.TransferTrackedState(_handle);
             oldHandle.Dispose();
             if (errorCode != SocketError.Success)
             {
@@ -78,16 +78,16 @@ namespace System.Net.Sockets
             // And put back the copied settings.  For DualMode, we use the value stored in the _handle
             // rather than querying the socket itself, as on Unix stacks binding a dual-mode socket to
             // an IPv6 address may cause the IPv6Only setting to revert to true.
-            if (m_Handle.IsTrackedOption(TrackedSocketOptions.DualMode)) DualMode = m_Handle.DualMode;
-            if (m_Handle.IsTrackedOption(TrackedSocketOptions.DontFragment)) DontFragment = dontFragment;
-            if (m_Handle.IsTrackedOption(TrackedSocketOptions.EnableBroadcast)) EnableBroadcast = broadcast;
-            if (m_Handle.IsTrackedOption(TrackedSocketOptions.LingerState)) LingerState = linger;
-            if (m_Handle.IsTrackedOption(TrackedSocketOptions.NoDelay)) NoDelay = noDelay;
-            if (m_Handle.IsTrackedOption(TrackedSocketOptions.ReceiveBufferSize)) ReceiveBufferSize = receiveSize;
-            if (m_Handle.IsTrackedOption(TrackedSocketOptions.ReceiveTimeout)) ReceiveTimeout = receiveTimeout;
-            if (m_Handle.IsTrackedOption(TrackedSocketOptions.SendBufferSize)) SendBufferSize = sendSize;
-            if (m_Handle.IsTrackedOption(TrackedSocketOptions.SendTimeout)) SendTimeout = sendTimeout;
-            if (m_Handle.IsTrackedOption(TrackedSocketOptions.Ttl)) Ttl = ttl;
+            if (_handle.IsTrackedOption(TrackedSocketOptions.DualMode)) DualMode = _handle.DualMode;
+            if (_handle.IsTrackedOption(TrackedSocketOptions.DontFragment)) DontFragment = dontFragment;
+            if (_handle.IsTrackedOption(TrackedSocketOptions.EnableBroadcast)) EnableBroadcast = broadcast;
+            if (_handle.IsTrackedOption(TrackedSocketOptions.LingerState)) LingerState = linger;
+            if (_handle.IsTrackedOption(TrackedSocketOptions.NoDelay)) NoDelay = noDelay;
+            if (_handle.IsTrackedOption(TrackedSocketOptions.ReceiveBufferSize)) ReceiveBufferSize = receiveSize;
+            if (_handle.IsTrackedOption(TrackedSocketOptions.ReceiveTimeout)) ReceiveTimeout = receiveTimeout;
+            if (_handle.IsTrackedOption(TrackedSocketOptions.SendBufferSize)) SendBufferSize = sendSize;
+            if (_handle.IsTrackedOption(TrackedSocketOptions.SendTimeout)) SendTimeout = sendTimeout;
+            if (_handle.IsTrackedOption(TrackedSocketOptions.Ttl)) Ttl = ttl;
 
             return SocketError.Success;
         }
@@ -157,7 +157,7 @@ namespace System.Net.Sockets
             if (NetEventSource.IsEnabled) NetEventSource.Enter(this);
             if (NetEventSource.IsEnabled) NetEventSource.Error(this, $"errorCode:{errorCode}");
 
-            if (is_connected && (m_Handle.IsInvalid || (errorCode != SocketError.WouldBlock &&
+            if (is_connected && (_handle.IsInvalid || (errorCode != SocketError.WouldBlock &&
                     errorCode != SocketError.IOPending && errorCode != SocketError.NoBufferSpaceAvailable &&
                     errorCode != SocketError.TimedOut)))
             {

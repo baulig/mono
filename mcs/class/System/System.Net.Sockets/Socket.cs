@@ -70,8 +70,8 @@ namespace System.Net.Sockets
 		SocketType socketType;
 		ProtocolType protocolType;
 
-		/* the field "m_Handle" is looked up by name by the runtime */
-		internal SafeSocketHandle m_Handle;
+		/* the field "_handle" is looked up by name by the runtime */
+		internal SafeSocketHandle _handle;
 
 		/*
 		 * This EndPoint is used when creating new endpoints. Because
@@ -117,7 +117,7 @@ namespace System.Net.Sockets
 			this.socketType = (SocketType) (int) result [1];
 			this.protocolType = (ProtocolType) (int) result [2];
 			this.is_bound = (ProtocolType) (int) result [3] != 0;
-			this.m_Handle = new SafeSocketHandle ((IntPtr) (long) result [4], true);
+			this._handle = new SafeSocketHandle ((IntPtr) (long) result [4], true);
 
 			InitializeSockets ();
 
@@ -131,7 +131,7 @@ namespace System.Net.Sockets
 			this.socketType = type;
 			this.protocolType = proto;
 			
-			this.m_Handle = safe_handle;
+			this._handle = safe_handle;
 			this.is_connected = true;
 
 			InitializeSockets ();	
@@ -181,7 +181,7 @@ namespace System.Net.Sockets
 				ThrowIfDisposedAndClosed ();
 
 				int ret, error;
-				ret = Available_internal (m_Handle, out error);
+				ret = Available_internal (_handle, out error);
 
 				if (error != 0)
 					throw new SocketException (error);
@@ -289,7 +289,7 @@ namespace System.Net.Sockets
 					return null;
 
 				int error;
-				SocketAddress sa = LocalEndPoint_internal (m_Handle, (int) addressFamily, out error);
+				SocketAddress sa = LocalEndPoint_internal (_handle, (int) addressFamily, out error);
 
 				if (error != 0)
 					throw new SocketException (error);
@@ -320,7 +320,7 @@ namespace System.Net.Sockets
 				ThrowIfDisposedAndClosed ();
 
 				int error;
-				Blocking_internal (m_Handle, value, out error);
+				Blocking_internal (_handle, value, out error);
 
 				if (error != 0)
 					throw new SocketException (error);
@@ -375,7 +375,7 @@ namespace System.Net.Sockets
 					return null;
 
 				int error;
-				SocketAddress sa = RemoteEndPoint_internal (m_Handle, (int) addressFamily, out error);
+				SocketAddress sa = RemoteEndPoint_internal (_handle, (int) addressFamily, out error);
 
 				if (error != 0)
 					throw new SocketException (error);
@@ -402,7 +402,7 @@ namespace System.Net.Sockets
 
 		internal SafeHandle SafeHandle
 		{
-			get { return m_Handle; }
+			get { return _handle; }
 		}
 
 #endregion
@@ -504,7 +504,7 @@ namespace System.Net.Sockets
 				throw new NotSupportedException ("'mode' parameter is not valid.");
 
 			int error;
-			bool result = Poll_internal (m_Handle, mode, microSeconds, out error);
+			bool result = Poll_internal (_handle, mode, microSeconds, out error);
 
 			if (error != 0)
 				throw new SocketException (error);
@@ -549,7 +549,7 @@ namespace System.Net.Sockets
 				throw new InvalidOperationException (SR.net_sockets_mustlisten);
 
 			int error = 0;
-			SafeSocketHandle safe_handle = Accept_internal (this.m_Handle, out error, is_blocking);
+			SafeSocketHandle safe_handle = Accept_internal (this._handle, out error, is_blocking);
 
 			if (error != 0) {
 				if (is_closed)
@@ -570,7 +570,7 @@ namespace System.Net.Sockets
 			ThrowIfDisposedAndClosed ();
 
 			int error = 0;
-			SafeSocketHandle safe_handle = Accept_internal (this.m_Handle, out error, is_blocking);
+			SafeSocketHandle safe_handle = Accept_internal (this._handle, out error, is_blocking);
 
 			if (error != 0) {
 				if (is_closed)
@@ -581,7 +581,7 @@ namespace System.Net.Sockets
 			acceptSocket.addressFamily = this.AddressFamily;
 			acceptSocket.socketType = this.SocketType;
 			acceptSocket.protocolType = this.ProtocolType;
-			acceptSocket.m_Handle = safe_handle;
+			acceptSocket._handle = safe_handle;
 			acceptSocket.is_connected = true;
 			acceptSocket.seed_endpoint = this.seed_endpoint;
 			acceptSocket.Blocking = this.Blocking;
@@ -796,7 +796,7 @@ namespace System.Net.Sockets
 			var socketAddress = SnapshotAndSerialize (ref endPointSnapshot);
 
 			int error;
-			Bind_internal (m_Handle, socketAddress, out error);
+			Bind_internal (_handle, socketAddress, out error);
 
 			if (error != 0)
 				throw new SocketException (error);
@@ -835,7 +835,7 @@ namespace System.Net.Sockets
 				throw new SocketException ((int) SocketError.InvalidArgument);
 
 			int error;
-			Listen_internal(m_Handle, backlog, out error);
+			Listen_internal(_handle, backlog, out error);
 
 			if (error != 0)
 				throw new SocketException (error);
@@ -936,7 +936,7 @@ namespace System.Net.Sockets
 
 		void DoConnect (EndPoint endPointSnapshot, SocketAddress socketAddress)
 		{
-			SocketError errorCode = SocketPal.Connect (m_Handle, socketAddress.Buffer, socketAddress.Size);
+			SocketError errorCode = SocketPal.Connect (_handle, socketAddress.Buffer, socketAddress.Size);
 
 			// Throw an appropriate SocketException if the native call fails.
 			if (errorCode != SocketError.Success) {
@@ -1021,7 +1021,7 @@ namespace System.Net.Sockets
 				// Make the native call.
 				SocketError socketError = SocketError.Success;
 				try {
-					socketError = e.DoOperationConnect (this, m_Handle);
+					socketError = e.DoOperationConnect (this, _handle);
 				} catch {
 					seed_endpoint = oldEndPoint;
 
@@ -1190,7 +1190,7 @@ namespace System.Net.Sockets
 
 			SocketError errorCode;
 			try {
-				errorCode = SocketPal.ConnectAsync (this, m_Handle, socketAddress.Buffer, socketAddress.Size, asyncResult);
+				errorCode = SocketPal.ConnectAsync (this, _handle, socketAddress.Buffer, socketAddress.Size, asyncResult);
 			} catch {
 				// _rightEndPoint will always equal oldEndPoint.
 				seed_endpoint = oldEndPoint;
@@ -1354,7 +1354,7 @@ namespace System.Net.Sockets
 			ThrowIfDisposedAndClosed ();
 
 			int error = 0;
-			Disconnect_internal (m_Handle, reuseSocket, out error);
+			Disconnect_internal (_handle, reuseSocket, out error);
 
 			if (error != 0) {
 				if (error == 50) {
@@ -1468,7 +1468,7 @@ namespace System.Net.Sockets
 			int ret;
 			unsafe {
 				fixed (byte* pbuffer = buffer) {
-					ret = Receive_internal (m_Handle, &pbuffer[offset], size, socketFlags, out nativeError, is_blocking);
+					ret = Receive_internal (_handle, &pbuffer[offset], size, socketFlags, out nativeError, is_blocking);
 				}
 			}
 
@@ -1514,7 +1514,7 @@ namespace System.Net.Sockets
 							bufarray[i].buf = Marshal.UnsafeAddrOfPinnedArrayElement (segment.Array, segment.Offset);
 						}
 
-						ret = Receive_internal (m_Handle, bufarray, numsegments, socketFlags, out nativeError, is_blocking);
+						ret = Receive_internal (_handle, bufarray, numsegments, socketFlags, out nativeError, is_blocking);
 					}
 				}
 			} finally {
@@ -1631,7 +1631,7 @@ namespace System.Net.Sockets
 			try {
 				unsafe {
 					fixed (byte* pbuffer = sockares.Buffer) {
-						total = Receive_internal (sockares.socket.m_Handle, &pbuffer[sockares.Offset], sockares.Size, sockares.SockFlags, out sockares.error, sockares.socket.is_blocking);
+						total = Receive_internal (sockares.socket._handle, &pbuffer[sockares.Offset], sockares.Size, sockares.SockFlags, out sockares.error, sockares.socket.is_blocking);
 					}
 				}
 			} catch (Exception e) {
@@ -1762,7 +1762,7 @@ namespace System.Net.Sockets
 			int cnt;
 			unsafe {
 				fixed (byte* pbuffer = buffer) {
-					cnt = ReceiveFrom_internal (m_Handle, &pbuffer[offset], size, socketFlags, ref sockaddr, out nativeError, is_blocking);
+					cnt = ReceiveFrom_internal (_handle, &pbuffer[offset], size, socketFlags, ref sockaddr, out nativeError, is_blocking);
 				}
 			}
 
@@ -1995,7 +1995,7 @@ namespace System.Net.Sockets
 			do {
 				unsafe {
 					fixed (byte *pbuffer = buffer) {
-						sent += Send_internal (m_Handle, &pbuffer[offset + sent], size - sent, socketFlags, out nativeError, is_blocking);
+						sent += Send_internal (_handle, &pbuffer[offset + sent], size - sent, socketFlags, out nativeError, is_blocking);
 					}
 				}
 
@@ -2043,7 +2043,7 @@ namespace System.Net.Sockets
 							bufarray[i].buf = Marshal.UnsafeAddrOfPinnedArrayElement (segment.Array, segment.Offset);
 						}
 
-						ret = Send_internal (m_Handle, bufarray, numsegments, socketFlags, out nativeError, is_blocking);
+						ret = Send_internal (_handle, bufarray, numsegments, socketFlags, out nativeError, is_blocking);
 					}
 				}
 			} finally {
@@ -2142,7 +2142,7 @@ namespace System.Net.Sockets
 			try {
 				unsafe {
 					fixed (byte *pbuffer = sockares.Buffer) {
-						total = Socket.Send_internal (sockares.socket.m_Handle, &pbuffer[sockares.Offset], sockares.Size, sockares.SockFlags, out sockares.error, false);
+						total = Socket.Send_internal (sockares.socket._handle, &pbuffer[sockares.Offset], sockares.Size, sockares.SockFlags, out sockares.error, false);
 					}
 				}
 			} catch (Exception e) {
@@ -2275,7 +2275,7 @@ namespace System.Net.Sockets
 			int ret;
 			unsafe {
 				fixed (byte *pbuffer = buffer) {
-					ret = SendTo_internal (m_Handle, &pbuffer[offset], size, socketFlags, remoteEP.Serialize (), out error, is_blocking);
+					ret = SendTo_internal (_handle, &pbuffer[offset], size, socketFlags, remoteEP.Serialize (), out error, is_blocking);
 				}
 			}
 
@@ -2420,7 +2420,7 @@ namespace System.Net.Sockets
 				throw new InvalidOperationException ();
 
 			int error = 0;
-			if (!SendFile_internal (m_Handle, fileName, preBuffer, postBuffer, flags, out error, is_blocking) || error != 0) {
+			if (!SendFile_internal (_handle, fileName, preBuffer, postBuffer, flags, out error, is_blocking) || error != 0) {
 				SocketException exc = new SocketException (error);
 				if (exc.ErrorCode == 2 || exc.ErrorCode == 3)
 					throw new FileNotFoundException ();
@@ -2542,7 +2542,7 @@ namespace System.Net.Sockets
 				throw MonoIO.GetException (error);
 
 			si.ProtocolInformation = Mono.DataConverter.Pack ("iiiil", (int)addressFamily, (int)socketType, (int)protocolType, is_bound ? 1 : 0, (long)duplicateHandle);
- 			m_Handle = null;
+ 			_handle = null;
  
  			return si;
 		}
@@ -2559,7 +2559,7 @@ namespace System.Net.Sockets
 				throw new SocketException ((int) SocketError.Fault, "Error trying to dereference an invalid pointer");
 
 			int error;
-			GetSocketOption_arr_internal (m_Handle, optionLevel, optionName, ref optionValue, out error);
+			GetSocketOption_arr_internal (_handle, optionLevel, optionName, ref optionValue, out error);
 
 			if (error != 0)
 				throw new SocketException (error);
@@ -2571,7 +2571,7 @@ namespace System.Net.Sockets
 
 			int error;
 			byte[] byte_val = new byte [optionLength];
-			GetSocketOption_arr_internal (m_Handle, optionLevel, optionName, ref byte_val, out error);
+			GetSocketOption_arr_internal (_handle, optionLevel, optionName, ref byte_val, out error);
 
 			if (error != 0)
 				throw new SocketException (error);
@@ -2585,7 +2585,7 @@ namespace System.Net.Sockets
 
 			int error;
 			object obj_val;
-			GetSocketOption_obj_internal (m_Handle, optionLevel, optionName, out obj_val, out error);
+			GetSocketOption_obj_internal (_handle, optionLevel, optionName, out obj_val, out error);
 
 			if (error != 0)
 				throw new SocketException (error);
@@ -2662,7 +2662,7 @@ namespace System.Net.Sockets
 				throw new SocketException ((int) SocketError.Fault, "Error trying to dereference an invalid pointer");
 
 			int error;
-			SetSocketOption_internal (m_Handle, optionLevel, optionName, null, optionValue, 0, out error);
+			SetSocketOption_internal (_handle, optionLevel, optionName, null, optionValue, 0, out error);
 
 			if (error != 0)
 				throw new SocketException (error);
@@ -2682,17 +2682,17 @@ namespace System.Net.Sockets
 				LingerOption linger = optionValue as LingerOption;
 				if (linger == null)
 					throw new ArgumentException ("A 'LingerOption' value must be specified.", "optionValue");
-				SetSocketOption_internal (m_Handle, optionLevel, optionName, linger, null, 0, out error);
+				SetSocketOption_internal (_handle, optionLevel, optionName, linger, null, 0, out error);
 			} else if (optionLevel == SocketOptionLevel.IP && (optionName == SocketOptionName.AddMembership || optionName == SocketOptionName.DropMembership)) {
 				MulticastOption multicast = optionValue as MulticastOption;
 				if (multicast == null)
 					throw new ArgumentException ("A 'MulticastOption' value must be specified.", "optionValue");
-				SetSocketOption_internal (m_Handle, optionLevel, optionName, multicast, null, 0, out error);
+				SetSocketOption_internal (_handle, optionLevel, optionName, multicast, null, 0, out error);
 			} else if (optionLevel == SocketOptionLevel.IPv6 && (optionName == SocketOptionName.AddMembership || optionName == SocketOptionName.DropMembership)) {
 				IPv6MulticastOption multicast = optionValue as IPv6MulticastOption;
 				if (multicast == null)
 					throw new ArgumentException ("A 'IPv6MulticastOption' value must be specified.", "optionValue");
-				SetSocketOption_internal (m_Handle, optionLevel, optionName, multicast, null, 0, out error);
+				SetSocketOption_internal (_handle, optionLevel, optionName, multicast, null, 0, out error);
 			} else {
 				throw new ArgumentException ("Invalid value specified.", "optionValue");
 			}
@@ -2713,7 +2713,7 @@ namespace System.Net.Sockets
 			ThrowIfDisposedAndClosed ();
 
 			int error;
-			SetSocketOption_internal (m_Handle, optionLevel, optionName, null, null, optionValue, out error);
+			SetSocketOption_internal (_handle, optionLevel, optionName, null, null, optionValue, out error);
 
 			if (error != 0)
 				throw new SocketException (error);
@@ -2744,7 +2744,7 @@ namespace System.Net.Sockets
 				throw new ObjectDisposedException (GetType ().ToString ());
 
 			int error;
-			int result = IOControl_internal (m_Handle, ioControlCode, optionInValue, optionOutValue, out error);
+			int result = IOControl_internal (_handle, ioControlCode, optionInValue, optionOutValue, out error);
 
 			if (error != 0)
 				throw new SocketException (error);
@@ -2808,7 +2808,7 @@ namespace System.Net.Sockets
 				throw new SocketException (enotconn); // Not connected
 
 			int error;
-			Shutdown_internal (m_Handle, how, out error);
+			Shutdown_internal (_handle, how, out error);
 
 			if (error == enotconn) {
 				// POSIX requires this error to be returned from shutdown in some cases,
@@ -2852,14 +2852,14 @@ namespace System.Net.Sockets
 			bool was_connected = is_connected;
 			is_connected = false;
 
-			if (m_Handle != null) {
+			if (_handle != null) {
 				is_closed = true;
 				IntPtr x = Handle;
 
 				if (was_connected)
 					Linger (x);
 
-				m_Handle.Dispose ();
+				_handle.Dispose ();
 			}
 		}
 
