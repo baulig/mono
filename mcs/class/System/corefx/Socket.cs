@@ -7,6 +7,10 @@ namespace System.Net.Sockets
 {
     partial class Socket
     {
+        // These flags monitor if the socket was ever connected at any time and if it still is.
+        private bool _isConnected;
+        private bool _isDisconnected;
+
         void ValidateForMultiConnect(bool isMultiEndpoint)
         {
             // ValidateForMultiConnect is called before any {Begin}Connect{Async} call,
@@ -97,6 +101,8 @@ namespace System.Net.Sockets
             throw new PlatformNotSupportedException(SR.net_sockets_connect_multiconnect_notsupported);
         }
 
+#region CoreFX Code
+
         internal void SetToConnected()
         {
             if (_isConnected)
@@ -108,7 +114,7 @@ namespace System.Net.Sockets
             // Update the status: this socket was indeed connected at
             // some point in time update the perf counter as well.
             _isConnected = true;
-            is_closed = false;
+            _isDisconnected = false;
             if (NetEventSource.IsEnabled) NetEventSource.Info(this, "now connected");
         }
 
@@ -125,13 +131,15 @@ namespace System.Net.Sockets
             // Update the status: this socket was indeed disconnected at
             // some point in time, clear any async select bits.
             _isConnected = false;
-            is_closed = true;
+            _isDisconnected = true;
 
             if (!CleanedUp)
             {
                 if (NetEventSource.IsEnabled) NetEventSource.Info(this, "!CleanedUp");
             }
         }
+
+#endregion
 
         private void UpdateStatusAfterSocketErrorAndThrowException(SocketError error, [CallerMemberName] string callerName = null)
         {

@@ -123,12 +123,12 @@ namespace System.Net.Sockets
 		public void CheckIfThrowDelayedException ()
 		{
 			if (DelayedException != null) {
-				socket._isConnected = false;
+				socket.SetToDisconnected ();
 				throw DelayedException;
 			}
 
 			if (error != 0) {
-				socket._isConnected = false;
+				socket.SetToDisconnected ();
 				throw new SocketException (error);
 			}
 		}

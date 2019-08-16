@@ -88,9 +88,6 @@ namespace System.Net.Sockets
 		internal bool is_blocking = true;
 		internal bool is_bound;
 
-		/* When true, the socket was connected at the time of the last IO operation */
-		internal bool _isConnected;
-
 		int m_IntCleanedUp;
 		internal bool connect_in_progress;
 
