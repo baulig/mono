@@ -61,13 +61,12 @@ namespace System.Net.Sockets
 		/* true if we called Close_internal */
 		bool is_closed;
 
-		bool is_listening;
 		bool useOverlappedIO;
 
 		int linger_timeout;
 
 		/* the field "_handle" is looked up by name by the runtime */
-		internal SafeSocketHandle _handle;
+		SafeSocketHandle _handle;
 
 		/*
 		 * This EndPoint is used when creating new endpoints. Because
@@ -99,7 +98,7 @@ namespace System.Net.Sockets
 
 		public Socket (SocketInformation socketInformation)
 		{
-			this.is_listening      = (socketInformation.Options & SocketInformationOptions.Listening) != 0;
+			this._isListening      = (socketInformation.Options & SocketInformationOptions.Listening) != 0;
 			this._isConnected      = (socketInformation.Options & SocketInformationOptions.Connected) != 0;
 			this.is_blocking       = (socketInformation.Options & SocketInformationOptions.NonBlocking) == 0;
 			this.useOverlappedIO = (socketInformation.Options & SocketInformationOptions.UseOnlyOverlappedIO) != 0;
@@ -538,7 +537,7 @@ namespace System.Net.Sockets
 			if (!is_bound)
 				throw new InvalidOperationException (SR.net_sockets_mustbind);
 
-			if (!is_listening)
+			if (!_isListening)
 				throw new InvalidOperationException (SR.net_sockets_mustlisten);
 
 			int error = 0;
@@ -590,7 +589,7 @@ namespace System.Net.Sockets
 
 			if (!is_bound)
 				throw new InvalidOperationException ("You must call the Bind method before performing this operation.");
-			if (!is_listening)
+			if (!_isListening)
 				throw new InvalidOperationException ("You must call the Listen method before performing this operation.");
 			if (e.BufferList != null)
 				throw new ArgumentException ("Multiple buffers cannot be used with this method.");
@@ -633,7 +632,7 @@ namespace System.Net.Sockets
 		{
 			ThrowIfDisposedAndClosed ();
 
-			if (!is_bound || !is_listening)
+			if (!is_bound || !_isListening)
 				throw new InvalidOperationException ();
 
 			SocketAsyncResult sockares = new SocketAsyncResult (this, callback, state, SocketOperation.Accept);
@@ -833,7 +832,7 @@ namespace System.Net.Sockets
 			if (error != 0)
 				throw new SocketException (error);
 
-			is_listening = true;
+			_isListening = true;
 		}
 
 		static void Listen_internal (SafeSocketHandle safeHandle, int backlog, out int error)
@@ -865,7 +864,7 @@ namespace System.Net.Sockets
 			if (!TcpValidationHelpers.ValidatePortNumber (port))
 				throw new ArgumentOutOfRangeException (nameof (port));
 
-			if (is_listening)
+			if (_isListening)
 				throw new InvalidOperationException (SR.GetString (SR.net_sockets_mustnotlisten));
 
 			if (!CanTryAddressFamily (address.AddressFamily))
@@ -893,7 +892,7 @@ namespace System.Net.Sockets
 				throw new InvalidOperationException (SR.net_sockets_disconnectedConnect);
 #endif
 
-			if (is_listening)
+			if (_isListening)
 				throw new InvalidOperationException (SR.net_sockets_mustnotlisten);
 
 			if (_isConnected)
@@ -962,7 +961,7 @@ namespace System.Net.Sockets
 				throw new ArgumentException (SR.net_multibuffernotsupported, "BufferList");
 			if (e.RemoteEndPoint == null)
 				throw new ArgumentNullException ("remoteEP");
-			if (is_listening)
+			if (_isListening)
 				throw new InvalidOperationException (SR.net_sockets_mustnotlisten);
 			if (_isConnected)
 				throw new SocketException ((int)SocketError.IsConnected);
@@ -1065,7 +1064,7 @@ namespace System.Net.Sockets
 			if (!TcpValidationHelpers.ValidatePortNumber (port))
 				throw new ArgumentOutOfRangeException (nameof (port));
 
-			if (is_listening)
+			if (_isListening)
 				throw new InvalidOperationException (SR.GetString (SR.net_sockets_mustnotlisten));
 
 			var callback = new AsyncCallback ((result) => {
@@ -1103,7 +1102,7 @@ namespace System.Net.Sockets
 			if (remoteEP == null)
 				throw new ArgumentNullException (nameof (remoteEP));
 
-			if (is_listening)
+			if (_isListening)
 				throw new InvalidOperationException (SR.net_sockets_mustnotlisten);
 
 			if (_isConnected)
@@ -1222,7 +1221,7 @@ namespace System.Net.Sockets
 			if (_addressFamily != AddressFamily.InterNetwork && _addressFamily != AddressFamily.InterNetworkV6)
 				throw new NotSupportedException (SR.net_invalidversion);
 
-			if (is_listening)
+			if (_isListening)
 				throw new InvalidOperationException (SR.net_sockets_mustnotlisten);
 
 			if (_isConnected)
@@ -2525,7 +2524,7 @@ namespace System.Net.Sockets
 		{
 			var si = new SocketInformation ();
 			si.Options =
-				(is_listening      ? SocketInformationOptions.Listening : 0) |
+				(_isListening      ? SocketInformationOptions.Listening : 0) |
 				(_isConnected      ? SocketInformationOptions.Connected : 0) |
 				(is_blocking       ? 0 : SocketInformationOptions.NonBlocking) |
 				(useOverlappedIO ? SocketInformationOptions.UseOnlyOverlappedIO : 0);

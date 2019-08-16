@@ -13,6 +13,21 @@ namespace System.Net.Sockets
         private bool _isConnected;
         private bool _isDisconnected;
 
+        // When the socket is created it will be in blocking mode. We'll only be able to Accept or Connect,
+        // so we need to handle one of these cases at a time.
+        private bool _willBlock = true; // Desired state of the socket from the user.
+        private bool _willBlockInternal = true; // Actual win32 state of the socket.
+        private bool _isListening = false;
+
+        // Our internal state doesn't automatically get updated after a non-blocking connect
+        // completes.  Keep track of whether we're doing a non-blocking connect, and make sure
+        // to poll for the real state until we're done connecting.
+        private bool _nonBlockingConnectInProgress;
+
+        // Keep track of the kind of endpoint used to do a non-blocking connect, so we can set
+        // it to _rightEndPoint when we discover we're connected.
+        private EndPoint _nonBlockingConnectRightEndPoint;
+
         // These are constants initialized by constructor.
         private AddressFamily _addressFamily;
         private SocketType _socketType;
