@@ -68,15 +68,6 @@ namespace System.Net.Sockets
 		/* the field "_handle" is looked up by name by the runtime */
 		SafeSocketHandle _handle;
 
-		/*
-		 * This EndPoint is used when creating new endpoints. Because
-		 * there are many types of EndPoints possible,
-		 * seed_endpoint.Create(addr) is used for creating new ones.
-		 * As such, this value is set on Bind, SentTo, ReceiveFrom,
-		 * Connect, etc.
-		 */
-		internal EndPoint seed_endpoint = null;
-
 		internal SemaphoreSlim ReadSem = new SemaphoreSlim (1, 1);
 		internal SemaphoreSlim WriteSem = new SemaphoreSlim (1, 1);
 
@@ -269,42 +260,6 @@ namespace System.Net.Sockets
 			}
 		}
 
-		// Wish:  support non-IP endpoints.
-		public EndPoint XLocalEndPoint {
-			get {
-				ThrowIfDisposedAndClosed ();
-
-				/* If the seed EndPoint is null, Connect, Bind, etc has not yet
-				 * been called. MS returns null in this case. */
-				if (seed_endpoint == null)
-					return null;
-
-				int error;
-				SocketAddress sa = LocalEndPoint_internal (_handle, (int) _addressFamily, out error);
-
-				if (error != 0)
-					throw new SocketException (error);
-
-				return seed_endpoint.Create (sa);
-			}
-		}
-
-		static SocketAddress LocalEndPoint_internal (SafeSocketHandle safeHandle, int family, out int error)
-		{
-			bool release = false;
-			try {
-				safeHandle.DangerousAddRef (ref release);
-				return LocalEndPoint_internal (safeHandle.DangerousGetHandle (), family, out error);
-			} finally {
-				if (release)
-					safeHandle.DangerousRelease ();
-			}
-		}
-
-		/* Returns the local endpoint details in addr and port */
-		[MethodImplAttribute(MethodImplOptions.InternalCall)]
-		extern static SocketAddress LocalEndPoint_internal (IntPtr socket, int family, out int error);
-
 		internal static unsafe SocketError GetPeerName_internal (SafeSocketHandle safeHandle, byte* buffer, ref int size)
 		{
 			try {
@@ -330,23 +285,6 @@ namespace System.Net.Sockets
 
 		[MethodImplAttribute(MethodImplOptions.InternalCall)]
 		extern static unsafe int GetSockName_internal (IntPtr sock, byte* buffer, ref int size);
-
-#if MARTIN_FIXME
-		public bool Blocking {
-			get { return _willBlockInternal; }
-			set {
-				ThrowIfDisposedAndClosed ();
-
-				int error;
-				Blocking_internal (_handle, value, out error);
-
-				if (error != 0)
-					throw new SocketException (error);
-
-				_willBlockInternal = value;
-			}
-		}
-#endif
 
 		internal static void Blocking_internal (SafeSocketHandle safeHandle, bool block, out int error)
 		{
@@ -383,41 +321,6 @@ namespace System.Net.Sockets
 				SetSocketOption (SocketOptionLevel.Tcp, SocketOptionName.NoDelay, value ? 1 : 0);
 			}
 		}
-
-		public EndPoint XRemoteEndPoint {
-			get {
-				ThrowIfDisposedAndClosed ();
-
-				/* If the seed EndPoint is null, Connect, Bind, etc has
-				 * not yet been called. MS returns null in this case. */
-				if (!_isConnected || seed_endpoint == null)
-					return null;
-
-				int error;
-				SocketAddress sa = RemoteEndPoint_internal (_handle, (int) _addressFamily, out error);
-
-				if (error != 0)
-					throw new SocketException (error);
-
-				return seed_endpoint.Create (sa);
-			}
-		}
-
-		static SocketAddress RemoteEndPoint_internal (SafeSocketHandle safeHandle, int family, out int error)
-		{
-			bool release = false;
-			try {
-				safeHandle.DangerousAddRef (ref release);
-				return RemoteEndPoint_internal (safeHandle.DangerousGetHandle (), family, out error);
-			} finally {
-				if (release)
-					safeHandle.DangerousRelease ();
-			}
-		}
-
-		/* Returns the remote endpoint details in addr and port */
-		[MethodImplAttribute(MethodImplOptions.InternalCall)]
-		extern static SocketAddress RemoteEndPoint_internal (IntPtr socket, int family, out int error);
 
 		internal SafeHandle SafeHandle
 		{
@@ -567,6 +470,8 @@ namespace System.Net.Sockets
 			if (!_isListening)
 				throw new InvalidOperationException (SR.net_sockets_mustlisten);
 
+			SocketAddress socketAddress = IPEndPointExtensions.Serialize (_rightEndPoint);
+
 			int error = 0;
 			SafeSocketHandle safe_handle = Accept_internal (this._handle, out error, _willBlockInternal);
 
@@ -577,7 +482,7 @@ namespace System.Net.Sockets
 			}
 
 			Socket accepted = new Socket (this.AddressFamily, this.SocketType, this.ProtocolType, safe_handle) {
-				seed_endpoint = this.seed_endpoint,
+				_rightEndPoint = _rightEndPoint.Create (socketAddress),
 				Blocking = this.Blocking,
 			};
 
@@ -602,7 +507,7 @@ namespace System.Net.Sockets
 			acceptSocket._protocolType = this.ProtocolType;
 			acceptSocket._handle = safe_handle;
 			acceptSocket._isConnected = true;
-			acceptSocket.seed_endpoint = this.seed_endpoint;
+			acceptSocket._rightEndPoint = this._rightEndPoint;
 			acceptSocket.Blocking = this.Blocking;
 
 			// FIXME: figure out what if anything else needs to be reset
@@ -822,7 +727,6 @@ namespace System.Net.Sockets
 			if (error == 0)
 				is_bound = true;
 
-			seed_endpoint = endPointSnapshot;
 			_rightEndPoint = endPointSnapshot;
 #endif // FEATURE_NO_BSD_SOCKETS
 		}
@@ -966,10 +870,10 @@ namespace System.Net.Sockets
 				throw socketException;
 			}
 
-			if (seed_endpoint == null)
+			if (_rightEndPoint == null)
 			{
 				// Save a copy of the EndPoint so we can use it for Create().
-				seed_endpoint = endPointSnapshot;
+				_rightEndPoint = endPointSnapshot;
 			}
 
 			// Update state and performance counters.
@@ -1030,9 +934,9 @@ namespace System.Net.Sockets
 #endif
 
 				// Save the old RightEndPoint and prep new RightEndPoint.
-				EndPoint oldEndPoint = seed_endpoint;
-				if (seed_endpoint == null)
-					seed_endpoint = endPointSnapshot;
+				EndPoint oldEndPoint = _rightEndPoint;
+				if (_rightEndPoint == null)
+					_rightEndPoint = endPointSnapshot;
 
 				// Prepare for the native call.
 				e.StartOperationCommon (this, SocketAsyncOperation.Connect);
@@ -1043,7 +947,7 @@ namespace System.Net.Sockets
 				try {
 					socketError = e.DoOperationConnect (this, _handle);
 				} catch {
-					seed_endpoint = oldEndPoint;
+					_rightEndPoint = oldEndPoint;
 
 					// Clear in-use flag on event args object.
 					e.Complete ();
@@ -1153,7 +1057,7 @@ namespace System.Net.Sockets
 		private bool CanUseConnectEx (EndPoint remoteEP)
 		{
 			return (_socketType == SocketType.Stream) &&
-				(seed_endpoint != null || remoteEP.GetType () == typeof (IPEndPoint));
+				(_rightEndPoint != null || remoteEP.GetType () == typeof (IPEndPoint));
 		}
 
 		internal IAsyncResult UnsafeBeginConnect (EndPoint remoteEP, AsyncCallback callback, object state, bool flowContext = false)
@@ -1204,16 +1108,16 @@ namespace System.Net.Sockets
 			if (flowContext)
 				asyncResult.StartPostingAsyncOp (false);
 
-			EndPoint oldEndPoint = seed_endpoint;
-			if (seed_endpoint == null)
-				seed_endpoint = endPointSnapshot;
+			EndPoint oldEndPoint = _rightEndPoint;
+			if (_rightEndPoint == null)
+				_rightEndPoint = endPointSnapshot;
 
 			SocketError errorCode;
 			try {
 				errorCode = SocketPal.ConnectAsync (this, _handle, socketAddress.Buffer, socketAddress.Size, asyncResult);
 			} catch {
 				// _rightEndPoint will always equal oldEndPoint.
-				seed_endpoint = oldEndPoint;
+				_rightEndPoint = oldEndPoint;
 				throw;
 			}
 
@@ -1224,7 +1128,7 @@ namespace System.Net.Sockets
 
 			if (!CheckErrorAndUpdateStatus (errorCode)) {
 				// Update the internal state of this socket according to the error before throwing.
-				seed_endpoint = oldEndPoint;
+				_rightEndPoint = oldEndPoint;
 
 				throw new SocketException ((int)errorCode);
 			}
@@ -1807,7 +1711,7 @@ namespace System.Net.Sockets
 				remoteEP = remoteEP.Create (sockaddr);
 			}
 
-			seed_endpoint = remoteEP;
+			_rightEndPoint = remoteEP;
 
 			return cnt;
 		}
@@ -2308,7 +2212,7 @@ namespace System.Net.Sockets
 
 			_isConnected = true;
 			is_bound = true;
-			seed_endpoint = remoteEP;
+			_rightEndPoint = remoteEP;
 
 			return ret;
 		}
