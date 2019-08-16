@@ -374,6 +374,182 @@ namespace System.Net.Sockets
             if (NetEventSource.IsEnabled) NetEventSource.Exit(this);
         }
 
+        public bool ConnectAsync(SocketAsyncEventArgs e)
+        {
+            if (NetEventSource.IsEnabled) NetEventSource.Enter(this, e);
+            bool pending;
+
+            if (CleanedUp)
+            {
+                throw new ObjectDisposedException(GetType().FullName);
+            }
+
+            if (e == null)
+            {
+                throw new ArgumentNullException(nameof(e));
+            }
+            if (e.HasMultipleBuffers)
+            {
+                throw new ArgumentException(SR.net_multibuffernotsupported, "BufferList");
+            }
+            if (e.RemoteEndPoint == null)
+            {
+                throw new ArgumentNullException("remoteEP");
+            }
+            if (_isListening)
+            {
+                throw new InvalidOperationException(SR.net_sockets_mustnotlisten);
+            }
+
+            if (_isConnected)
+            {
+                throw new SocketException((int)SocketError.IsConnected);
+            }
+
+            // Prepare SocketAddress.
+            EndPoint endPointSnapshot = e.RemoteEndPoint;
+            DnsEndPoint dnsEP = endPointSnapshot as DnsEndPoint;
+
+            if (dnsEP != null)
+            {
+                if (NetEventSource.IsEnabled) NetEventSource.ConnectedAsyncDns(this);
+
+                ValidateForMultiConnect(isMultiEndpoint: true); // needs to come before CanTryAddressFamily call
+
+                if (dnsEP.AddressFamily != AddressFamily.Unspecified && !CanTryAddressFamily(dnsEP.AddressFamily))
+                {
+                    throw new NotSupportedException(SR.net_invalidversion);
+                }
+
+                MultipleConnectAsync multipleConnectAsync = new SingleSocketMultipleConnectAsync(this, true);
+
+                e.StartOperationCommon(this, SocketAsyncOperation.Connect);
+                e.StartOperationConnect(multipleConnectAsync);
+
+                pending = multipleConnectAsync.StartConnectAsync(e, dnsEP);
+            }
+            else
+            {
+                ValidateForMultiConnect(isMultiEndpoint: false); // needs to come before CanTryAddressFamily call
+
+                // Throw if remote address family doesn't match socket.
+                if (!CanTryAddressFamily(e.RemoteEndPoint.AddressFamily))
+                {
+                    throw new NotSupportedException(SR.net_invalidversion);
+                }
+
+                e._socketAddress = SnapshotAndSerialize(ref endPointSnapshot);
+
+#if !MONO
+                // Do wildcard bind if socket not bound.
+                if (_rightEndPoint == null)
+                {
+                    if (endPointSnapshot.AddressFamily == AddressFamily.InterNetwork)
+                    {
+                        InternalBind(new IPEndPoint(IPAddress.Any, 0));
+                    }
+                    else if (endPointSnapshot.AddressFamily != AddressFamily.Unix)
+                    {
+                        InternalBind(new IPEndPoint(IPAddress.IPv6Any, 0));
+                    }
+                }
+#endif
+
+                // Save the old RightEndPoint and prep new RightEndPoint.
+                EndPoint oldEndPoint = _rightEndPoint;
+                if (_rightEndPoint == null)
+                {
+                    _rightEndPoint = endPointSnapshot;
+                }
+
+                // Prepare for the native call.
+                e.StartOperationCommon(this, SocketAsyncOperation.Connect);
+                e.StartOperationConnect();
+
+                // Make the native call.
+                SocketError socketError = SocketError.Success;
+                try
+                {
+                    socketError = e.DoOperationConnect(this, _handle);
+                }
+                catch
+                {
+                    _rightEndPoint = oldEndPoint;
+
+                    // Clear in-use flag on event args object.
+                    e.Complete();
+                    throw;
+                }
+
+                pending = (socketError == SocketError.IOPending);
+            }
+
+            if (NetEventSource.IsEnabled) NetEventSource.Exit(this, pending);
+            return pending;
+        }
+
+        public static bool ConnectAsync(SocketType socketType, ProtocolType protocolType, SocketAsyncEventArgs e)
+        {
+            if (NetEventSource.IsEnabled) NetEventSource.Enter(null);
+            bool pending;
+
+            if (e == null)
+            {
+                throw new ArgumentNullException(nameof(e));
+            }
+            if (e.HasMultipleBuffers)
+            {
+                throw new ArgumentException(SR.net_multibuffernotsupported, "BufferList");
+            }
+            if (e.RemoteEndPoint == null)
+            {
+                throw new ArgumentNullException("remoteEP");
+            }
+
+            EndPoint endPointSnapshot = e.RemoteEndPoint;
+            DnsEndPoint dnsEP = endPointSnapshot as DnsEndPoint;
+
+            if (dnsEP != null)
+            {
+                Socket attemptSocket = null;
+                MultipleConnectAsync multipleConnectAsync = null;
+                if (dnsEP.AddressFamily == AddressFamily.Unspecified)
+                {
+                    // This is the only *Connect* API that fully supports multiple endpoint attempts, as it's responsible
+                    // for creating each Socket instance and can create one per attempt.
+                    multipleConnectAsync = new DualSocketMultipleConnectAsync(socketType, protocolType);
+#pragma warning restore
+                }
+                else
+                {
+                    attemptSocket = new Socket(dnsEP.AddressFamily, socketType, protocolType);
+                    multipleConnectAsync = new SingleSocketMultipleConnectAsync(attemptSocket, false);
+                }
+
+                e.StartOperationCommon(attemptSocket, SocketAsyncOperation.Connect);
+                e.StartOperationConnect(multipleConnectAsync);
+
+                pending = multipleConnectAsync.StartConnectAsync(e, dnsEP);
+            }
+            else
+            {
+                Socket attemptSocket = new Socket(endPointSnapshot.AddressFamily, socketType, protocolType);
+                pending = attemptSocket.ConnectAsync(e);
+            }
+
+            if (NetEventSource.IsEnabled) NetEventSource.Exit(null, pending);
+            return pending;
+        }
+
+        public static void CancelConnectAsync(SocketAsyncEventArgs e)
+        {
+            if (e == null)
+            {
+                throw new ArgumentNullException(nameof(e));
+            }
+            e.CancelConnectAsync();
+        }
+
         // This method will ignore failures, but returns the win32
         // error code, and will update internal state on success.
         private SocketError InternalSetBlocking(bool desired, out bool current)
