@@ -4,6 +4,17 @@ namespace System.Net.Sockets
 {
     static class SocketPal
     {
+#region CoreFX Code
+
+        public static SocketError SetBlocking(SafeCloseSocket handle, bool shouldBlock, out bool willBlock)
+        {
+            handle.IsNonBlocking = !shouldBlock;
+            willBlock = shouldBlock;
+            return SocketError.Success;
+        }
+
+#endregion
+
         public static SocketError CreateSocket(AddressFamily addressFamily, SocketType socketType, ProtocolType protocolType, out SafeSocketHandle socket)
         {
             return SafeCloseSocket.CreateSocket(addressFamily, socketType, protocolType, out socket);

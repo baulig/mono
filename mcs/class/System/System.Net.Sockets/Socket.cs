@@ -80,7 +80,6 @@ namespace System.Net.Sockets
 		internal SemaphoreSlim ReadSem = new SemaphoreSlim (1, 1);
 		internal SemaphoreSlim WriteSem = new SemaphoreSlim (1, 1);
 
-		internal bool is_blocking = true;
 		internal bool is_bound;
 
 		int m_IntCleanedUp;
@@ -100,7 +99,7 @@ namespace System.Net.Sockets
 		{
 			this._isListening      = (socketInformation.Options & SocketInformationOptions.Listening) != 0;
 			this._isConnected      = (socketInformation.Options & SocketInformationOptions.Connected) != 0;
-			this.is_blocking       = (socketInformation.Options & SocketInformationOptions.NonBlocking) == 0;
+			this._willBlockInternal       = (socketInformation.Options & SocketInformationOptions.NonBlocking) == 0;
 			this.useOverlappedIO = (socketInformation.Options & SocketInformationOptions.UseOnlyOverlappedIO) != 0;
 
 			var result = Mono.DataConverter.Unpack ("iiiil", socketInformation.ProtocolInformation, 0);
@@ -306,8 +305,9 @@ namespace System.Net.Sockets
 		[MethodImplAttribute(MethodImplOptions.InternalCall)]
 		extern static SocketAddress LocalEndPoint_internal (IntPtr socket, int family, out int error);
 
+#if MARTIN_FIXME
 		public bool Blocking {
-			get { return is_blocking; }
+			get { return _willBlockInternal; }
 			set {
 				ThrowIfDisposedAndClosed ();
 
@@ -317,9 +317,10 @@ namespace System.Net.Sockets
 				if (error != 0)
 					throw new SocketException (error);
 
-				is_blocking = value;
+				_willBlockInternal = value;
 			}
 		}
+#endif
 
 		internal static void Blocking_internal (SafeSocketHandle safeHandle, bool block, out int error)
 		{
@@ -541,7 +542,7 @@ namespace System.Net.Sockets
 				throw new InvalidOperationException (SR.net_sockets_mustlisten);
 
 			int error = 0;
-			SafeSocketHandle safe_handle = Accept_internal (this._handle, out error, is_blocking);
+			SafeSocketHandle safe_handle = Accept_internal (this._handle, out error, _willBlockInternal);
 
 			if (error != 0) {
 				if (is_closed)
@@ -562,7 +563,7 @@ namespace System.Net.Sockets
 			ThrowIfDisposedAndClosed ();
 
 			int error = 0;
-			SafeSocketHandle safe_handle = Accept_internal (this._handle, out error, is_blocking);
+			SafeSocketHandle safe_handle = Accept_internal (this._handle, out error, _willBlockInternal);
 
 			if (error != 0) {
 				if (is_closed)
@@ -1460,7 +1461,7 @@ namespace System.Net.Sockets
 			int ret;
 			unsafe {
 				fixed (byte* pbuffer = buffer) {
-					ret = Receive_internal (_handle, &pbuffer[offset], size, socketFlags, out nativeError, is_blocking);
+					ret = Receive_internal (_handle, &pbuffer[offset], size, socketFlags, out nativeError, _willBlockInternal);
 				}
 			}
 
@@ -1506,7 +1507,7 @@ namespace System.Net.Sockets
 							bufarray[i].buf = Marshal.UnsafeAddrOfPinnedArrayElement (segment.Array, segment.Offset);
 						}
 
-						ret = Receive_internal (_handle, bufarray, numsegments, socketFlags, out nativeError, is_blocking);
+						ret = Receive_internal (_handle, bufarray, numsegments, socketFlags, out nativeError, _willBlockInternal);
 					}
 				}
 			} finally {
@@ -1623,7 +1624,7 @@ namespace System.Net.Sockets
 			try {
 				unsafe {
 					fixed (byte* pbuffer = sockares.Buffer) {
-						total = Receive_internal (sockares.socket._handle, &pbuffer[sockares.Offset], sockares.Size, sockares.SockFlags, out sockares.error, sockares.socket.is_blocking);
+						total = Receive_internal (sockares.socket._handle, &pbuffer[sockares.Offset], sockares.Size, sockares.SockFlags, out sockares.error, sockares.socket._willBlockInternal);
 					}
 				}
 			} catch (Exception e) {
@@ -1754,7 +1755,7 @@ namespace System.Net.Sockets
 			int cnt;
 			unsafe {
 				fixed (byte* pbuffer = buffer) {
-					cnt = ReceiveFrom_internal (_handle, &pbuffer[offset], size, socketFlags, ref sockaddr, out nativeError, is_blocking);
+					cnt = ReceiveFrom_internal (_handle, &pbuffer[offset], size, socketFlags, ref sockaddr, out nativeError, _willBlockInternal);
 				}
 			}
 
@@ -1762,7 +1763,7 @@ namespace System.Net.Sockets
 			if (errorCode != SocketError.Success) {
 				if (errorCode != SocketError.WouldBlock && errorCode != SocketError.InProgress) {
 					_isConnected = false;
-				} else if (errorCode == SocketError.WouldBlock && is_blocking) { // This might happen when ReceiveTimeout is set
+				} else if (errorCode == SocketError.WouldBlock && _willBlockInternal) { // This might happen when ReceiveTimeout is set
 					errorCode = SocketError.TimedOut;
 				}
 
@@ -1987,7 +1988,7 @@ namespace System.Net.Sockets
 			do {
 				unsafe {
 					fixed (byte *pbuffer = buffer) {
-						sent += Send_internal (_handle, &pbuffer[offset + sent], size - sent, socketFlags, out nativeError, is_blocking);
+						sent += Send_internal (_handle, &pbuffer[offset + sent], size - sent, socketFlags, out nativeError, _willBlockInternal);
 					}
 				}
 
@@ -2035,7 +2036,7 @@ namespace System.Net.Sockets
 							bufarray[i].buf = Marshal.UnsafeAddrOfPinnedArrayElement (segment.Array, segment.Offset);
 						}
 
-						ret = Send_internal (_handle, bufarray, numsegments, socketFlags, out nativeError, is_blocking);
+						ret = Send_internal (_handle, bufarray, numsegments, socketFlags, out nativeError, _willBlockInternal);
 					}
 				}
 			} finally {
@@ -2267,7 +2268,7 @@ namespace System.Net.Sockets
 			int ret;
 			unsafe {
 				fixed (byte *pbuffer = buffer) {
-					ret = SendTo_internal (_handle, &pbuffer[offset], size, socketFlags, remoteEP.Serialize (), out error, is_blocking);
+					ret = SendTo_internal (_handle, &pbuffer[offset], size, socketFlags, remoteEP.Serialize (), out error, _willBlockInternal);
 				}
 			}
 
@@ -2408,11 +2409,11 @@ namespace System.Net.Sockets
 
 			if (!_isConnected)
 				throw new NotSupportedException ();
-			if (!is_blocking)
+			if (!_willBlockInternal)
 				throw new InvalidOperationException ();
 
 			int error = 0;
-			if (!SendFile_internal (_handle, fileName, preBuffer, postBuffer, flags, out error, is_blocking) || error != 0) {
+			if (!SendFile_internal (_handle, fileName, preBuffer, postBuffer, flags, out error, _willBlockInternal) || error != 0) {
 				SocketException exc = new SocketException (error);
 				if (exc.ErrorCode == 2 || exc.ErrorCode == 3)
 					throw new FileNotFoundException ();
@@ -2526,7 +2527,7 @@ namespace System.Net.Sockets
 			si.Options =
 				(_isListening      ? SocketInformationOptions.Listening : 0) |
 				(_isConnected      ? SocketInformationOptions.Connected : 0) |
-				(is_blocking       ? 0 : SocketInformationOptions.NonBlocking) |
+				(_willBlockInternal       ? 0 : SocketInformationOptions.NonBlocking) |
 				(useOverlappedIO ? SocketInformationOptions.UseOnlyOverlappedIO : 0);
 
 			IntPtr duplicateHandle;

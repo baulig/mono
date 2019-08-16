@@ -44,6 +44,84 @@ namespace System.Net.Sockets
             internal CallbackClosure ReceiveClosureCache;
         }
 
+        // Gets and sets the blocking mode of a socket.
+        public bool Blocking
+        {
+            get
+            {
+                // Return the user's desired blocking behaviour (not the actual win32 state).
+                return _willBlock;
+            }
+            set
+            {
+                if (CleanedUp)
+                {
+                    throw new ObjectDisposedException(this.GetType().FullName);
+                }
+
+                if (NetEventSource.IsEnabled) NetEventSource.Info(this, $"value:{value} willBlock:{_willBlock} willBlockInternal:{_willBlockInternal}");
+
+                bool current;
+
+                SocketError errorCode = InternalSetBlocking(value, out current);
+
+                if (errorCode != SocketError.Success)
+                {
+                    UpdateStatusAfterSocketErrorAndThrowException(errorCode);
+                }
+
+                // The native call succeeded, update the user's desired state.
+                _willBlock = current;
+            }
+        }
+
+        // This method will ignore failures, but returns the win32
+        // error code, and will update internal state on success.
+        private SocketError InternalSetBlocking(bool desired, out bool current)
+        {
+            if (NetEventSource.IsEnabled) NetEventSource.Enter(this, $"desired:{desired} willBlock:{_willBlock} willBlockInternal:{_willBlockInternal}");
+
+            if (CleanedUp)
+            {
+                if (NetEventSource.IsEnabled) NetEventSource.Exit(this, "ObjectDisposed");
+                current = _willBlock;
+                return SocketError.Success;
+            }
+
+            // Can we avoid this call if willBlockInternal is already correct?
+            bool willBlock = false;
+            SocketError errorCode;
+            try
+            {
+                errorCode = SocketPal.SetBlocking(_handle, desired, out willBlock);
+            }
+            catch (ObjectDisposedException)
+            {
+                errorCode = SocketError.NotSocket;
+            }
+
+            if (NetEventSource.IsEnabled) NetEventSource.Info(this, $"Interop.Winsock.ioctlsocket returns errorCode:{errorCode}");
+
+            // We will update only internal state but only on successfull win32 call
+            // so if the native call fails, the state will remain the same.
+            if (errorCode == SocketError.Success)
+            {
+                _willBlockInternal = willBlock;
+            }
+
+            if (NetEventSource.IsEnabled) NetEventSource.Info(this, $"errorCode:{errorCode} willBlock:{_willBlock} willBlockInternal:{_willBlockInternal}");
+
+            current = _willBlockInternal;
+            return errorCode;
+        }
+
+        // This method ignores all failures.
+        internal void InternalSetBlocking(bool desired)
+        {
+            bool current;
+            InternalSetBlocking(desired, out current);
+        }
+
 #endregion
 
         void ValidateForMultiConnect(bool isMultiEndpoint)
