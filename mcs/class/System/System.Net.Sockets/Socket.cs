@@ -270,7 +270,7 @@ namespace System.Net.Sockets
 		}
 
 		// Wish:  support non-IP endpoints.
-		public EndPoint LocalEndPoint {
+		public EndPoint XLocalEndPoint {
 			get {
 				ThrowIfDisposedAndClosed ();
 
@@ -304,6 +304,32 @@ namespace System.Net.Sockets
 		/* Returns the local endpoint details in addr and port */
 		[MethodImplAttribute(MethodImplOptions.InternalCall)]
 		extern static SocketAddress LocalEndPoint_internal (IntPtr socket, int family, out int error);
+
+		internal static unsafe SocketError GetPeerName_internal (SafeSocketHandle safeHandle, byte* buffer, ref int size)
+		{
+			try {
+				safeHandle.RegisterForBlockingSyscall ();
+				return (SocketError)GetPeerName_internal (safeHandle.DangerousGetHandle (), buffer, ref size);
+			} finally {
+				safeHandle.UnRegisterForBlockingSyscall ();
+			}
+		}
+
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		extern static unsafe int GetPeerName_internal (IntPtr sock, byte* buffer, ref int size);
+
+		internal static unsafe SocketError GetSockName_internal (SafeSocketHandle safeHandle, byte* buffer, ref int size)
+		{
+			try {
+				safeHandle.RegisterForBlockingSyscall ();
+				return (SocketError)GetSockName_internal (safeHandle.DangerousGetHandle (), buffer, ref size);
+			} finally {
+				safeHandle.UnRegisterForBlockingSyscall ();
+			}
+		}
+
+		[MethodImplAttribute(MethodImplOptions.InternalCall)]
+		extern static unsafe int GetSockName_internal (IntPtr sock, byte* buffer, ref int size);
 
 #if MARTIN_FIXME
 		public bool Blocking {
@@ -358,7 +384,7 @@ namespace System.Net.Sockets
 			}
 		}
 
-		public EndPoint RemoteEndPoint {
+		public EndPoint XRemoteEndPoint {
 			get {
 				ThrowIfDisposedAndClosed ();
 

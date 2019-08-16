@@ -1081,6 +1081,26 @@ exit:
 	return result;
 }
 
+static gint32
+mono_w32socket_getname2 (gsize sock, gboolean local, gpointer buffer, gint32 *size)
+{
+	socklen_t salen = 0;
+	int ret;
+
+	if (buffer == NULL || salen == 0)
+		return WSAEAFNOSUPPORT;
+
+	/* Note: linux returns just 2 for AF_UNIX. Always. */
+	salen = *size;
+	ret = (local ? mono_w32socket_getsockname : mono_w32socket_getpeername) (sock, (struct sockaddr *)buffer, &salen);
+	if (ret == SOCKET_ERROR)
+		return mono_w32socket_get_last_error ();
+
+	LOGDEBUG (g_message("%s: %s to %s port %d", __func__, local ? "bound" : "connected", inet_ntoa (((struct sockaddr_in *)&buffer)->sin_addr), ntohs (((struct sockaddr_in *)&buffer)->sin_port)));
+
+	return 0;
+}
+
 MonoObjectHandle
 ves_icall_System_Net_Sockets_Socket_LocalEndPoint_internal (gsize sock, gint32 af, gint32 *werror, MonoError *error)
 {
@@ -1091,6 +1111,18 @@ MonoObjectHandle
 ves_icall_System_Net_Sockets_Socket_RemoteEndPoint_internal (gsize sock, gint32 af, gint32 *werror, MonoError *error)
 {
 	return mono_w32socket_getname (sock, af, FALSE, werror, error);
+}
+
+gint32
+ves_icall_System_Net_Sockets_Socket_GetSockName_internal (gsize sock, gchar *buffer, gint32 *size, MonoError *error)
+{
+	return mono_w32socket_getname2 (sock, TRUE, buffer, size);
+}
+
+gint32
+ves_icall_System_Net_Sockets_Socket_GetPeerName_internal (gsize sock, gchar *buffer, gint32 *size, MonoError *error)
+{
+	return mono_w32socket_getname2 (sock, FALSE, buffer, size);
 }
 
 static struct sockaddr*

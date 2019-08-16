@@ -30,7 +30,7 @@ namespace System.Net {
         internal const int IPv6AddressSize = 28;
         internal const int IPv4AddressSize = 16;
 
-        internal int m_Size;
+        internal int InternalSize;
         internal byte[] m_Buffer;
 
         private const int WriteableOffset = 2;
@@ -63,7 +63,7 @@ namespace System.Net {
         /// </devdoc>
         public int Size {
             get {
-                return m_Size;
+                return InternalSize;
             }
         }
 
@@ -119,7 +119,7 @@ namespace System.Net {
                 //
                 throw new ArgumentOutOfRangeException("size");
             }
-            m_Size = size;
+            InternalSize = size;
             m_Buffer = new byte[(size/IntPtr.Size+2)*IntPtr.Size];//sizeof DWORD
 
 #if BIGENDIAN
@@ -225,10 +225,10 @@ namespace System.Net {
         //
         internal void CopyAddressSizeIntoBuffer()
         {
-            m_Buffer[m_Buffer.Length-IntPtr.Size]   = unchecked((byte)(m_Size));
-            m_Buffer[m_Buffer.Length-IntPtr.Size+1] = unchecked((byte)(m_Size >> 8));
-            m_Buffer[m_Buffer.Length-IntPtr.Size+2] = unchecked((byte)(m_Size >> 16));
-            m_Buffer[m_Buffer.Length-IntPtr.Size+3] = unchecked((byte)(m_Size >> 24));
+            m_Buffer[m_Buffer.Length-IntPtr.Size]   = unchecked((byte)(InternalSize));
+            m_Buffer[m_Buffer.Length-IntPtr.Size+1] = unchecked((byte)(InternalSize >> 8));
+            m_Buffer[m_Buffer.Length-IntPtr.Size+2] = unchecked((byte)(InternalSize >> 16));
+            m_Buffer[m_Buffer.Length-IntPtr.Size+3] = unchecked((byte)(InternalSize >> 24));
         }
         //
         // Can be called after the above method did work
@@ -244,7 +244,7 @@ namespace System.Net {
         internal unsafe void SetSize(IntPtr ptr)
         {
             // Apparently it must be less or equal the original value since ReceiveFrom cannot reallocate the address buffer
-            m_Size = *(int*)ptr;
+            InternalSize = *(int*)ptr;
         }
         public override bool Equals(object comparand) {
             SocketAddress castedComparand = comparand as SocketAddress;

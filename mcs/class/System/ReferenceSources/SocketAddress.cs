@@ -6,7 +6,7 @@ namespace System.Net {
 
 		internal SocketAddress (byte[] buffer, int size)
 		{
-			m_Size = size;
+			InternalSize = size;
 			m_Buffer = new byte[(size/IntPtr.Size+2)*IntPtr.Size];//sizeof DWORD
 
 			global::System.Buffer.BlockCopy (buffer, 0, m_Buffer, 0, buffer.Length);

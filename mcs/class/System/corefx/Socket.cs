@@ -5,9 +5,18 @@ using System.Runtime.ExceptionServices;
 
 namespace System.Net.Sockets
 {
+#if MONO
+    using Internals = System.Net;
+#endif
+
     partial class Socket
     {
 #region CoreFX Code
+
+        // _rightEndPoint is null if the socket has not been bound.  Otherwise, it is any EndPoint of the
+        // correct type (IPEndPoint, etc).
+        internal EndPoint _rightEndPoint;
+        internal EndPoint _remoteEndPoint;
 
         // These flags monitor if the socket was ever connected at any time and if it still is.
         private bool _isConnected;
@@ -42,6 +51,97 @@ namespace System.Net.Sockets
             internal CallbackClosure AcceptClosureCache;
             internal CallbackClosure SendClosureCache;
             internal CallbackClosure ReceiveClosureCache;
+        }
+
+        // Gets the local end point.
+        public EndPoint LocalEndPoint
+        {
+            get
+            {
+                if (CleanedUp)
+                {
+                    throw new ObjectDisposedException(this.GetType().FullName);
+                }
+
+                if (_nonBlockingConnectInProgress && Poll(0, SelectMode.SelectWrite))
+                {
+                    // Update the state if we've become connected after a non-blocking connect.
+                    _isConnected = true;
+                    _rightEndPoint = _nonBlockingConnectRightEndPoint;
+                    _nonBlockingConnectInProgress = false;
+                }
+
+                if (_rightEndPoint == null)
+                {
+                    return null;
+                }
+
+                Internals.SocketAddress socketAddress = IPEndPointExtensions.Serialize(_rightEndPoint);
+
+                // This may throw ObjectDisposedException.
+                SocketError errorCode = SocketPal.GetSockName(
+                    _handle,
+                    socketAddress.Buffer,
+                    ref socketAddress.InternalSize);
+
+                if (errorCode != SocketError.Success)
+                {
+                    UpdateStatusAfterSocketErrorAndThrowException(errorCode);
+                }
+
+                return _rightEndPoint.Create(socketAddress);
+            }
+        }
+
+        // Gets the remote end point.
+        public EndPoint RemoteEndPoint
+        {
+            get
+            {
+                if (CleanedUp)
+                {
+                    throw new ObjectDisposedException(this.GetType().FullName);
+                }
+
+                if (_remoteEndPoint == null)
+                {
+                    if (_nonBlockingConnectInProgress && Poll(0, SelectMode.SelectWrite))
+                    {
+                        // Update the state if we've become connected after a non-blocking connect.
+                        _isConnected = true;
+                        _rightEndPoint = _nonBlockingConnectRightEndPoint;
+                        _nonBlockingConnectInProgress = false;
+                    }
+
+                    if (_rightEndPoint == null)
+                    {
+                        return null;
+                    }
+
+                    Internals.SocketAddress socketAddress = IPEndPointExtensions.Serialize(_rightEndPoint);
+
+                    // This may throw ObjectDisposedException.
+                    SocketError errorCode = SocketPal.GetPeerName(
+                        _handle,
+                        socketAddress.Buffer,
+                        ref socketAddress.InternalSize);
+
+                    if (errorCode != SocketError.Success)
+                    {
+                        UpdateStatusAfterSocketErrorAndThrowException(errorCode);
+                    }
+
+                    try
+                    {
+                        _remoteEndPoint = _rightEndPoint.Create(socketAddress);
+                    }
+                    catch
+                    {
+                    }
+                }
+
+                return _remoteEndPoint;
+            }
         }
 
         // Gets and sets the blocking mode of a socket.

@@ -20,6 +20,22 @@ namespace System.Net.Sockets
             return SafeCloseSocket.CreateSocket(addressFamily, socketType, protocolType, out socket);
         }
 
+        public static unsafe SocketError GetSockName(SafeSocketHandle handle, byte[] buffer, ref int nameLen)
+        {
+            fixed (byte* rawBuffer = buffer)
+            {
+                return Socket.GetSockName_internal(handle, rawBuffer, ref nameLen);
+            }
+        }
+
+        public static unsafe SocketError GetPeerName(SafeSocketHandle handle, byte[] buffer, ref int nameLen)
+        {
+            fixed (byte* rawBuffer = buffer)
+            {
+                return Socket.GetPeerName_internal(handle, rawBuffer, ref nameLen);
+            }
+        }
+
         public static SocketError ConnectAsync(Socket socket, SafeCloseSocket handle, byte[] socketAddress, int socketAddressLen, ConnectOverlappedAsyncResult asyncResult)
         {
             SocketError socketError = handle.AsyncContext.ConnectAsync(socketAddress, socketAddressLen, asyncResult.CompletionCallback);
