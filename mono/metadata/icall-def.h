@@ -549,8 +549,8 @@ HANDLES(SOCK_6, "Connect_internal(intptr,System.Net.SocketAddress,int&,bool)", v
 HANDLES(SOCK_6a, "Disconnect_internal(intptr,bool,int&)", ves_icall_System_Net_Sockets_Socket_Disconnect_internal, void, 3, (gsize, MonoBoolean, gint32_ref))
 HANDLES(SOCK_6b, "Duplicate_internal", ves_icall_System_Net_Sockets_Socket_Duplicate_internal, MonoBoolean, 4, (gpointer, gint32, gpointer_ref, gint32_ref))
 //FIXME The array is ref but the icall does not write to it.
-HANDLES(SOCK_22, "GetPeerName(intptr,byte*,int&)", ves_icall_System_Net_Sockets_Socket_GetPeerName_internal, gint32, 3, (gsize, char_ptr, gint32_ref))
-HANDLES(SOCK_23, "GetSockName(intptr,byte*,int&)", ves_icall_System_Net_Sockets_Socket_GetSockName_internal, gint32, 3, (gsize, char_ptr, gint32_ref))
+HANDLES(SOCK_22, "GetPeerName_internal(intptr,byte*,int&)", ves_icall_System_Net_Sockets_Socket_GetPeerName_internal, gint32, 3, (gsize, char_ptr, gint32_ref))
+HANDLES(SOCK_23, "GetSockName_internal(intptr,byte*,int&)", ves_icall_System_Net_Sockets_Socket_GetSockName_internal, gint32, 3, (gsize, char_ptr, gint32_ref))
 HANDLES(SOCK_7, "GetSocketOption_arr_internal(intptr,System.Net.Sockets.SocketOptionLevel,System.Net.Sockets.SocketOptionName,byte[]&,int&)", ves_icall_System_Net_Sockets_Socket_GetSocketOption_arr_internal, void, 5, (gsize, gint32, gint32, MonoArray, gint32_ref))
 HANDLES(SOCK_8, "GetSocketOption_obj_internal(intptr,System.Net.Sockets.SocketOptionLevel,System.Net.Sockets.SocketOptionName,object&,int&)", ves_icall_System_Net_Sockets_Socket_GetSocketOption_obj_internal, void, 5, (gsize, gint32, gint32, MonoObjectOut, gint32_ref))
 HANDLES(SOCK_21, "IOControl_internal(intptr,int,byte[],byte[],int&)", ves_icall_System_Net_Sockets_Socket_IOControl_internal, int, 5, (gsize, gint32, MonoArray, MonoArray, gint32_ref))

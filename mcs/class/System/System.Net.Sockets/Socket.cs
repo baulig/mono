@@ -823,6 +823,7 @@ namespace System.Net.Sockets
 				is_bound = true;
 
 			seed_endpoint = endPointSnapshot;
+			_rightEndPoint = endPointSnapshot;
 #endif // FEATURE_NO_BSD_SOCKETS
 		}
 

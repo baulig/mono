@@ -905,7 +905,7 @@ create_object_handle_from_sockaddr (struct sockaddr *saddr, int sa_size, gint32 
 	
 	/* Locate the SocketAddress data buffer in the object */
 	if (!domain->sockaddr_data_field) {
-		domain->sockaddr_data_field = mono_class_get_field_from_name_full (domain->sockaddr_class, "m_Buffer", NULL);
+		domain->sockaddr_data_field = mono_class_get_field_from_name_full (domain->sockaddr_class, "Buffer", NULL);
 		g_assert (domain->sockaddr_data_field);
 	}
 
@@ -1087,12 +1087,14 @@ mono_w32socket_getname2 (gsize sock, gboolean local, gpointer buffer, gint32 *si
 	socklen_t salen = 0;
 	int ret;
 
-	if (buffer == NULL || salen == 0)
+	if (buffer == NULL || size == NULL || *size == 0)
 		return WSAEAFNOSUPPORT;
 
 	/* Note: linux returns just 2 for AF_UNIX. Always. */
 	salen = *size;
 	ret = (local ? mono_w32socket_getsockname : mono_w32socket_getpeername) (sock, (struct sockaddr *)buffer, &salen);
+	*size = salen;
+
 	if (ret == SOCKET_ERROR)
 		return mono_w32socket_get_last_error ();
 
@@ -1139,7 +1141,7 @@ create_sockaddr_from_handle (MonoObjectHandle saddr_obj, socklen_t *sa_size, gin
 
 	/* Locate the SocketAddress data buffer in the object */
 	if (!domain->sockaddr_data_field) {
-		domain->sockaddr_data_field = mono_class_get_field_from_name_full (domain->sockaddr_class, "m_Buffer", NULL);
+		domain->sockaddr_data_field = mono_class_get_field_from_name_full (domain->sockaddr_class, "Buffer", NULL);
 		g_assert (domain->sockaddr_data_field);
 	}
 
