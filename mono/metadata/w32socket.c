@@ -1021,6 +1021,73 @@ create_object_handle_from_sockaddr (struct sockaddr *saddr, int sa_size, gint32 
 	}
 }
 
+static gint32
+fill_buffer_from_sockaddr (struct sockaddr *saddr, int sa_size, gchar *data)
+{
+	MonoAddressFamily family;
+
+	family = convert_to_mono_family (saddr->sa_family);
+	if (family == AddressFamily_Unknown)
+		return WSAEAFNOSUPPORT;
+
+	data[0] = family & 0x0FF;
+	data[1] = (family >> 8) & 0x0FF;
+
+	if (saddr->sa_family == AF_INET) {
+		struct sockaddr_in *sa_in = (struct sockaddr_in *)saddr;
+		guint16 port = ntohs (sa_in->sin_port);
+		guint32 address = ntohl (sa_in->sin_addr.s_addr);
+
+		data[2] = (port>>8) & 0xff;
+		data[3] = (port) & 0xff;
+		data[4] = (address>>24) & 0xff;
+		data[5] = (address>>16) & 0xff;
+		data[6] = (address>>8) & 0xff;
+		data[7] = (address) & 0xff;
+
+		return 0;
+	}
+#ifdef HAVE_STRUCT_SOCKADDR_IN6
+	else if (saddr->sa_family == AF_INET6) {
+		struct sockaddr_in6 *sa_in = (struct sockaddr_in6 *)saddr;
+		guint16 port = ntohs (sa_in->sin6_port);
+		int i;
+
+		data[2] = (port>>8) & 0xff;
+		data[3] = (port) & 0xff;
+
+		if (is_ipv4_mapped_any (&sa_in->sin6_addr)) {
+			// Map ::ffff:0:0 to :: (bug #5502)
+			for (i = 0; i < 16; i++)
+				data[8 + i] = 0;
+		} else {
+			for (i = 0; i < 16; i++)
+				data[8 + i] = sa_in->sin6_addr.s6_addr [i];
+		}
+
+		data[24] = sa_in->sin6_scope_id & 0xff;
+		data[25] = (sa_in->sin6_scope_id >> 8) & 0xff;
+		data[26] = (sa_in->sin6_scope_id >> 16) & 0xff;
+		data[27] = (sa_in->sin6_scope_id >> 24) & 0xff;
+
+		return 0;
+	}
+#endif
+#ifdef HAVE_SYS_UN_H
+	else if (saddr->sa_family == AF_UNIX) {
+		int i;
+
+		for (i = 0; i < sa_size; i++)
+			data[i + 2] = saddr->sa_data [i];
+
+		return 0;
+	}
+#endif
+	else {
+		return WSAEAFNOSUPPORT;
+	}
+}
+
 static int
 get_sockaddr_size (int family)
 {
@@ -1082,25 +1149,40 @@ exit:
 }
 
 static gint32
-mono_w32socket_getname2 (gsize sock, gboolean local, gpointer buffer, gint32 *size)
+mono_w32socket_getname2 (gsize sock, gboolean local, gchar *buffer, gint32 *size)
 {
 	socklen_t salen = 0;
+	gpointer sa = NULL;
+	gint32 werror = 0;
 	int ret;
 
 	if (buffer == NULL || size == NULL || *size == 0)
 		return WSAEAFNOSUPPORT;
 
-	/* Note: linux returns just 2 for AF_UNIX. Always. */
 	salen = *size;
-	ret = (local ? mono_w32socket_getsockname : mono_w32socket_getpeername) (sock, (struct sockaddr *)buffer, &salen);
+	if (salen <= 128) {
+		sa = g_alloca (salen);
+		memset (sa, 0, salen);
+	} else {
+		sa = g_malloc0 (salen);
+	}
+
+	/* Note: linux returns just 2 for AF_UNIX. Always. */
+	ret = (local ? mono_w32socket_getsockname : mono_w32socket_getpeername) (sock, (struct sockaddr *)sa, &salen);
+	if (ret == SOCKET_ERROR) {
+		werror = mono_w32socket_get_last_error ();
+		goto exit;
+	}
+
+	LOGDEBUG (g_message("%s: %s to %s port %d", __func__, local ? "bound" : "connected", inet_ntoa (((struct sockaddr_in *)&sa)->sin_addr), ntohs (((struct sockaddr_in *)&sa)->sin_port)));
+
 	*size = salen;
+	werror = fill_buffer_from_sockaddr ((struct sockaddr *)sa, *size, buffer);
 
-	if (ret == SOCKET_ERROR)
-		return mono_w32socket_get_last_error ();
-
-	LOGDEBUG (g_message("%s: %s to %s port %d", __func__, local ? "bound" : "connected", inet_ntoa (((struct sockaddr_in *)&buffer)->sin_addr), ntohs (((struct sockaddr_in *)&buffer)->sin_port)));
-
-	return 0;
+exit:
+	if (salen > 128)
+		g_free (sa);
+	return werror;
 }
 
 MonoObjectHandle
