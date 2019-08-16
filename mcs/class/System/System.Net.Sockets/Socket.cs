@@ -953,6 +953,7 @@ namespace System.Net.Sockets
 
 			// Update state and performance counters.
 			SetToConnected ();
+			is_bound = true;
 		}
 
 		public bool ConnectAsync (SocketAsyncEventArgs e)
