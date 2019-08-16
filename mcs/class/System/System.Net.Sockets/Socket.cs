@@ -786,29 +786,6 @@ namespace System.Net.Sockets
 
 #region Connect
 
-		void DoConnect (EndPoint endPointSnapshot, SocketAddress socketAddress)
-		{
-			SocketError errorCode = SocketPal.Connect (_handle, socketAddress.Buffer, socketAddress.Size);
-
-			// Throw an appropriate SocketException if the native call fails.
-			if (errorCode != SocketError.Success) {
-				// Update the internal state of this socket according to the error before throwing.
-				SocketException socketException = SocketExceptionFactory.CreateSocketException ((int)errorCode, endPointSnapshot);
-				UpdateStatusAfterSocketError (socketException);
-				throw socketException;
-			}
-
-			if (_rightEndPoint == null)
-			{
-				// Save a copy of the EndPoint so we can use it for Create().
-				_rightEndPoint = endPointSnapshot;
-			}
-
-			// Update state and performance counters.
-			SetToConnected ();
-			is_bound = true;
-		}
-
 		public bool ConnectAsync (SocketAsyncEventArgs e)
 		{
 			bool pending;

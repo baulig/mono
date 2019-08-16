@@ -1,5 +1,6 @@
 using System.Threading;
 using System.Diagnostics;
+using System.Net.Internals;
 using System.Runtime.CompilerServices;
 using System.Runtime.ExceptionServices;
 
@@ -418,6 +419,49 @@ namespace System.Net.Sockets
         {
             bool current;
             InternalSetBlocking(desired, out current);
+        }
+
+        private void DoConnect(EndPoint endPointSnapshot, Internals.SocketAddress socketAddress)
+        {
+            if (NetEventSource.IsEnabled) NetEventSource.Enter(this, endPointSnapshot);
+
+            SocketError errorCode = SocketPal.Connect(_handle, socketAddress.Buffer, socketAddress.Size);
+#if TRACE_VERBOSE
+            if (NetEventSource.IsEnabled)
+            {
+                try
+                {
+                    if (NetEventSource.IsEnabled) NetEventSource.Info(this, $"SRC:{LocalEndPoint} DST:{RemoteEndPoint} Interop.Winsock.WSAConnect returns errorCode:{errorCode}");
+                }
+                catch (ObjectDisposedException) { }
+            }
+#endif
+
+            // Throw an appropriate SocketException if the native call fails.
+            if (errorCode != SocketError.Success)
+            {
+                // Update the internal state of this socket according to the error before throwing.
+                SocketException socketException = SocketExceptionFactory.CreateSocketException((int)errorCode, endPointSnapshot);
+                UpdateStatusAfterSocketError(socketException);
+                if (NetEventSource.IsEnabled) NetEventSource.Error(this, socketException);
+                throw socketException;
+            }
+
+            if (_rightEndPoint == null)
+            {
+                // Save a copy of the EndPoint so we can use it for Create().
+                _rightEndPoint = endPointSnapshot;
+            }
+
+            if (NetEventSource.IsEnabled) NetEventSource.Info(this, $"connection to:{endPointSnapshot}");
+
+            // Update state and performance counters.
+            SetToConnected();
+            if (NetEventSource.IsEnabled)
+            {
+                NetEventSource.Connected(this, LocalEndPoint, RemoteEndPoint);
+                NetEventSource.Exit(this);
+            }
         }
 
 #endregion
