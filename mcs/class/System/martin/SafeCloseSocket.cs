@@ -8,6 +8,8 @@ namespace System.Net.Sockets
     abstract class SafeCloseSocket : SafeHandleZeroOrMinusOneIsInvalid
     {
         private SocketAsyncContext _asyncContext;
+        private bool _nonBlocking;
+        private bool _underlyingHandleNonBlocking;
 
         private TrackedSocketOptions _trackedOptions;
         internal bool LastConnectFailed { get; set; }
@@ -86,6 +88,42 @@ namespace System.Net.Sockets
                 }
 
                 return _asyncContext;
+            }
+        }
+
+        // This will set the underlying OS handle to be nonblocking, for whatever reason --
+        // performing an async operation or using a timeout will cause this to happen.
+        // Once the OS handle is nonblocking, it never transitions back to blocking.
+        private void SetHandleNonBlocking()
+        {
+            // We don't care about synchronization because this is idempotent
+            if (!_underlyingHandleNonBlocking)
+            {
+                AsyncContext.SetNonBlocking();
+                _underlyingHandleNonBlocking = true;
+            }
+        }
+
+        public bool IsNonBlocking
+        {
+            get
+            {
+                return _nonBlocking;
+            }
+            set
+            {
+                _nonBlocking = value;
+
+                //
+                // If transitioning to non-blocking, we need to set the native socket to non-blocking mode.
+                // If we ever transition back to blocking, we keep the native socket in non-blocking mode, and emulate
+                // blocking.  This avoids problems with switching to native blocking while there are pending async
+                // operations.
+                //
+                if (value)
+                {
+                    SetHandleNonBlocking();
+                }
             }
         }
 

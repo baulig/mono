@@ -824,6 +824,8 @@ ReferenceSources/Win32Exception.cs
 
 ../../../external/corefx/src/Common/src/System/Net/Internals/IPAddressExtensions.cs
 ../../../external/corefx/src/Common/src/System/Net/Internals/IPEndPointExtensions.cs
+../../../external/corefx/src/Common/src/System/Net/Internals/SocketExceptionFactory.Unix.cs
+../../../external/corefx/src/Common/src/System/Net/Internals/SocketExceptionFactory.cs
 
 ../../../external/corefx/src/Common/src/System/Net/Security/CertificateHelper.cs
 ../../../external/corefx/src/Common/src/System/Net/Security/CertificateHelper.Unix.cs

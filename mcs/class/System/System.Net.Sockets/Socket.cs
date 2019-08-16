@@ -35,6 +35,7 @@
 
 using System;
 using System.Net;
+using System.Net.Internals;
 using System.Collections;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
@@ -884,25 +885,32 @@ namespace System.Net.Sockets
 			Connect (Dns.GetHostAddresses (host), port);
 		}
 
+		// Establishes a connection to a remote system.
 		public void Connect (EndPoint remoteEP)
 		{
 			ThrowIfDisposedAndClosed ();
 
+			// Validate input parameters.
 			if (remoteEP == null)
 				throw new ArgumentNullException (nameof (remoteEP));
 
-			if (is_listening)
-				throw new InvalidOperationException (SR.GetString (SR.net_sockets_mustnotlisten));
+#if FIXME
+			if (_isDisconnected)
+				throw new InvalidOperationException (SR.net_sockets_disconnectedConnect);
+#endif
 
-			IPEndPoint ep = remoteEP as IPEndPoint;
-			/* Dgram uses Any to 'disconnect' */
-			if (ep != null && socketType != SocketType.Dgram) {
-				if (ep.Address.Equals (IPAddress.Any) || ep.Address.Equals (IPAddress.IPv6Any))
-					throw new SocketException ((int) SocketError.AddressNotAvailable);
-			}
+			if (is_listening)
+				throw new InvalidOperationException (SR.net_sockets_mustnotlisten);
+
+			if (is_connected)
+				throw new SocketException((int)SocketError.IsConnected);
+
+			ValidateBlockingMode ();
 
 			DnsEndPoint dnsEP = remoteEP as DnsEndPoint;
 			if (dnsEP != null) {
+				ValidateForMultiConnect (isMultiEndpoint: true); // needs to come before CanTryAddressFamily call
+
 				if (dnsEP.AddressFamily != AddressFamily.Unspecified && !CanTryAddressFamily (dnsEP.AddressFamily))
 					throw new NotSupportedException (SR.net_invalidversion);
 
@@ -910,23 +918,41 @@ namespace System.Net.Sockets
 				return;
 			}
 
+			ValidateForMultiConnect (isMultiEndpoint: false);
+
 			EndPoint endPointSnapshot = remoteEP;
 			SocketAddress socketAddress = SnapshotAndSerialize (ref endPointSnapshot);
 
-			int error = 0;
-			Connect_internal (m_Handle, socketAddress, out error, is_blocking);
+#if FIXME
+			if (!Blocking) {
+				_nonBlockingConnectRightEndPoint = endPointSnapshot;
+				_nonBlockingConnectInProgress = true;
+			}
+#endif
 
-			if (error == 0 || error == 10035)
-				seed_endpoint = endPointSnapshot; // Keep the ep around for non-blocking sockets
+			DoConnect(endPointSnapshot, socketAddress);
+		}
 
-			if (error != 0) {
-				if (is_closed)
-					error = SOCKET_CLOSED_CODE;
-				throw new SocketException (error);
+		void DoConnect (EndPoint endPointSnapshot, SocketAddress socketAddress)
+		{
+			SocketError errorCode = SocketPal.Connect (m_Handle, socketAddress.Buffer, socketAddress.Size);
+
+			// Throw an appropriate SocketException if the native call fails.
+			if (errorCode != SocketError.Success) {
+				// Update the internal state of this socket according to the error before throwing.
+				SocketException socketException = SocketExceptionFactory.CreateSocketException ((int)errorCode, endPointSnapshot);
+				UpdateStatusAfterSocketError (socketException);
+				throw socketException;
 			}
 
-			is_connected = !(socketType == SocketType.Dgram && ep != null && (ep.Address.Equals (IPAddress.Any) || ep.Address.Equals (IPAddress.IPv6Any)));
-			is_bound = true;
+			if (seed_endpoint == null)
+			{
+				// Save a copy of the EndPoint so we can use it for Create().
+				seed_endpoint = endPointSnapshot;
+			}
+
+			// Update state and performance counters.
+			SetToConnected ();
 		}
 
 		public bool ConnectAsync (SocketAsyncEventArgs e)
@@ -2987,6 +3013,19 @@ namespace System.Net.Sockets
 			return input;
 		}
 		
+		// ValidateBlockingMode - called before synchronous calls to validate
+		// the fact that we are in blocking mode (not in non-blocking mode) so the
+		// call will actually be synchronous.
+		void ValidateBlockingMode ()
+		{
+#if FIXME
+			if (_willBlock && !_willBlockInternal)
+			{
+				throw new InvalidOperationException (SR.net_invasync);
+			}
+#endif
+		}
+
 		[StructLayout (LayoutKind.Sequential)]
 		struct WSABUF {
 			public int len;

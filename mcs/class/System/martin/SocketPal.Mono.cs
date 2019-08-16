@@ -9,7 +9,27 @@ namespace System.Net.Sockets
             return SafeCloseSocket.CreateSocket(addressFamily, socketType, protocolType, out socket);
         }
 
+        public static SocketError Connect(SafeSocketHandle handle, byte[] socketAddress, int socketAddressLen)
+        {
+            SocketError errorCode;
+            bool completed = TryStartConnect(handle, socketAddress, socketAddressLen, !handle.IsNonBlocking, out errorCode);
+            if (completed)
+            {
+                handle.RegisterConnectResult(errorCode);
+                return errorCode;
+            }
+            else
+            {
+                return SocketError.WouldBlock;
+            }
+        }
+
         public static bool TryStartConnect(SafeSocketHandle socket, byte[] socketAddress, int socketAddressLen, out SocketError errorCode)
+        {
+            return TryStartConnect(socket, socketAddress, socketAddressLen, false, out errorCode);
+        }
+
+        private static bool TryStartConnect(SafeSocketHandle socket, byte[] socketAddress, int socketAddressLen, bool block, out SocketError errorCode)
         {
             Debug.Assert(socketAddress != null, "Expected non-null socketAddress");
             Debug.Assert(socketAddressLen > 0, $"Unexpected socketAddressLen: {socketAddressLen}");
@@ -22,7 +42,7 @@ namespace System.Net.Sockets
 
             var sa = new SocketAddress(socketAddress, socketAddressLen);
 
-            Socket.Connect_internal(socket, sa, out var error, false);
+            Socket.Connect_internal(socket, sa, out var error, block);
 
             if (error == 0)
             {
