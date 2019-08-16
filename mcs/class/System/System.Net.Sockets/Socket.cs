@@ -39,6 +39,7 @@ using System.Net.Internals;
 using System.Collections;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
+using System.Runtime.ExceptionServices;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -1329,12 +1330,42 @@ namespace System.Net.Sockets
 		{
 			ThrowIfDisposedAndClosed ();
 
-			SocketAsyncResult sockares = ValidateEndIAsyncResult (asyncResult, "EndConnect", "asyncResult");
+			// Validate input parameters.
+			if (asyncResult == null)
+				throw new ArgumentNullException (nameof (asyncResult));
 
-			if (!sockares.IsCompleted)
-				sockares.AsyncWaitHandle.WaitOne();
+			// FIXME: old Mono code
+			if (asyncResult is SocketAsyncResult sockares) {
+				if (!sockares.IsCompleted)
+					sockares.AsyncWaitHandle.WaitOne();
 
-			sockares.CheckIfThrowDelayedException();
+				sockares.CheckIfThrowDelayedException ();
+			}
+
+			ContextAwareResult castedAsyncResult =
+				asyncResult as ConnectOverlappedAsyncResult ??
+				asyncResult as MultipleAddressConnectAsyncResult ??
+				(ContextAwareResult)(asyncResult as ConnectAsyncResult);
+
+			if (castedAsyncResult == null || castedAsyncResult.AsyncObject != this)
+				throw new ArgumentException (SR.net_io_invalidasyncresult, nameof (asyncResult));
+			if (castedAsyncResult.EndCalled)
+				throw new InvalidOperationException( SR.Format (SR.net_io_invalidendcall, "EndConnect"));
+
+			castedAsyncResult.InternalWaitForCompletion ();
+			castedAsyncResult.EndCalled = true;
+
+			Exception ex = castedAsyncResult.Result as Exception;
+			if (ex != null || (SocketError)castedAsyncResult.ErrorCode != SocketError.Success) {
+				if (ex == null) {
+					// Update the internal state of this socket according to the error before throwing.
+					SocketException se = SocketExceptionFactory.CreateSocketException (castedAsyncResult.ErrorCode, castedAsyncResult.RemoteEndPoint);
+					UpdateStatusAfterSocketError (se);
+					ex = se;
+				}
+
+				ExceptionDispatchInfo.Throw (ex);
+			}
 		}
 
 		internal static void Connect_internal (SafeSocketHandle safeHandle, SocketAddress sa, out int error, bool blocking)
