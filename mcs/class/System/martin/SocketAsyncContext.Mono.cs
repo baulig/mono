@@ -7,17 +7,9 @@ namespace System.Net.Sockets
 {
     sealed partial class SocketAsyncContext
     {
-        readonly SafeSocketHandle _socket;
-
-        public SocketAsyncContext(SafeCloseSocket socket)
-        {
-            // CoreFX uses `SafeCloseSocket`, we are using `SafeSocketHandle`.
-            _socket = (SafeSocketHandle)socket;
-        }
-
         public void SetNonBlocking()
         {
-            Socket.Blocking_internal(_socket, false, out var error);
+            Socket.Blocking_internal((SafeSocketHandle)_socket, false, out var error);
             if (error != 0)
                 throw new SocketException(error);
         }

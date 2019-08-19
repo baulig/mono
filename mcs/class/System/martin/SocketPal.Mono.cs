@@ -102,11 +102,11 @@ namespace System.Net.Sockets
             return false;
         }
 
-        public static bool TryCompleteConnect(SafeSocketHandle socket, int socketAddressLen, out SocketError errorCode)
+        public static bool TryCompleteConnect(SafeCloseSocket socket, int socketAddressLen, out SocketError errorCode)
         {
             try
             {
-                errorCode = (SocketError)Socket.GetSocketOption(socket, SocketOptionLevel.Socket, SocketOptionName.Error);
+                errorCode = (SocketError)Socket.GetSocketOption((SafeSocketHandle)socket, SocketOptionLevel.Socket, SocketOptionName.Error);
             }
             catch (ObjectDisposedException)
             {
