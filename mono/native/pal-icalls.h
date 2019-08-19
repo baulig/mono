@@ -16,9 +16,7 @@ MONO_API void mono_pal_init (void);
 
 extern void mono_marshal_set_last_error (void);
 extern int32_t SystemNative_Read(intptr_t fd, void* buffer, int32_t bufferSize);
-extern int32_t SystemNative_WaitForSocketEvents(intptr_t port, void * buffer, int32_t* count);
 gint32 ves_icall_Interop_Sys_Read (intptr_t fd, gchar* buffer, gint32 count);
-gint32 ves_icall_Interop_Sys_WaitForSocketEvents(intptr_t port, gchar ** buffer, int32_t* count);
 
 #if defined(__APPLE__)
 extern void mono_thread_info_install_interrupt (void (*callback) (gpointer data), gpointer data, gboolean *interrupted);
