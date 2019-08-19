@@ -13,6 +13,26 @@ namespace System.Net.Sockets
             return SocketError.Success;
         }
 
+        public static SocketError Connect(SafeCloseSocket handle, byte[] socketAddress, int socketAddressLen)
+        {
+            if (!handle.IsNonBlocking)
+            {
+                return handle.AsyncContext.Connect(socketAddress, socketAddressLen);
+            }
+
+            SocketError errorCode;
+            bool completed = TryStartConnect(handle, socketAddress, socketAddressLen, out errorCode);
+            if (completed)
+            {
+                handle.RegisterConnectResult(errorCode);
+                return errorCode;
+            }
+            else
+            {
+                return SocketError.WouldBlock;
+            }
+        }
+
 #endregion
 
         public static SocketError CreateSocket(AddressFamily addressFamily, SocketType socketType, ProtocolType protocolType, out SafeSocketHandle socket)
@@ -46,24 +66,9 @@ namespace System.Net.Sockets
             return socketError;
         }
 
-        public static SocketError Connect(SafeSocketHandle handle, byte[] socketAddress, int socketAddressLen)
+        public static bool TryStartConnect(SafeCloseSocket socket, byte[] socketAddress, int socketAddressLen, out SocketError errorCode)
         {
-            SocketError errorCode;
-            bool completed = TryStartConnect(handle, socketAddress, socketAddressLen, !handle.IsNonBlocking, out errorCode);
-            if (completed)
-            {
-                handle.RegisterConnectResult(errorCode);
-                return errorCode;
-            }
-            else
-            {
-                return SocketError.WouldBlock;
-            }
-        }
-
-        public static bool TryStartConnect(SafeSocketHandle socket, byte[] socketAddress, int socketAddressLen, out SocketError errorCode)
-        {
-            return TryStartConnect(socket, socketAddress, socketAddressLen, false, out errorCode);
+            return TryStartConnect((SafeSocketHandle)socket, socketAddress, socketAddressLen, false, out errorCode);
         }
 
         private static bool TryStartConnect(SafeSocketHandle socket, byte[] socketAddress, int socketAddressLen, bool block, out SocketError errorCode)
