@@ -30,12 +30,26 @@ mono_pal_init (void)
 	volatile static gboolean module_initialized = FALSE;
 	if (mono_atomic_cas_i32 (&module_initialized, TRUE, FALSE) == FALSE) {
 		mono_add_internal_call_with_flags ("Interop/Sys::Read", ves_icall_Interop_Sys_Read, TRUE);
+		mono_add_internal_call_with_flags ("Interop/Sys::WaitForSocketEvents", ves_icall_Interop_Sys_WaitForSocketEvents, TRUE);
 
 #if defined(__APPLE__)
 		mono_add_internal_call_with_flags ("Interop/RunLoop::CFRunLoopRun", ves_icall_Interop_RunLoop_CFRunLoopRun, TRUE);
 #endif
 	}
 
+}
+
+gint32
+ves_icall_Interop_Sys_WaitForSocketEvents(intptr_t port, gchar ** buffer, int32_t* count)
+{
+	gint32 result;
+	MONO_ENTER_GC_SAFE;
+	g_message(G_STRLOC ": %p - %d", port, *count);
+	result = SystemNative_WaitForSocketEvents(port, buffer, count);
+	g_message(G_STRLOC ": %p - %d - %x", port, *count, result);
+	mono_marshal_set_last_error ();
+	MONO_EXIT_GC_SAFE;
+	return result;
 }
 
 gint32

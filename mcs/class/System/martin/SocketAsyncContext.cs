@@ -769,6 +769,9 @@ namespace System.Net.Sockets
                     Debug.Assert(!_asyncEngineToken.WasAllocated);
                     var token = new SocketAsyncEngine.Token(this);
 
+#if MONO
+                    token.Register(_socket);
+#else
                     Interop.Error errorCode;
                     if (!token.TryRegister(_socket, out errorCode))
                     {
@@ -782,6 +785,7 @@ namespace System.Net.Sockets
                             throw new InternalException();
                         }
                     }
+#endif
 
                     _asyncEngineToken = token;
                     _registered = true;
@@ -801,7 +805,11 @@ namespace System.Net.Sockets
             {
                 // Freeing the token will prevent any future event delivery.  This socket will be unregistered
                 // from the event port automatically by the OS when it's closed.
+#if MONO
+                _asyncEngineToken.Free(_socket);
+#else
                 _asyncEngineToken.Free();
+#endif
             }
         }
 
