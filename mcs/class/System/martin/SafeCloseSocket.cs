@@ -7,17 +7,31 @@ namespace System.Net.Sockets
 {
     abstract class SafeCloseSocket : SafeHandleZeroOrMinusOneIsInvalid
     {
-        private SocketAsyncContext _asyncContext;
+
+#region CoreFX Code
+
+        private int _receiveTimeout = -1;
+        private int _sendTimeout = -1;
         private bool _nonBlocking;
         private bool _underlyingHandleNonBlocking;
+        private SocketAsyncContext _asyncContext;
 
         private TrackedSocketOptions _trackedOptions;
         internal bool LastConnectFailed { get; set; }
         internal bool DualMode { get; set; }
         internal bool ExposedHandleOrUntrackedConfiguration { get; private set; }
 
-        protected SafeCloseSocket(bool ownsHandle) : base(ownsHandle)
+        public void RegisterConnectResult(SocketError error)
         {
+            switch (error)
+            {
+                case SocketError.Success:
+                case SocketError.WouldBlock:
+                    break;
+                default:
+                    LastConnectFailed = true;
+                    break;
+            }
         }
 
         public void TransferTrackedState(SafeCloseSocket target)
@@ -127,16 +141,29 @@ namespace System.Net.Sockets
             }
         }
 
-        public void RegisterConnectResult(SocketError error)
+        public int ReceiveTimeout
         {
-            switch (error)
+            get
             {
-                case SocketError.Success:
-                case SocketError.WouldBlock:
-                    break;
-                default:
-                    LastConnectFailed = true;
-                    break;
+                return _receiveTimeout;
+            }
+            set
+            {
+                Debug.Assert(value == -1 || value > 0, $"Unexpected value: {value}");
+                _receiveTimeout = value;
+            }
+        }
+
+        public int SendTimeout
+        {
+            get
+            {
+                return _sendTimeout;
+            }
+            set
+            {
+                Debug.Assert(value == -1 || value > 0, $"Unexpected value: {value}");
+                _sendTimeout = value;
             }
         }
 
@@ -145,6 +172,20 @@ namespace System.Net.Sockets
         public void SetToDisconnected()
         {
             IsDisconnected = true;
+        }
+
+        private void InnerReleaseHandle()
+        {
+            if (_asyncContext != null)
+            {
+                _asyncContext.Close();
+            }
+        }
+
+#endregion
+
+        protected SafeCloseSocket(bool ownsHandle) : base(ownsHandle)
+        {
         }
 
         public static SocketError CreateSocket(AddressFamily addressFamily, SocketType socketType, ProtocolType protocolType, out SafeSocketHandle socket)
