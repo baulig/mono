@@ -31,13 +31,11 @@ namespace System.Net.Sockets
 
             private static void ReadCallback(IOAsyncResult ioares)
             {
-                Console.Error.WriteLine($"SAE READ CALLBACK");
                 ((MyIOAsyncResult)ioares).CompleteRead();
             }
 
             private static void WriteCallback(IOAsyncResult ioares)
             {
-                Console.Error.WriteLine($"SAE WRITE CALLBACK");
                 ((MyIOAsyncResult)ioares).CompleteWrite();
             }
 
