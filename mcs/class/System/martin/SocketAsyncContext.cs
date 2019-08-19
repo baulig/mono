@@ -877,6 +877,70 @@ namespace System.Net.Sockets
             return false;
         }
 
+        public SocketError Connect(byte[] socketAddress, int socketAddressLen)
+        {
+            Debug.Assert(socketAddress != null, "Expected non-null socketAddress");
+            Debug.Assert(socketAddressLen > 0, $"Unexpected socketAddressLen: {socketAddressLen}");
+
+            // Connect is different than the usual "readiness" pattern of other operations.
+            // We need to call TryStartConnect to initiate the connect with the OS, 
+            // before we try to complete it via epoll notification. 
+            // Thus, always call TryStartConnect regardless of readiness.
+            SocketError errorCode;
+            int observedSequenceNumber;
+            _sendQueue.IsReady(this, out observedSequenceNumber);
+            if (SocketPal.TryStartConnect(_socket, socketAddress, socketAddressLen, out errorCode))
+            {
+                _socket.RegisterConnectResult(errorCode);
+                return errorCode;
+            }
+
+            var operation = new ConnectOperation(this)
+            {
+                SocketAddress = socketAddress,
+                SocketAddressLen = socketAddressLen
+            };
+
+            PerformSyncOperation(ref _sendQueue, operation, -1, observedSequenceNumber);
+
+            return operation.ErrorCode;
+        }
+
+        public SocketError ConnectAsync(byte[] socketAddress, int socketAddressLen, Action<SocketError> callback)
+        {
+            Debug.Assert(socketAddress != null, "Expected non-null socketAddress");
+            Debug.Assert(socketAddressLen > 0, $"Unexpected socketAddressLen: {socketAddressLen}");
+            Debug.Assert(callback != null, "Expected non-null callback");
+
+            SetNonBlocking();
+
+            // Connect is different than the usual "readiness" pattern of other operations.
+            // We need to initiate the connect before we try to complete it. 
+            // Thus, always call TryStartConnect regardless of readiness.
+            SocketError errorCode;
+            int observedSequenceNumber;
+            _sendQueue.IsReady(this, out observedSequenceNumber);
+            if (SocketPal.TryStartConnect(_socket, socketAddress, socketAddressLen, out errorCode))
+            {
+                _socket.RegisterConnectResult(errorCode);
+                return errorCode;
+            }
+
+            var operation = new ConnectOperation(this)
+            {
+                Callback = callback,
+                SocketAddress = socketAddress,
+                SocketAddressLen = socketAddressLen
+            };
+
+            if (!_sendQueue.StartAsyncOperation(this, operation, observedSequenceNumber))
+            {
+                return operation.ErrorCode;
+            }
+
+            return SocketError.IOPending;
+        }
+
         public unsafe void HandleEvents(Interop.Sys.SocketEvents events)
         {
             if ((events & Interop.Sys.SocketEvents.Error) != 0)

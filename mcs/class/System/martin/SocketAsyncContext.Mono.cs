@@ -14,35 +14,7 @@ namespace System.Net.Sockets
                 throw new SocketException(error);
         }
 
-        public SocketError Connect(byte[] socketAddress, int socketAddressLen)
-        {
-            Debug.Assert(socketAddress != null, "Expected non-null socketAddress");
-            Debug.Assert(socketAddressLen > 0, $"Unexpected socketAddressLen: {socketAddressLen}");
-
-            // Connect is different than the usual "readiness" pattern of other operations.
-            // We need to call TryStartConnect to initiate the connect with the OS, 
-            // before we try to complete it via epoll notification. 
-            // Thus, always call TryStartConnect regardless of readiness.
-            SocketError errorCode;
-            int observedSequenceNumber;
-            _sendQueue.IsReady(this, out observedSequenceNumber);
-            if (SocketPal.TryStartConnect(_socket, socketAddress, socketAddressLen, out errorCode))
-            {
-                _socket.RegisterConnectResult(errorCode);
-                return errorCode;
-            }
-
-            var operation = new ConnectOperation(this)
-            {
-                SocketAddress = socketAddress,
-                SocketAddressLen = socketAddressLen
-            };
-
-            PerformSyncOperation(ref _sendQueue, operation, -1, observedSequenceNumber);
-
-            return operation.ErrorCode;
-        }
-
+#if FIXME
         public SocketError ConnectAsync(byte[] socketAddress, int socketAddressLen, Action<SocketError> callback)
         {
             Debug.Assert(socketAddress != null, "Expected non-null socketAddress");
@@ -71,6 +43,7 @@ namespace System.Net.Sockets
             IOSelector.Add (_socket.DangerousGetHandle (), new IOSelectorJob (IOOperation.Write, AsyncOperation.CompletionCallback, operation));
             return SocketError.IOPending;
         }
+#endif
 
         abstract partial class AsyncOperation : IOAsyncResult
         {
