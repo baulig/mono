@@ -18,78 +18,6 @@ namespace System.Net.Sockets
             return SocketError.Success;
         }
 
-#if MARTIN_FIXME
-        public static unsafe bool TryStartConnect(SafeCloseSocket socket, byte[] socketAddress, int socketAddressLen, out SocketError errorCode)
-        {
-            Debug.Assert(socketAddress != null, "Expected non-null socketAddress");
-            Debug.Assert(socketAddressLen > 0, $"Unexpected socketAddressLen: {socketAddressLen}");
-
-            if (socket.IsDisconnected)
-            {
-                errorCode = SocketError.IsConnected;
-                return true;
-            }
-
-            Interop.Error err;
-            fixed (byte* rawSocketAddress = socketAddress)
-            {
-                err = Interop.Sys.Connect(socket, rawSocketAddress, socketAddressLen);
-            }
-
-            if (err == Interop.Error.SUCCESS)
-            {
-                errorCode = SocketError.Success;
-                return true;
-            }
-
-            if (err != Interop.Error.EINPROGRESS)
-            {
-                errorCode = GetSocketErrorForErrorCode(err);
-                return true;
-            }
-
-            errorCode = SocketError.Success;
-            return false;
-        }
-
-        public static unsafe bool TryCompleteConnect(SafeCloseSocket socket, int socketAddressLen, out SocketError errorCode)
-        {
-            Interop.Error socketError = default;
-            Interop.Error err;
-            try
-            {
-                err = Interop.Sys.GetSocketErrorOption(socket, &socketError);
-            }
-            catch (ObjectDisposedException)
-            {
-                // The socket was closed, or is closing.
-                errorCode = SocketError.OperationAborted;
-                return true;
-            }
-
-            if (err != Interop.Error.SUCCESS)
-            {
-                Debug.Assert(err == Interop.Error.EBADF, $"Unexpected err: {err}");
-                errorCode = SocketError.SocketError;
-                return true;
-            }
-
-            if (socketError == Interop.Error.SUCCESS)
-            {
-                errorCode = SocketError.Success;
-                return true;
-            }
-            else if (socketError == Interop.Error.EINPROGRESS)
-            {
-                errorCode = SocketError.Success;
-                return false;
-            }
-
-            errorCode = GetSocketErrorForErrorCode(socketError);
-            return true;
-        }
-#endif
-
         public static SocketError Connect(SafeCloseSocket handle, byte[] socketAddress, int socketAddressLen)
         {
             if (!handle.IsNonBlocking)
@@ -142,8 +70,6 @@ namespace System.Net.Sockets
             }
             return socketError;
         }
-
-#if !MARTIN_FIXME
 
         public static bool TryStartConnect(SafeCloseSocket socket, byte[] socketAddress, int socketAddressLen, out SocketError errorCode)
         {
@@ -207,8 +133,6 @@ namespace System.Net.Sockets
 
             return true;
         }
-
-#endif
 
     }
 }
