@@ -18,6 +18,7 @@ namespace System.Net.Sockets
             return SocketError.Success;
         }
 
+#if MARTIN_FIXME
         public static unsafe bool TryStartConnect(SafeCloseSocket socket, byte[] socketAddress, int socketAddressLen, out SocketError errorCode)
         {
             Debug.Assert(socketAddress != null, "Expected non-null socketAddress");
@@ -87,6 +88,7 @@ namespace System.Net.Sockets
             errorCode = GetSocketErrorForErrorCode(socketError);
             return true;
         }
+#endif
 
         public static SocketError Connect(SafeCloseSocket handle, byte[] socketAddress, int socketAddressLen)
         {
@@ -141,7 +143,7 @@ namespace System.Net.Sockets
             return socketError;
         }
 
-#if MARTIN_FIXME
+#if !MARTIN_FIXME
 
         public static bool TryStartConnect(SafeCloseSocket socket, byte[] socketAddress, int socketAddressLen, out SocketError errorCode)
         {
