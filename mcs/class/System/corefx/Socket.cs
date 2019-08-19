@@ -54,6 +54,8 @@ namespace System.Net.Sockets
             internal CallbackClosure ReceiveClosureCache;
         }
 
+        private int _closeTimeout = Socket.DefaultCloseTimeout;
+
         // Gets the local end point.
         public EndPoint LocalEndPoint
         {
@@ -173,6 +175,97 @@ namespace System.Net.Sockets
 
                 // The native call succeeded, update the user's desired state.
                 _willBlock = current;
+            }
+        }
+
+        // Associates a socket with an end point.
+        public void Bind(EndPoint localEP)
+        {
+            if (NetEventSource.IsEnabled) NetEventSource.Enter(this, localEP);
+
+            if (CleanedUp)
+            {
+                throw new ObjectDisposedException(this.GetType().FullName);
+            }
+
+            // Validate input parameters.
+            if (localEP == null)
+            {
+                throw new ArgumentNullException(nameof(localEP));
+            }
+
+            if (NetEventSource.IsEnabled) NetEventSource.Info(this, $"localEP:{localEP}");
+
+            // Ask the EndPoint to generate a SocketAddress that we can pass down to native code.
+            EndPoint endPointSnapshot = localEP;
+            Internals.SocketAddress socketAddress = SnapshotAndSerialize(ref endPointSnapshot);
+
+            DoBind(endPointSnapshot, socketAddress);
+
+            if (NetEventSource.IsEnabled) NetEventSource.Exit(this);
+        }
+
+        internal void InternalBind(EndPoint localEP)
+        {
+            if (NetEventSource.IsEnabled) NetEventSource.Enter(this, localEP);
+
+            if (CleanedUp)
+            {
+                throw new ObjectDisposedException(GetType().FullName);
+            }
+
+            if (NetEventSource.IsEnabled) NetEventSource.Info(this, $"localEP:{localEP}");
+
+            if (localEP is DnsEndPoint)
+            {
+                NetEventSource.Fail(this, "Calling InternalBind with a DnsEndPoint, about to get NotImplementedException");
+            }
+
+            // Ask the EndPoint to generate a SocketAddress that we can pass down to native code.
+            EndPoint endPointSnapshot = localEP;
+            Internals.SocketAddress socketAddress = SnapshotAndSerialize(ref endPointSnapshot);
+            DoBind(endPointSnapshot, socketAddress);
+
+            if (NetEventSource.IsEnabled) NetEventSource.Exit(this);
+        }
+
+        private void DoBind(EndPoint endPointSnapshot, Internals.SocketAddress socketAddress)
+        {
+            // Mitigation for Blue Screen of Death (Win7, maybe others).
+            IPEndPoint ipEndPoint = endPointSnapshot as IPEndPoint;
+            if (!OSSupportsIPv4 && ipEndPoint != null && ipEndPoint.Address.IsIPv4MappedToIPv6)
+            {
+                UpdateStatusAfterSocketErrorAndThrowException(SocketError.InvalidArgument);
+            }
+
+            // This may throw ObjectDisposedException.
+            SocketError errorCode = SocketPal.Bind(
+                _handle,
+                _protocolType,
+                socketAddress.Buffer,
+                socketAddress.Size);
+
+#if TRACE_VERBOSE
+            if (NetEventSource.IsEnabled)
+            {
+                try
+                {
+                    if (NetEventSource.IsEnabled) NetEventSource.Info(this, $"SRC:{LocalEndPoint} Interop.Winsock.bind returns errorCode:{errorCode}");
+                }
+                catch (ObjectDisposedException) { }
+            }
+#endif
+
+            // Throw an appropriate SocketException if the native call fails.
+            if (errorCode != SocketError.Success)
+            {
+                UpdateStatusAfterSocketErrorAndThrowException(errorCode);
+            }
+
+            if (_rightEndPoint == null)
+            {
+                // Save a copy of the EndPoint so we can use it for Create().
+                _rightEndPoint = endPointSnapshot;
             }
         }
 
@@ -374,6 +467,70 @@ namespace System.Net.Sockets
             if (NetEventSource.IsEnabled) NetEventSource.Exit(this);
         }
 
+        public void Close()
+        {
+            if (NetEventSource.IsEnabled)
+            {
+                NetEventSource.Enter(this);
+                NetEventSource.Info(this, $"timeout = {_closeTimeout}");
+            }
+
+            Dispose();
+
+            if (NetEventSource.IsEnabled) NetEventSource.Exit(this);
+        }
+
+        public void Close(int timeout)
+        {
+            if (NetEventSource.IsEnabled) NetEventSource.Enter(this, timeout);
+            if (timeout < -1)
+            {
+                throw new ArgumentOutOfRangeException(nameof(timeout));
+            }
+
+            _closeTimeout = timeout;
+
+            if (NetEventSource.IsEnabled) NetEventSource.Info(this, $"timeout = {_closeTimeout}");
+
+            Dispose();
+
+            if (NetEventSource.IsEnabled) NetEventSource.Exit(this, timeout);
+        }
+
+        // Places a socket in a listening state.
+        public void Listen(int backlog)
+        {
+            if (NetEventSource.IsEnabled) NetEventSource.Enter(this, backlog);
+            if (CleanedUp)
+            {
+                throw new ObjectDisposedException(this.GetType().FullName);
+            }
+
+            if (NetEventSource.IsEnabled) NetEventSource.Info(this, $"backlog:{backlog}");
+
+            // This may throw ObjectDisposedException.
+            SocketError errorCode = SocketPal.Listen(_handle, backlog);
+
+#if TRACE_VERBOSE
+            if (NetEventSource.IsEnabled)
+            {
+                try
+                {
+                    if (NetEventSource.IsEnabled) NetEventSource.Info(this, $"SRC:{LocalEndPoint} Interop.Winsock.listen returns errorCode:{errorCode}");
+                }
+                catch (ObjectDisposedException) { }
+            }
+#endif
+
+            // Throw an appropriate SocketException if the native call fails.
+            if (errorCode != SocketError.Success)
+            {
+                UpdateStatusAfterSocketErrorAndThrowException(errorCode);
+            }
+            _isListening = true;
+            if (NetEventSource.IsEnabled) NetEventSource.Exit(this);
+        }
+
         public bool ConnectAsync(SocketAsyncEventArgs e)
         {
             if (NetEventSource.IsEnabled) NetEventSource.Enter(this, e);
@@ -440,7 +597,6 @@ namespace System.Net.Sockets
 
                 e._socketAddress = SnapshotAndSerialize(ref endPointSnapshot);
 
-#if !MONO
                 // Do wildcard bind if socket not bound.
                 if (_rightEndPoint == null)
                 {
@@ -453,7 +609,6 @@ namespace System.Net.Sockets
                         InternalBind(new IPEndPoint(IPAddress.IPv6Any, 0));
                     }
                 }
-#endif
 
                 // Save the old RightEndPoint and prep new RightEndPoint.
                 EndPoint oldEndPoint = _rightEndPoint;

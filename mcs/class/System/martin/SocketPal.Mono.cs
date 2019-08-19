@@ -61,6 +61,20 @@ namespace System.Net.Sockets
             }
         }
 
+        public static unsafe SocketError Bind(SafeCloseSocket handle, ProtocolType socketProtocolType, byte[] buffer, int nameLen)
+        {
+            var sa = new SocketAddress(buffer, nameLen);
+
+            Socket.Bind_internal((SafeSocketHandle)handle, sa, out var error);
+            return (SocketError)error;
+        }
+
+        public static SocketError Listen(SafeCloseSocket handle, int backlog)
+        {
+            Socket.Listen_internal((SafeSocketHandle)handle, backlog, out var error);
+            return (SocketError)error;
+        }
+
         public static SocketError ConnectAsync(Socket socket, SafeCloseSocket handle, byte[] socketAddress, int socketAddressLen, ConnectOverlappedAsyncResult asyncResult)
         {
             SocketError socketError = handle.AsyncContext.ConnectAsync(socketAddress, socketAddressLen, asyncResult.CompletionCallback);

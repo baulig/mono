@@ -705,33 +705,7 @@ namespace System.Net.Sockets
 
 #region Bind
 
-		public void Bind (EndPoint localEP)
-		{
-#if FEATURE_NO_BSD_SOCKETS
-			throw new PlatformNotSupportedException ("System.Net.Sockets.Socket:Bind is not supported on this platform.");
-#else
-			ThrowIfDisposedAndClosed ();
-
-			if (localEP == null)
-				throw new ArgumentNullException("localEP");
-
-			// Ask the EndPoint to generate a SocketAddress that we can pass down to native code.
-			var endPointSnapshot = localEP;
-			var socketAddress = SnapshotAndSerialize (ref endPointSnapshot);
-
-			int error;
-			Bind_internal (_handle, socketAddress, out error);
-
-			if (error != 0)
-				throw new SocketException (error);
-			if (error == 0)
-				is_bound = true;
-
-			_rightEndPoint = endPointSnapshot;
-#endif // FEATURE_NO_BSD_SOCKETS
-		}
-
-		private static void Bind_internal (SafeSocketHandle safeHandle, SocketAddress sa, out int error)
+		internal static void Bind_internal (SafeSocketHandle safeHandle, SocketAddress sa, out int error)
 		{
 			bool release = false;
 			try {
@@ -751,6 +725,7 @@ namespace System.Net.Sockets
 
 #region Listen
 
+#if FIXME
 		public void Listen (int backlog)
 		{
 			ThrowIfDisposedAndClosed ();
@@ -766,8 +741,9 @@ namespace System.Net.Sockets
 
 			_isListening = true;
 		}
+#endif
 
-		static void Listen_internal (SafeSocketHandle safeHandle, int backlog, out int error)
+		internal static void Listen_internal (SafeSocketHandle safeHandle, int backlog, out int error)
 		{
 			bool release = false;
 			try {
@@ -2519,6 +2495,7 @@ namespace System.Net.Sockets
 
 #region Close
 
+#if FIXME
 		public void Close ()
 		{
 			linger_timeout = 0;
@@ -2533,6 +2510,7 @@ namespace System.Net.Sockets
 			linger_timeout = timeout;
 			Dispose ();
 		}
+#endif
 
 		[MethodImplAttribute(MethodImplOptions.InternalCall)]
 		internal extern static void Close_internal (IntPtr socket, out int error);
