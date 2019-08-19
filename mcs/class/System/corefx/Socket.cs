@@ -597,6 +597,19 @@ namespace System.Net.Sockets
             InternalSetBlocking(desired, out current);
         }
 
+        private CacheSet Caches
+        {
+            get
+            {
+                if (_caches == null)
+                {
+                    // It's not too bad if extra of these are created and lost.
+                    _caches = new CacheSet();
+                }
+                return _caches;
+            }
+        }
+
         private void DoConnect(EndPoint endPointSnapshot, Internals.SocketAddress socketAddress)
         {
             if (NetEventSource.IsEnabled) NetEventSource.Enter(this, endPointSnapshot);
@@ -639,106 +652,6 @@ namespace System.Net.Sockets
                 NetEventSource.Exit(this);
             }
         }
-
-        internal void SetToConnected()
-        {
-            if (_isConnected)
-            {
-                // Socket was already connected.
-                return;
-            }
-
-            // Update the status: this socket was indeed connected at
-            // some point in time update the perf counter as well.
-            _isConnected = true;
-            _isDisconnected = false;
-            if (NetEventSource.IsEnabled) NetEventSource.Info(this, "now connected");
-        }
-
-        internal void SetToDisconnected()
-        {
-            if (NetEventSource.IsEnabled) NetEventSource.Enter(this);
-
-            if (!_isConnected)
-            {
-                // Socket was already disconnected.
-                return;
-            }
-
-            // Update the status: this socket was indeed disconnected at
-            // some point in time, clear any async select bits.
-            _isConnected = false;
-            _isDisconnected = true;
-
-            if (!CleanedUp)
-            {
-                if (NetEventSource.IsEnabled) NetEventSource.Info(this, "!CleanedUp");
-            }
-        }
-
-        private void UpdateStatusAfterSocketErrorAndThrowException(SocketError error, [CallerMemberName] string callerName = null)
-        {
-            // Update the internal state of this socket according to the error before throwing.
-            var socketException = new SocketException((int)error);
-            UpdateStatusAfterSocketError(socketException);
-            if (NetEventSource.IsEnabled) NetEventSource.Error(this, socketException, memberName: callerName);
-            throw socketException;
-        }
-
-        // UpdateStatusAfterSocketError(socketException) - updates the status of a connected socket
-        // on which a failure occurred. it'll go to winsock and check if the connection
-        // is still open and if it needs to update our internal state.
-        internal void UpdateStatusAfterSocketError(SocketException socketException)
-        {
-            UpdateStatusAfterSocketError(socketException.SocketErrorCode);
-        }
-
-        internal void UpdateStatusAfterSocketError(SocketError errorCode)
-        {
-            // If we already know the socket is disconnected
-            // we don't need to do anything else.
-            if (NetEventSource.IsEnabled) NetEventSource.Enter(this);
-            if (NetEventSource.IsEnabled) NetEventSource.Error(this, $"errorCode:{errorCode}");
-
-            if (_isConnected && (_handle.IsInvalid || (errorCode != SocketError.WouldBlock &&
-                    errorCode != SocketError.IOPending && errorCode != SocketError.NoBufferSpaceAvailable &&
-                    errorCode != SocketError.TimedOut)))
-            {
-                // The socket is no longer a valid socket.
-                if (NetEventSource.IsEnabled) NetEventSource.Info(this, "Invalidating socket.");
-                SetToDisconnected();
-            }
-        }
-
-        private bool CheckErrorAndUpdateStatus(SocketError errorCode)
-        {
-            if (errorCode == SocketError.Success || errorCode == SocketError.IOPending)
-            {
-                return true;
-            }
-
-            UpdateStatusAfterSocketError(errorCode);
-            return false;
-        }
-
-        // ValidateBlockingMode - called before synchronous calls to validate
-        // the fact that we are in blocking mode (not in non-blocking mode) so the
-        // call will actually be synchronous.
-        private void ValidateBlockingMode()
-        {
-            if (_willBlock && !_willBlockInternal)
-            {
-                throw new InvalidOperationException(SR.net_invasync);
-            }
-        }
-
-        // Validates that the Socket can be used to try another Connect call, in case
-        // a previous call failed and the platform does not support that.  In some cases,
-        // the call may also be able to "fix" the Socket to continue working, even if the
-        // platform wouldn't otherwise support it.  Windows always supports this.
-        partial void ValidateForMultiConnect(bool isMultiEndpoint);
-
-#endregion
 
         private sealed class ConnectAsyncResult : ContextAwareResult
         {
@@ -900,17 +813,105 @@ namespace System.Net.Sockets
             return false;
         }
 
-        private CacheSet Caches
+        internal void SetToConnected()
         {
-            get
+            if (_isConnected)
             {
-                if (_caches == null)
-                {
-                    // It's not too bad if extra of these are created and lost.
-                    _caches = new CacheSet();
-                }
-                return _caches;
+                // Socket was already connected.
+                return;
+            }
+
+            // Update the status: this socket was indeed connected at
+            // some point in time update the perf counter as well.
+            _isConnected = true;
+            _isDisconnected = false;
+            if (NetEventSource.IsEnabled) NetEventSource.Info(this, "now connected");
+        }
+
+        internal void SetToDisconnected()
+        {
+            if (NetEventSource.IsEnabled) NetEventSource.Enter(this);
+
+            if (!_isConnected)
+            {
+                // Socket was already disconnected.
+                return;
+            }
+
+            // Update the status: this socket was indeed disconnected at
+            // some point in time, clear any async select bits.
+            _isConnected = false;
+            _isDisconnected = true;
+
+            if (!CleanedUp)
+            {
+                if (NetEventSource.IsEnabled) NetEventSource.Info(this, "!CleanedUp");
             }
         }
+
+        private void UpdateStatusAfterSocketErrorAndThrowException(SocketError error, [CallerMemberName] string callerName = null)
+        {
+            // Update the internal state of this socket according to the error before throwing.
+            var socketException = new SocketException((int)error);
+            UpdateStatusAfterSocketError(socketException);
+            if (NetEventSource.IsEnabled) NetEventSource.Error(this, socketException, memberName: callerName);
+            throw socketException;
+        }
+
+        // UpdateStatusAfterSocketError(socketException) - updates the status of a connected socket
+        // on which a failure occurred. it'll go to winsock and check if the connection
+        // is still open and if it needs to update our internal state.
+        internal void UpdateStatusAfterSocketError(SocketException socketException)
+        {
+            UpdateStatusAfterSocketError(socketException.SocketErrorCode);
+        }
+
+        internal void UpdateStatusAfterSocketError(SocketError errorCode)
+        {
+            // If we already know the socket is disconnected
+            // we don't need to do anything else.
+            if (NetEventSource.IsEnabled) NetEventSource.Enter(this);
+            if (NetEventSource.IsEnabled) NetEventSource.Error(this, $"errorCode:{errorCode}");
+
+            if (_isConnected && (_handle.IsInvalid || (errorCode != SocketError.WouldBlock &&
+                    errorCode != SocketError.IOPending && errorCode != SocketError.NoBufferSpaceAvailable &&
+                    errorCode != SocketError.TimedOut)))
+            {
+                // The socket is no longer a valid socket.
+                if (NetEventSource.IsEnabled) NetEventSource.Info(this, "Invalidating socket.");
+                SetToDisconnected();
+            }
+        }
+
+        private bool CheckErrorAndUpdateStatus(SocketError errorCode)
+        {
+            if (errorCode == SocketError.Success || errorCode == SocketError.IOPending)
+            {
+                return true;
+            }
+
+            UpdateStatusAfterSocketError(errorCode);
+            return false;
+        }
+
+        // ValidateBlockingMode - called before synchronous calls to validate
+        // the fact that we are in blocking mode (not in non-blocking mode) so the
+        // call will actually be synchronous.
+        private void ValidateBlockingMode()
+        {
+            if (_willBlock && !_willBlockInternal)
+            {
+                throw new InvalidOperationException(SR.net_invasync);
+            }
+        }
+
+        // Validates that the Socket can be used to try another Connect call, in case
+        // a previous call failed and the platform does not support that.  In some cases,
+        // the call may also be able to "fix" the Socket to continue working, even if the
+        // platform wouldn't otherwise support it.  Windows always supports this.
+        partial void ValidateForMultiConnect(bool isMultiEndpoint);
+
+#endregion
+
     }
 }
