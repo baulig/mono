@@ -745,7 +745,7 @@ namespace System.Net.Sockets
         private readonly SafeCloseSocket _socket;
         private OperationQueue<ReadOperation> _receiveQueue;
         private OperationQueue<WriteOperation> _sendQueue;
-//        private SocketAsyncEngine.Token _asyncEngineToken;
+        private SocketAsyncEngine.Token _asyncEngineToken;
         private bool _registered;
         private bool _nonBlockingSet;
 
@@ -761,7 +761,6 @@ namespace System.Net.Sockets
 
         private void Register()
         {
-#if MARTIN_FIXME
             Debug.Assert(_nonBlockingSet);
             lock (_registerLock)
             {
@@ -790,7 +789,6 @@ namespace System.Net.Sockets
                     Trace("Registered");
                 }
             }
-#endif
         }
 
         public void Close()
@@ -801,11 +799,101 @@ namespace System.Net.Sockets
 
             lock (_registerLock)
             {
-#if MARTIN_FIXME
                 // Freeing the token will prevent any future event delivery.  This socket will be unregistered
                 // from the event port automatically by the OS when it's closed.
                 _asyncEngineToken.Free();
-#endif
+            }
+        }
+
+        private void PerformSyncOperation<TOperation>(ref OperationQueue<TOperation> queue, TOperation operation, int timeout, int observedSequenceNumber)
+            where TOperation : AsyncOperation
+        {
+            Debug.Assert(timeout == -1 || timeout > 0, $"Unexpected timeout: {timeout}");
+
+            using (var e = new ManualResetEventSlim(false, 0))
+            {
+                operation.Event = e;
+
+                if (!queue.StartAsyncOperation(this, operation, observedSequenceNumber))
+                {
+                    // Completed synchronously
+                    return;
+                }
+
+                bool timeoutExpired = false;
+                while (true)
+                {
+                    DateTime waitStart = DateTime.UtcNow;
+
+                    if (!e.Wait(timeout))
+                    {
+                        timeoutExpired = true;
+                        break;
+                    }
+
+                    // Reset the event now to avoid lost notifications if the processing is unsuccessful.
+                    e.Reset();
+
+                    // We've been signalled to try to process the operation.
+                    OperationQueue<TOperation>.OperationResult result = queue.ProcessQueuedOperation(operation);
+                    if (result == OperationQueue<TOperation>.OperationResult.Completed ||
+                        result == OperationQueue<TOperation>.OperationResult.Cancelled)
+                    {
+                        break;
+                    }
+
+                    // Couldn't process the operation.
+                    // Adjust timeout and try again.
+                    if (timeout > 0)
+                    {
+                        timeout -= (DateTime.UtcNow - waitStart).Milliseconds;
+
+                        if (timeout <= 0)
+                        {
+                            timeoutExpired = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (timeoutExpired)
+                {
+                    queue.CancelAndContinueProcessing(operation);
+                    operation.ErrorCode = SocketError.TimedOut;
+                }
+            }
+        }
+
+        private bool ShouldRetrySyncOperation(out SocketError errorCode)
+        {
+            if (_nonBlockingSet)
+            {
+                errorCode = SocketError.Success;    // Will be ignored
+                return true;
+            }
+
+            // We are in blocking mode, so the EAGAIN we received indicates a timeout.
+            errorCode = SocketError.TimedOut;
+            return false;
+        }
+
+        public unsafe void HandleEvents(Interop.Sys.SocketEvents events)
+        {
+            if ((events & Interop.Sys.SocketEvents.Error) != 0)
+            {
+                // Set the Read and Write flags as well; the processing for these events
+                // will pick up the error.
+                events |= Interop.Sys.SocketEvents.Read | Interop.Sys.SocketEvents.Write;
+            }
+
+            if ((events & Interop.Sys.SocketEvents.Read) != 0)
+            {
+                _receiveQueue.HandleEvent(this);
+            }
+
+            if ((events & Interop.Sys.SocketEvents.Write) != 0)
+            {
+                _sendQueue.HandleEvent(this);
             }
         }
 

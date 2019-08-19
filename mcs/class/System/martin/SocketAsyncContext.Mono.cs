@@ -25,7 +25,7 @@ namespace System.Net.Sockets
             // Thus, always call TryStartConnect regardless of readiness.
             SocketError errorCode;
             int observedSequenceNumber;
-//            _sendQueue.IsReady(this, out observedSequenceNumber);
+            _sendQueue.IsReady(this, out observedSequenceNumber);
             if (SocketPal.TryStartConnect(_socket, socketAddress, socketAddressLen, out errorCode))
             {
                 _socket.RegisterConnectResult(errorCode);
@@ -38,7 +38,7 @@ namespace System.Net.Sockets
                 SocketAddressLen = socketAddressLen
             };
 
-//            PerformSyncOperation(ref _sendQueue, operation, -1, observedSequenceNumber);
+            PerformSyncOperation(ref _sendQueue, operation, -1, observedSequenceNumber);
 
             return operation.ErrorCode;
         }
