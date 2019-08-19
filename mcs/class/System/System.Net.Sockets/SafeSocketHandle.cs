@@ -42,6 +42,8 @@ namespace System.Net.Sockets {
 
 		protected override bool ReleaseHandle ()
 		{
+			InnerReleaseHandle ();
+
 			int error = 0;
 
 			Socket.Blocking_internal (handle, false, out error);

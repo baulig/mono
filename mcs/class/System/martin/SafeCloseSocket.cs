@@ -5,7 +5,7 @@ using System.Threading;
 
 namespace System.Net.Sockets
 {
-    abstract class SafeCloseSocket : SafeHandleZeroOrMinusOneIsInvalid
+    partial class SafeCloseSocket
     {
 
 #region CoreFX Code
@@ -174,7 +174,13 @@ namespace System.Net.Sockets
             IsDisconnected = true;
         }
 
-        private void InnerReleaseHandle()
+#endregion
+
+        protected SafeCloseSocket(bool ownsHandle) : base(ownsHandle)
+        {
+        }
+
+        protected void InnerReleaseHandle()
         {
             if (_asyncContext != null)
             {
@@ -182,16 +188,18 @@ namespace System.Net.Sockets
             }
         }
 
-#endregion
-
-        protected SafeCloseSocket(bool ownsHandle) : base(ownsHandle)
-        {
-        }
-
         public static SocketError CreateSocket(AddressFamily addressFamily, SocketType socketType, ProtocolType protocolType, out SafeSocketHandle socket)
         {
             socket = Socket.Create_Socket_internal (addressFamily, socketType, protocolType, out var error);
             return (SocketError)error;
+        }
+
+        partial class InnerSafeCloseSocket
+        {
+            private unsafe SocketError InnerReleaseHandle()
+            {
+                throw new NotImplementedException();
+            }
         }
     }
 
