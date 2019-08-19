@@ -2770,19 +2770,6 @@ namespace System.Net.Sockets
 			return input;
 		}
 		
-		// ValidateBlockingMode - called before synchronous calls to validate
-		// the fact that we are in blocking mode (not in non-blocking mode) so the
-		// call will actually be synchronous.
-		void ValidateBlockingMode ()
-		{
-#if FIXME
-			if (_willBlock && !_willBlockInternal)
-			{
-				throw new InvalidOperationException (SR.net_invasync);
-			}
-#endif
-		}
-
 		[StructLayout (LayoutKind.Sequential)]
 		struct WSABUF {
 			public int len;
