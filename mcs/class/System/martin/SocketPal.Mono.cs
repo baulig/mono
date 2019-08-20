@@ -43,6 +43,48 @@ namespace System.Net.Sockets
             }
         }
 
+        public static unsafe bool TryCompleteAccept(SafeCloseSocket socket, byte[] socketAddress, ref int socketAddressLen, out IntPtr acceptedFd, out SocketError errorCode)
+        {
+            IntPtr fd = IntPtr.Zero;
+            Interop.Error errno;
+            int sockAddrLen = socketAddressLen;
+            fixed (byte* rawSocketAddress = socketAddress)
+            {
+                try
+                {
+                    errno = Interop.Sys.Accept(socket, rawSocketAddress, &sockAddrLen, &fd);
+                }
+                catch (ObjectDisposedException)
+                {
+                    // The socket was closed, or is closing.
+                    errorCode = SocketError.OperationAborted;
+                    acceptedFd = (IntPtr)(-1);
+                    return true;
+                }
+            }
+
+            if (errno == Interop.Error.SUCCESS)
+            {
+                Debug.Assert(fd != (IntPtr)(-1), "Expected fd != -1");
+
+                socketAddressLen = sockAddrLen;
+                errorCode = SocketError.Success;
+                acceptedFd = fd;
+
+                return true;
+            }
+
+            acceptedFd = (IntPtr)(-1);
+            if (errno != Interop.Error.EAGAIN && errno != Interop.Error.EWOULDBLOCK)
+            {
+                errorCode = GetSocketErrorForErrorCode(errno);
+                return true;
+            }
+
+            errorCode = SocketError.Success;
+            return false;
+        }
+
 #endregion
 
         public static SocketError CreateSocket(AddressFamily addressFamily, SocketType socketType, ProtocolType protocolType, out SafeSocketHandle socket)
@@ -90,6 +132,7 @@ namespace System.Net.Sockets
             return socketError;
         }
 
+#if MARTIN_FIXME
         public static unsafe bool TryCompleteAccept(SafeCloseSocket socket, byte[] socketAddress, ref int socketAddressLen, out IntPtr acceptedFd, out SocketError errorCode)
         {
             IntPtr fd = IntPtr.Zero;
@@ -132,6 +175,7 @@ namespace System.Net.Sockets
             errorCode = SocketError.Success;
             return false;
         }
+#endif
 
         public static bool TryStartConnect(SafeCloseSocket socket, byte[] socketAddress, int socketAddressLen, out SocketError errorCode)
         {

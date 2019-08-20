@@ -568,6 +568,7 @@ HANDLES(SOCK_16a, "Send_internal(intptr,System.Net.Sockets.Socket/WSABUF*,int,Sy
 HANDLES(SOCK_17, "Send_internal(intptr,byte*,int,System.Net.Sockets.SocketFlags,int&,bool)", ves_icall_System_Net_Sockets_Socket_Send_internal, gint32, 6, (gsize, char_ptr, gint32, gint32, gint32_ref, MonoBoolean))
 HANDLES(SOCK_18, "SetSocketOption_internal(intptr,System.Net.Sockets.SocketOptionLevel,System.Net.Sockets.SocketOptionName,object,byte[],int,int&)", ves_icall_System_Net_Sockets_Socket_SetSocketOption_internal, void, 7, (gsize, gint32, gint32, MonoObject, MonoArray, gint32, gint32_ref))
 HANDLES(SOCK_19, "Shutdown_internal(intptr,System.Net.Sockets.SocketShutdown,int&)", ves_icall_System_Net_Sockets_Socket_Shutdown_internal, void, 3, (gsize, gint32, gint32_ref))
+HANDLES(SOCK_24, "SocketAddress_from_buffer(byte*,int,int&)", ves_icall_System_Net_Sockets_Socket_SocketAddress_from_buffer, MonoObject, 3, (char_ptr, gint32, gint32_ref))
 HANDLES(SOCK_20, "Socket_internal(System.Net.Sockets.AddressFamily,System.Net.Sockets.SocketType,System.Net.Sockets.ProtocolType,int&)", ves_icall_System_Net_Sockets_Socket_Socket_internal, gpointer, 4, (gint32, gint32, gint32, gint32_ref))
 HANDLES(SOCK_20a, "SupportsPortReuse", ves_icall_System_Net_Sockets_Socket_SupportPortReuse, MonoBoolean, 1, (MonoProtocolType))
 HANDLES(SOCK_21a, "cancel_blocking_socket_operation", ves_icall_cancel_blocking_socket_operation, void, 1, (MonoThreadObject))

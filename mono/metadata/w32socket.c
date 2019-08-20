@@ -1186,6 +1186,14 @@ exit:
 }
 
 MonoObjectHandle
+ves_icall_System_Net_Sockets_Socket_SocketAddress_from_buffer (gchar *buffer, gint32 salen, gint32 *werror, MonoError *error)
+{
+	*werror = 0;
+	
+	return create_object_handle_from_sockaddr ((struct sockaddr *)buffer, salen, werror, error);
+}
+
+MonoObjectHandle
 ves_icall_System_Net_Sockets_Socket_LocalEndPoint_internal (gsize sock, gint32 af, gint32 *werror, MonoError *error)
 {
 	return mono_w32socket_getname (sock, af, TRUE, werror, error);

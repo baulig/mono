@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 
 namespace System.Net.Sockets
 {
@@ -109,6 +111,23 @@ namespace System.Net.Sockets
         }
 
 #endregion
+
+        [MethodImplAttribute(MethodImplOptions.InternalCall)]
+        extern static unsafe SocketAddress SocketAddress_from_buffer (byte *buffer, int len, out int error);
+
+        internal static unsafe SocketAddress SocketAddress_from_buffer (byte[] buffer, int len)
+        {
+            Debug.Assert(len <= buffer.Length);
+            fixed (byte* rawBuffer = buffer)
+            {
+                var result = SocketAddress_from_buffer (rawBuffer, len, out var error);
+                if (error != (int)SocketError.Success)
+                {
+                    throw new SocketException((SocketError)error);
+                }
+                return result;
+            }
+        }
 
     }
 }
