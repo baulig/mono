@@ -188,6 +188,11 @@ namespace System.Net.Sockets
             }
         }
 
+        public static unsafe SafeCloseSocket CreateSocket(IntPtr fileDescriptor)
+        {
+            return new SafeSocketHandle(fileDescriptor, true);
+        }
+
         public static SocketError CreateSocket(AddressFamily addressFamily, SocketType socketType, ProtocolType protocolType, out SafeSocketHandle socket)
         {
             socket = Socket.Create_Socket_internal (addressFamily, socketType, protocolType, out var error);

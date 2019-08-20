@@ -9,6 +9,10 @@ using System.Threading;
 
 namespace System.Net.Sockets
 {
+#if MONO
+    using Internals = System.Net;
+#endif
+
     public partial class SocketAsyncEventArgs : EventArgs, IDisposable
     {
         private IntPtr _acceptedFileDescriptor;
@@ -104,17 +108,26 @@ namespace System.Net.Sockets
             return socketError;
         }
 
-#endregion
-
-        private void LogBuffer(int bytesTransferred)
+        private SocketError FinishOperationAccept(Internals.SocketAddress remoteSocketAddress)
         {
-            // No-op
+            System.Buffer.BlockCopy(_acceptBuffer, 0, remoteSocketAddress.Buffer, 0, _acceptAddressBufferCount);
+            _acceptSocket = _currentSocket.CreateAcceptSocket(
+                SafeCloseSocket.CreateSocket(_acceptedFileDescriptor),
+                _currentSocket._rightEndPoint.Create(remoteSocketAddress));
+            return SocketError.Success;
         }
 
         private SocketError FinishOperationConnect()
         {
             // No-op for *nix.
             return SocketError.Success;
+        }
+
+#endregion
+
+        private void LogBuffer(int bytesTransferred)
+        {
+            // No-op
         }
 
         private void CompletionCallback(int bytesTransferred, SocketFlags flags, SocketError socketError)

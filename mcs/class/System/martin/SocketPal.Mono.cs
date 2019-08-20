@@ -93,17 +93,14 @@ namespace System.Net.Sockets
         public static unsafe bool TryCompleteAccept(SafeCloseSocket socket, byte[] socketAddress, ref int socketAddressLen, out IntPtr acceptedFd, out SocketError errorCode)
         {
             IntPtr fd = IntPtr.Zero;
-            Interop.Error errno;
             int sockAddrLen = socketAddressLen;
+            SafeSocketHandle accepted;
             fixed (byte* rawSocketAddress = socketAddress)
             {
                 try
                 {
-#if FIXME
-                    errno = Interop.Sys.Accept(socket, rawSocketAddress, &sockAddrLen, &fd);
-#else
-                    errno = Interop.Error.EOPNOTSUPP;
-#endif
+                    accepted = Socket.Accept_internal((SafeSocketHandle)socket, out var error, true);
+                    errorCode = (SocketError)error;
                 }
                 catch (ObjectDisposedException)
                 {
@@ -114,8 +111,9 @@ namespace System.Net.Sockets
                 }
             }
 
-            if (errno == Interop.Error.SUCCESS)
+            if (errorCode == SocketError.Success)
             {
+                fd = socket.DangerousGetHandle();
                 Debug.Assert(fd != (IntPtr)(-1), "Expected fd != -1");
 
                 socketAddressLen = sockAddrLen;
@@ -126,9 +124,8 @@ namespace System.Net.Sockets
             }
 
             acceptedFd = (IntPtr)(-1);
-            if (errno != Interop.Error.EAGAIN && errno != Interop.Error.EWOULDBLOCK)
+            if (errorCode != SocketError.InProgress && errorCode != SocketError.WouldBlock)
             {
-                errorCode = GetSocketErrorForErrorCode(errno);
                 return true;
             }
 
