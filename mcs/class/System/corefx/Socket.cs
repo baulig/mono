@@ -289,6 +289,10 @@ namespace System.Net.Sockets
                 // Save a copy of the EndPoint so we can use it for Create().
                 _rightEndPoint = endPointSnapshot;
             }
+
+#if MONO
+            is_bound = true;
+#endif
         }
 
         // Establishes a connection to a remote system.
