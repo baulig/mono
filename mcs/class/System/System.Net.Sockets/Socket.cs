@@ -783,26 +783,6 @@ namespace System.Net.Sockets
 			}
 		});
 
-		public IAsyncResult BeginConnect (string host, int port, AsyncCallback requestCallback, object state)
-		{
-			ThrowIfDisposedAndClosed ();
-
-			if (host == null)
-				throw new ArgumentNullException (nameof (host));
-
-			if (!TcpValidationHelpers.ValidatePortNumber (port))
-				throw new ArgumentOutOfRangeException (nameof (port));
-
-			if (_isListening)
-				throw new InvalidOperationException (SR.GetString (SR.net_sockets_mustnotlisten));
-
-			var callback = new AsyncCallback ((result) => {
-				var resultTask = ((Task<IPAddress[]>)result);
-				BeginConnect (resultTask.Result, port, requestCallback, resultTask.AsyncState);
-			});
-			return ConvertToApm<IPAddress[]> (Dns.GetHostAddressesAsync (host), callback, state);
-		}
-
 		private static IAsyncResult ConvertToApm<T> (Task<T> task, AsyncCallback callback, object state)
 		{
 			if (task == null)
@@ -824,155 +804,6 @@ namespace System.Net.Sockets
 			return tcs.Task;
 		}
 
-		public IAsyncResult BeginConnect (EndPoint remoteEP, AsyncCallback callback, object state)
-		{
-			ThrowIfDisposedAndClosed ();
-
-			if (remoteEP == null)
-				throw new ArgumentNullException (nameof (remoteEP));
-
-			if (_isListening)
-				throw new InvalidOperationException (SR.net_sockets_mustnotlisten);
-
-			if (_isConnected)
-				throw new SocketException ((int)SocketError.IsConnected);
-
-			DnsEndPoint dnsEP = remoteEP as DnsEndPoint;
-			if (dnsEP != null) {
-				ValidateForMultiConnect (isMultiEndpoint: true); // needs to come before CanTryAddressFamily call
-
-				if (dnsEP.AddressFamily != AddressFamily.Unspecified && !CanTryAddressFamily (dnsEP.AddressFamily))
-					throw new NotSupportedException (SR.net_invalidversion);
-
-				return BeginConnect (dnsEP.Host, dnsEP.Port, callback, state);
-			}
-
-			ValidateForMultiConnect (isMultiEndpoint: false);
-			return UnsafeBeginConnect (remoteEP, callback, state, flowContext: true);
-		}
-
-		private bool CanUseConnectEx (EndPoint remoteEP)
-		{
-			return (_socketType == SocketType.Stream) &&
-				(_rightEndPoint != null || remoteEP.GetType () == typeof (IPEndPoint));
-		}
-
-		internal IAsyncResult UnsafeBeginConnect (EndPoint remoteEP, AsyncCallback callback, object state, bool flowContext = false)
-		{
-			if (CanUseConnectEx (remoteEP))
-				return BeginConnectEx (remoteEP, flowContext, callback, state);
-
-			EndPoint endPointSnapshot = remoteEP;
-			var asyncResult = new ConnectAsyncResult (this, endPointSnapshot, state, callback);
-
-			// For connectionless protocols, Connect is not an I/O call.
-			Connect (remoteEP);
-			asyncResult.FinishPostingAsyncOp ();
-
-			// Synchronously complete the I/O and call the user's callback.
-			asyncResult.InvokeCallback ();
-			return asyncResult;
-		}
-
-		// Implements ConnectEx - this provides completion port IO and support for disconnect and reconnects.
-		// Since this is private, the unsafe mode is specified with a flag instead of an overload.
-		private IAsyncResult BeginConnectEx (EndPoint remoteEP, bool flowContext, AsyncCallback callback, object state)
-		{
-			EndPoint endPointSnapshot = remoteEP;
-			SocketAddress socketAddress = SnapshotAndSerialize (ref endPointSnapshot);
-
-#if MARTIN_FIXME
-			// The socket must be bound first.
-			// The calling method--BeginConnect--will ensure that this method is only
-			// called if _rightEndPoint is not null, of that the endpoint is an IPEndPoint.
-			if (_rightEndPoint == null)
-			{
-				if (endPointSnapshot.AddressFamily == AddressFamily.InterNetwork)
-				{
-					InternalBind(new IPEndPoint(IPAddress.Any, 0));
-				}
-				else if (endPointSnapshot.AddressFamily != AddressFamily.Unix)
-				{
-					InternalBind(new IPEndPoint(IPAddress.IPv6Any, 0));
-				}
-			}
-#endif
-
-			// Allocate the async result and the event we'll pass to the thread pool.
-			ConnectOverlappedAsyncResult asyncResult = new ConnectOverlappedAsyncResult (this, endPointSnapshot, state, callback);
-
-			// If context flowing is enabled, set it up here.  No need to lock since the context isn't used until the callback.
-			if (flowContext)
-				asyncResult.StartPostingAsyncOp (false);
-
-			EndPoint oldEndPoint = _rightEndPoint;
-			if (_rightEndPoint == null)
-				_rightEndPoint = endPointSnapshot;
-
-			SocketError errorCode;
-			try {
-				errorCode = SocketPal.ConnectAsync (this, _handle, socketAddress.Buffer, socketAddress.Size, asyncResult);
-			} catch {
-				// _rightEndPoint will always equal oldEndPoint.
-				_rightEndPoint = oldEndPoint;
-				throw;
-			}
-
-			if (errorCode == SocketError.Success) {
-				// Synchronous success. Indicate that we're connected.
-				SetToConnected ();
-			}
-
-			if (!CheckErrorAndUpdateStatus (errorCode)) {
-				// Update the internal state of this socket according to the error before throwing.
-				_rightEndPoint = oldEndPoint;
-
-				throw new SocketException ((int)errorCode);
-			}
-
-			// We didn't throw, so indicate that we're returning this result to the user.  This may call the callback.
-			// This is a nop if the context isn't being flowed.
-			asyncResult.FinishPostingAsyncOp (ref Caches.ConnectClosureCache);
-
-			return asyncResult;
-		}
-
-		public IAsyncResult BeginConnect (IPAddress[] addresses, int port, AsyncCallback requestCallback, object state)
-		{
-			ThrowIfDisposedAndClosed ();
-
-			if (addresses == null)
-				throw new ArgumentNullException (nameof (addresses));
-			if (addresses.Length == 0)
-				throw new ArgumentException (SR.net_invalidAddressList, nameof (addresses));
-			if (!TcpValidationHelpers.ValidatePortNumber (port))
-				throw new ArgumentOutOfRangeException (nameof (port));
-			if (_addressFamily != AddressFamily.InterNetwork && _addressFamily != AddressFamily.InterNetworkV6)
-				throw new NotSupportedException (SR.net_invalidversion);
-
-			if (_isListening)
-				throw new InvalidOperationException (SR.net_sockets_mustnotlisten);
-
-			if (_isConnected)
-				throw new SocketException ((int)SocketError.IsConnected);
-
-			ValidateForMultiConnect (isMultiEndpoint: true);
-
-			// Set up the result to capture the context.  No need for a lock.
-			MultipleAddressConnectAsyncResult result = new MultipleAddressConnectAsyncResult (addresses, port, this, state, requestCallback);
-			result.StartPostingAsyncOp (false);
-
-			if (DoMultipleAddressConnectCallback (PostOneBeginConnect (result), result))
-			{
-				// If the call completes synchronously, invoke the callback from here.
-				result.InvokeCallback ();
-			}
-
-			// Finished posting async op.  Possibly will call callback.
-			result.FinishPostingAsyncOp (ref Caches.ConnectClosureCache);
-
-			return result;
-		}
 
 		public void EndConnect (IAsyncResult asyncResult)
 		{
@@ -2248,6 +2079,7 @@ namespace System.Net.Sockets
 		[MethodImplAttribute(MethodImplOptions.InternalCall)]
 		static extern bool Duplicate_internal(IntPtr handle, int targetProcessId, out IntPtr duplicateHandle, out MonoIOError error);
 
+#if FIXME
 		[MonoLimitation ("We do not support passing sockets across processes, we merely allow this API to pass the socket across AppDomains")]
 		public SocketInformation DuplicateAndClose (int targetProcessId)
 		{
@@ -2267,6 +2099,7 @@ namespace System.Net.Sockets
  
  			return si;
 		}
+#endif
 
 #endregion
 

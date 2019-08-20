@@ -3135,7 +3135,6 @@ namespace System.Net.Sockets {
             if(s_LoggingEnabled)Logging.Exit(Logging.Sockets, this, "BeginConnect", result);
             return result;
         }
-#endif // !MONO
 
         [HostProtection(ExternalThreading=true)]
         public IAsyncResult BeginConnect(IPAddress address, int port, AsyncCallback requestCallback, object state){
@@ -3160,7 +3159,6 @@ namespace System.Net.Sockets {
             return result;
         }
 
-#if !MONO
         [HostProtection(ExternalThreading=true)]
         public IAsyncResult BeginConnect(IPAddress[] addresses, int port, AsyncCallback requestCallback, object state)
         {
