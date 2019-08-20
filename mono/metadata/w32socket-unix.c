@@ -1660,3 +1660,171 @@ mono_w32socket_accept2 (SOCKET sock, struct sockaddr *addr, socklen_t *addrlen, 
 	return ((MonoFDHandle*) accepted_socket_data)->fd;
 }
 
+//
+// From pal_networking.c / pal_networking.h
+//
+
+// NOTE: the layout of this type is intended to exactly  match the layout of a `struct iovec`. There are
+//       assertions in pal_networking.cpp that validate this.
+struct IOVector
+{
+    uint8_t* Base;
+    uintptr_t Count;
+};
+
+struct MessageHeader
+{
+    uint8_t* SocketAddress;
+    struct IOVector* IOVectors;
+    uint8_t* ControlBuffer;
+    int32_t SocketAddressLen;
+    int32_t IOVectorCount;
+    int32_t ControlBufferLen;
+    int32_t Flags;
+};
+
+static int8_t IsStreamSocket(int socket)
+{
+    int type;
+    socklen_t length = sizeof(int);
+    return getsockopt(socket, SOL_SOCKET, SO_TYPE, &type, &length) == 0
+           && type == SOCK_STREAM;
+}
+
+static void ConvertMessageHeaderToMsghdr(struct msghdr* header, const struct MessageHeader* messageHeader, int socket)
+{
+    // sendmsg/recvmsg can return EMSGSIZE when msg_iovlen is greather than IOV_MAX.
+    // We avoid this for stream sockets by truncating msg_iovlen to IOV_MAX. This is ok since sendmsg is
+    // not required to send all data and recvmsg can be called again to receive more.
+    int iovlen = (int)messageHeader->IOVectorCount;
+    if (iovlen > IOV_MAX && IsStreamSocket(socket))
+    {
+        iovlen = (int)IOV_MAX;
+    }
+    header->msg_name = messageHeader->SocketAddress;
+    header->msg_namelen = (unsigned int)messageHeader->SocketAddressLen;
+    header->msg_iov = (struct iovec*)messageHeader->IOVectors;
+    header->msg_iovlen = (__typeof__(header->msg_iovlen))iovlen;
+    header->msg_control = messageHeader->ControlBuffer;
+    header->msg_controllen = (uint32_t)messageHeader->ControlBufferLen;
+    header->msg_flags = 0;
+}
+
+/*
+ * Socket flags.
+ *
+ * NOTE: these values are taken from System.Net.SocketFlags. Only values that are known to be usable on all target
+ *       platforms are represented here. Unsupported values are present as commented-out entries.
+ */
+
+enum SocketFlags
+{
+    SocketFlags_MSG_OOB = 0x0001,       // SocketFlags.OutOfBand
+    SocketFlags_MSG_PEEK = 0x0002,      // SocketFlags.Peek
+    SocketFlags_MSG_DONTROUTE = 0x0004, // SocketFlags.DontRoute
+    SocketFlags_MSG_TRUNC = 0x0100,     // SocketFlags.Truncated
+    SocketFlags_MSG_CTRUNC = 0x0200,    // SocketFlags.ControlDataTruncated
+};
+
+static int8_t ConvertSocketFlagsPalToPlatform(int32_t palFlags, int* platformFlags)
+{
+    const int32_t SupportedFlagsMask = SocketFlags_MSG_OOB | SocketFlags_MSG_PEEK | SocketFlags_MSG_DONTROUTE | SocketFlags_MSG_TRUNC | SocketFlags_MSG_CTRUNC;
+
+    if ((palFlags & ~SupportedFlagsMask) != 0)
+    {
+        return 0;
+    }
+
+    *platformFlags = ((palFlags & SocketFlags_MSG_OOB) == 0 ? 0 : MSG_OOB) | ((palFlags & SocketFlags_MSG_PEEK) == 0 ? 0 : MSG_PEEK) |
+                    ((palFlags & SocketFlags_MSG_DONTROUTE) == 0 ? 0 : MSG_DONTROUTE) |
+                    ((palFlags & SocketFlags_MSG_TRUNC) == 0 ? 0 : MSG_TRUNC) |
+                    ((palFlags & SocketFlags_MSG_CTRUNC) == 0 ? 0 : MSG_CTRUNC);
+
+    return 1;
+}
+
+static int32_t ConvertSocketFlagsPlatformToPal(int platformFlags)
+{
+    const int SupportedFlagsMask = MSG_OOB | MSG_PEEK | MSG_DONTROUTE | MSG_TRUNC | MSG_CTRUNC;
+
+    platformFlags &= SupportedFlagsMask;
+
+    return ((platformFlags & MSG_OOB) == 0 ? 0 : SocketFlags_MSG_OOB) | ((platformFlags & MSG_PEEK) == 0 ? 0 : SocketFlags_MSG_PEEK) |
+           ((platformFlags & MSG_DONTROUTE) == 0 ? 0 : SocketFlags_MSG_DONTROUTE) |
+           ((platformFlags & MSG_TRUNC) == 0 ? 0 : SocketFlags_MSG_TRUNC) |
+           ((platformFlags & MSG_CTRUNC) == 0 ? 0 : SocketFlags_MSG_CTRUNC);
+}
+
+#define Min(left,right) (((left) < (right)) ? (left) : (right))
+
+//
+// From pal_errno.h
+//
+enum Error
+{
+    Error_SUCCESS = 0,
+
+    Error_EFAULT = 0x10015,          // Bad address.
+    Error_ENOTSOCK = 0x1003C,        // Not a socket.
+    Error_ENOTSUP = 0x1003D,         // Not supported (same value as EOPNOTSUP).
+};
+
+//
+// Copied from System.Native, but adjusted for Mono.
+//
+
+int
+mono_w32socket_receive_message (SOCKET sock, void *messageHeaderPtr, int32_t flags, int64_t* received)
+{
+	struct MessageHeader *messageHeader = (struct MessageHeader *)messageHeaderPtr;
+	SocketHandle *sockethandle;
+	MonoThreadInfo *info;
+
+	if (messageHeader == NULL || received == NULL || messageHeader->SocketAddressLen < 0 ||
+		messageHeader->ControlBufferLen < 0 || messageHeader->IOVectorCount < 0)
+		return Error_EFAULT;
+
+	if (!mono_fdhandle_lookup_and_ref (sock, (MonoFDHandle**) &sockethandle))
+		return Error_ENOTSOCK;
+
+	if (((MonoFDHandle*) sockethandle)->type != MONO_FDTYPE_SOCKET) {
+		mono_fdhandle_unref ((MonoFDHandle*) sockethandle);
+		return Error_ENOTSOCK;
+	}
+
+	info = mono_thread_info_current ();
+
+	int socketFlags;
+	if (!ConvertSocketFlagsPalToPlatform (flags, &socketFlags))
+		return Error_ENOTSUP;
+
+	struct msghdr header;
+	ConvertMessageHeaderToMsghdr (&header, messageHeader, ((MonoFDHandle*) sockethandle)->fd);
+
+	ssize_t res;
+	do {
+		MONO_ENTER_GC_SAFE;
+		res = recvmsg (((MonoFDHandle*) sockethandle)->fd, &header, socketFlags);
+		MONO_EXIT_GC_SAFE;
+	} while (res < 0 && errno == EINTR && !mono_thread_info_is_interrupt_state (info));
+
+	assert (header.msg_name == messageHeader->SocketAddress); // should still be the same location as set in ConvertMessageHeaderToMsghdr
+	assert (header.msg_control == messageHeader->ControlBuffer);
+
+	assert ((int32_t)header.msg_namelen <= messageHeader->SocketAddressLen);
+	messageHeader->SocketAddressLen = Min ((int32_t)header.msg_namelen, messageHeader->SocketAddressLen);
+
+	assert (header.msg_controllen <= (size_t)messageHeader->ControlBufferLen);
+	messageHeader->ControlBufferLen = Min ((int32_t)header.msg_controllen, messageHeader->ControlBufferLen);
+
+	messageHeader->Flags = ConvertSocketFlagsPlatformToPal (header.msg_flags);
+
+	if (res != -1) {
+		*received = res;
+		return Error_SUCCESS;
+	}
+
+	*received = 0;
+	// FIXME: They call SystemNative_ConvertErrorPlatformToPal(errno), which we currently do from the managed side.
+	return errno;
+}
