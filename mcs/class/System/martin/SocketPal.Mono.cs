@@ -43,6 +43,7 @@ namespace System.Net.Sockets
             }
         }
 
+#if !MONO
         public static unsafe bool TryCompleteAccept(SafeCloseSocket socket, byte[] socketAddress, ref int socketAddressLen, out IntPtr acceptedFd, out SocketError errorCode)
         {
             IntPtr fd = IntPtr.Zero;
@@ -84,6 +85,7 @@ namespace System.Net.Sockets
             errorCode = SocketError.Success;
             return false;
         }
+#endif
 
 #endregion
 
@@ -132,7 +134,6 @@ namespace System.Net.Sockets
             return socketError;
         }
 
-#if MARTIN_FIXME
         public static unsafe bool TryCompleteAccept(SafeCloseSocket socket, byte[] socketAddress, ref int socketAddressLen, out IntPtr acceptedFd, out SocketError errorCode)
         {
             IntPtr fd = IntPtr.Zero;
@@ -142,7 +143,7 @@ namespace System.Net.Sockets
             {
                 try
                 {
-                    accepted = Socket.Accept_internal((SafeSocketHandle)socket, out var error, true);
+                    fd = Socket.Accept_internal((SafeSocketHandle)socket, socketAddress, ref socketAddressLen, out var error, true);
                     errorCode = (SocketError)error;
                 }
                 catch (ObjectDisposedException)
@@ -175,7 +176,6 @@ namespace System.Net.Sockets
             errorCode = SocketError.Success;
             return false;
         }
-#endif
 
         public static bool TryStartConnect(SafeCloseSocket socket, byte[] socketAddress, int socketAddressLen, out SocketError errorCode)
         {

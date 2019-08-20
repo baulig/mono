@@ -129,5 +129,24 @@ namespace System.Net.Sockets
             }
         }
 
+        internal static unsafe IntPtr Accept_internal (SafeSocketHandle safeHandle, byte[] socketAddress, ref int socketAddressLen, out int error)
+        {
+            try {
+                safeHandle.RegisterForBlockingSyscall ();
+                fixed (byte *rawBuffer = buffer)
+                {
+                    int len = buffer.Length;
+                    var ret = Accept_internal2 (safeHandle.DangerousGetHandle (), socketAddress, ref socketAddressLen, out error);
+                    return ret;
+                }
+            } finally {
+                safeHandle.UnRegisterForBlockingSyscall ();
+            }
+        }
+
+        /* Creates a new system socket, returning the handle */
+        [MethodImplAttribute(MethodImplOptions.InternalCall)]
+        extern static unsafe IntPtr Accept_internal2 (IntPtr sock, byte *socketAddress, ref int socketAddressLen, out int error);
+
     }
 }
