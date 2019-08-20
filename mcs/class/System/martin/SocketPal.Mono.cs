@@ -43,7 +43,6 @@ namespace System.Net.Sockets
             }
         }
 
-#if !MONO
         public static unsafe bool TryCompleteAccept(SafeCloseSocket socket, byte[] socketAddress, ref int socketAddressLen, out IntPtr acceptedFd, out SocketError errorCode)
         {
             IntPtr fd = IntPtr.Zero;
@@ -85,7 +84,6 @@ namespace System.Net.Sockets
             errorCode = SocketError.Success;
             return false;
         }
-#endif
 
 #endregion
 
@@ -132,49 +130,6 @@ namespace System.Net.Sockets
                 asyncResult.CompletionCallback(SocketError.Success);
             }
             return socketError;
-        }
-
-        public static unsafe bool TryCompleteAccept(SafeCloseSocket socket, byte[] socketAddress, ref int socketAddressLen, out IntPtr acceptedFd, out SocketError errorCode)
-        {
-            IntPtr fd = IntPtr.Zero;
-            int sockAddrLen = socketAddressLen;
-            SafeSocketHandle accepted;
-            fixed (byte* rawSocketAddress = socketAddress)
-            {
-                try
-                {
-                    fd = Socket.Accept_internal((SafeSocketHandle)socket, rawSocketAddress, &sockAddrLen, out var error);
-                    errorCode = (SocketError)error;
-                }
-                catch (ObjectDisposedException)
-                {
-                    // The socket was closed, or is closing.
-                    errorCode = SocketError.OperationAborted;
-                    acceptedFd = (IntPtr)(-1);
-                    return true;
-                }
-            }
-
-            if (errorCode == SocketError.Success)
-            {
-                fd = socket.DangerousGetHandle();
-                Debug.Assert(fd != (IntPtr)(-1), "Expected fd != -1");
-
-                socketAddressLen = sockAddrLen;
-                errorCode = SocketError.Success;
-                acceptedFd = fd;
-
-                return true;
-            }
-
-            acceptedFd = (IntPtr)(-1);
-            if (errorCode != SocketError.InProgress && errorCode != SocketError.WouldBlock)
-            {
-                return true;
-            }
-
-            errorCode = SocketError.Success;
-            return false;
         }
 
         public static bool TryStartConnect(SafeCloseSocket socket, byte[] socketAddress, int socketAddressLen, out SocketError errorCode)

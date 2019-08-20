@@ -192,6 +192,70 @@ mono_w32socket_accept (SOCKET sock, struct sockaddr *addr, socklen_t *addrlen, g
 	return ((MonoFDHandle*) accepted_socket_data)->fd;
 }
 
+SOCKET
+mono_w32socket_accept2 (SOCKET sock, struct sockaddr *addr, socklen_t *addrlen, int *error)
+{
+	SocketHandle *sockethandle, *accepted_socket_data;
+	MonoThreadInfo *info;
+	gint accepted_fd;
+
+	if (addr != NULL && *addrlen < sizeof(struct sockaddr)) {
+		mono_w32socket_set_last_error (WSAEFAULT);
+		if (error)
+			*error = EFAULT;
+		return INVALID_SOCKET;
+	}
+
+	if (!mono_fdhandle_lookup_and_ref(sock, (MonoFDHandle**) &sockethandle)) {
+		mono_w32error_set_last (WSAENOTSOCK);
+		if (error)
+			*error = ENOTSOCK;
+		return INVALID_SOCKET;
+	}
+
+	if (((MonoFDHandle*) sockethandle)->type != MONO_FDTYPE_SOCKET) {
+		mono_fdhandle_unref ((MonoFDHandle*) sockethandle);
+		mono_w32error_set_last (WSAENOTSOCK);
+		if (error)
+			*error = ENOTSOCK;
+		return INVALID_SOCKET;
+	}
+
+	info = mono_thread_info_current ();
+
+	do {
+		MONO_ENTER_GC_SAFE;
+		accepted_fd = accept (((MonoFDHandle*) sockethandle)->fd, addr, addrlen);
+		MONO_EXIT_GC_SAFE;
+	} while (accepted_fd == -1 && errno == EINTR && !mono_thread_info_is_interrupt_state (info));
+
+	if (accepted_fd == -1) {
+		gint sockerr = mono_w32socket_convert_error (errno);
+		mono_trace (G_LOG_LEVEL_DEBUG, MONO_TRACE_IO_LAYER_SOCKET, "%s: accept error: %s", __func__, g_strerror(errno));
+		mono_w32socket_set_last_error (sockerr);
+		mono_fdhandle_unref ((MonoFDHandle*) sockethandle);
+		if (error)
+			*error = errno;
+		return INVALID_SOCKET;
+	}
+
+	accepted_socket_data = socket_data_create (MONO_FDTYPE_SOCKET, accepted_fd);
+	accepted_socket_data->domain = sockethandle->domain;
+	accepted_socket_data->type = sockethandle->type;
+	accepted_socket_data->protocol = sockethandle->protocol;
+	accepted_socket_data->still_readable = 1;
+
+	if (error)
+		*error = 0;
+
+	mono_fdhandle_insert ((MonoFDHandle*) accepted_socket_data);
+
+	mono_trace (G_LOG_LEVEL_DEBUG, MONO_TRACE_IO_LAYER_SOCKET, "%s: returning accepted handle %p", __func__, GINT_TO_POINTER(((MonoFDHandle*) accepted_socket_data)->fd));
+
+	mono_fdhandle_unref ((MonoFDHandle*) sockethandle);
+	return ((MonoFDHandle*) accepted_socket_data)->fd;
+}
+
 int
 mono_w32socket_connect (SOCKET sock, const struct sockaddr *addr, int addrlen, gboolean blocking)
 {

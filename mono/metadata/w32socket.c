@@ -877,6 +877,28 @@ ves_icall_System_Net_Sockets_Socket_Accept_internal2 (gsize sock, gchar *buffer,
 	return GUINT_TO_POINTER (newsock);
 }
 
+gint
+ves_icall_Interop_Sys_Socket_Accept_internal (gsize sock, gchar *socketAddress, gint32 *socketAddressLen, gpointer *acceptedFd, MonoError *error)
+{
+	SOCKET newsock;
+	socklen_t addrlen;
+	int ret;
+
+	error_init (error);
+
+	addrlen = *socketAddressLen;
+
+	newsock = mono_w32socket_accept2 (sock, (struct sockaddr *)socketAddress, &addrlen, &ret);
+	if (newsock == INVALID_SOCKET) {
+		*acceptedFd = NULL;
+		return ret;
+	}
+
+	*socketAddressLen = addrlen;
+	*acceptedFd = GUINT_TO_POINTER (newsock);
+	return ret;
+}
+
 void
 ves_icall_System_Net_Sockets_Socket_Listen_internal(gsize sock, guint32 backlog, gint32 *werror, MonoError *error)
 {
