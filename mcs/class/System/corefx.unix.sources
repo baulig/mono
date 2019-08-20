@@ -6,6 +6,7 @@ corefx/Unix/Interop.SocketEvent.cs
 ../../../external/corefx/src/Common/src/System/Net/SafeCloseSocket.cs
 ../../../external/corefx/src/Common/src/System/Net/SocketAddressPal.Unix.cs
 
+../../../external/corefx/src/Common/src/Interop/Unix/System.Native/Interop.MessageHeader.cs
 ../../../external/corefx/src/Common/src/Interop/Unix/System.Native/Interop.SocketAddress.cs
 
 ../../../external/corefx/src/Common/src/Interop/Unix/System.Net.Security.Native/Interop.NetSecurityNative.cs

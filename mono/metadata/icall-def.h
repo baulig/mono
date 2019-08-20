@@ -115,6 +115,7 @@ ICALL_TYPE(CLR_INTEROP_SYS, "Interop/Sys", CLR_INTEROP_SYS_1)
 NOHANDLES(ICALL(CLR_INTEROP_SYS_1, "DoubleToString", ves_icall_Interop_Sys_DoubleToString))
 #ifndef DISABLE_SOSOCKETS
 HANDLES(CLR_INTEROP_SYS_2, "Socket_Accept_internal", ves_icall_Interop_Sys_Socket_Accept_internal, gint32, 4, (gsize, char_ptr, gint32_ref, gpointer_ref))
+HANDLES(CLR_INTEROP_SYS_3, "Socket_ReceiveMessage_internal", ves_icall_Interop_Sys_Socket_ReceiveMessage_internal, gint32, 4, (gsize, char_ptr, gint32, gint64_ref))
 #endif
 
 ICALL_TYPE(NATIVEMETHODS, "Microsoft.Win32.NativeMethods", NATIVEMETHODS_1)
