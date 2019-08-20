@@ -96,6 +96,18 @@ namespace System.Net.Sockets
             throw new PlatformNotSupportedException(SR.net_sockets_connect_multiconnect_notsupported);
         }
 
+        private Socket GetOrCreateAcceptSocket(Socket acceptSocket, bool unused, string propertyName, out SafeCloseSocket handle)
+        {
+            // AcceptSocket is not supported on Unix.
+            if (acceptSocket != null)
+            {
+                throw new PlatformNotSupportedException(SR.PlatformNotSupported_AcceptSocket);
+            }
+
+            handle = null;
+            return null;
+        }
+
 #endregion
 
     }

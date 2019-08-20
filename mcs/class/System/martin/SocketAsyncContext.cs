@@ -12,6 +12,26 @@ namespace System.Net.Sockets
 
         #region CoreFX Code
 
+        // Cached operation instances for operations commonly repeated on the same socket instance,
+        // e.g. async accepts, sends/receives with single and multiple buffers.  More can be
+        // added in the future if necessary, at the expense of extra fields here.  With a larger
+        // refactoring, these could also potentially be moved to SocketAsyncEventArgs, which
+        // would be more invasive but which would allow them to be reused across socket instances
+        // and also eliminate the interlocked necessary to rent the instances.
+        private AcceptOperation _cachedAcceptOperation;
+
+        private void ReturnOperation(AcceptOperation operation)
+        {
+            operation.Reset();
+            operation.Callback = null;
+            operation.SocketAddress = null;
+            Volatile.Write(ref _cachedAcceptOperation, operation); // benign race condition
+        }
+
+        private AcceptOperation RentAcceptOperation() =>
+            Interlocked.Exchange(ref _cachedAcceptOperation, null) ??
+            new AcceptOperation(this);
+
         private abstract partial class AsyncOperation
         {
             private enum State
@@ -234,6 +254,44 @@ namespace System.Net.Sockets
 
             public override void InvokeCallback(bool allowPooling) =>
                 ((Action<int, byte[], int, SocketFlags, SocketError>)CallbackOrEvent)(BytesTransferred, SocketAddress, SocketAddressLen, SocketFlags.None, ErrorCode);
+        }
+
+        private sealed class AcceptOperation : ReadOperation
+        {
+            public IntPtr AcceptedFileDescriptor;
+
+            public AcceptOperation(SocketAsyncContext context) : base(context) { }
+
+            public Action<IntPtr, byte[], int, SocketError> Callback
+            {
+                set => CallbackOrEvent = value;
+            }
+
+            protected override void Abort() =>
+                AcceptedFileDescriptor = (IntPtr)(-1);
+
+            protected override bool DoTryComplete(SocketAsyncContext context)
+            {
+                bool completed = SocketPal.TryCompleteAccept(context._socket, SocketAddress, ref SocketAddressLen, out AcceptedFileDescriptor, out ErrorCode);
+                Debug.Assert(ErrorCode == SocketError.Success || AcceptedFileDescriptor == (IntPtr)(-1), $"Unexpected values: ErrorCode={ErrorCode}, AcceptedFileDescriptor={AcceptedFileDescriptor}");
+                return completed;
+            }
+
+            public override void InvokeCallback(bool allowPooling)
+            {
+                var cb = (Action<IntPtr, byte[], int, SocketError>)CallbackOrEvent;
+                IntPtr fd = AcceptedFileDescriptor;
+                byte[] sa = SocketAddress;
+                int sal = SocketAddressLen;
+                SocketError ec = ErrorCode;
+
+                if (allowPooling)
+                {
+                    AssociatedContext.ReturnOperation(this);
+                }
+
+                cb(fd, sa, sal, ec);
+            }
         }
 
         private sealed class ConnectOperation : WriteOperation
