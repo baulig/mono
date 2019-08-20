@@ -855,6 +855,56 @@ namespace System.Net.Sockets
             return result;
         }
 
+        public bool AcceptAsync(SocketAsyncEventArgs e)
+        {
+            if (NetEventSource.IsEnabled) NetEventSource.Enter(this, e);
+
+            if (CleanedUp)
+            {
+                throw new ObjectDisposedException(GetType().FullName);
+            }
+
+            if (e == null)
+            {
+                throw new ArgumentNullException(nameof(e));
+            }
+            if (e.HasMultipleBuffers)
+            {
+                throw new ArgumentException(SR.net_multibuffernotsupported, "BufferList");
+            }
+            if (_rightEndPoint == null)
+            {
+                throw new InvalidOperationException(SR.net_sockets_mustbind);
+            }
+            if (!_isListening)
+            {
+                throw new InvalidOperationException(SR.net_sockets_mustlisten);
+            }
+
+            // Handle AcceptSocket property.
+            SafeCloseSocket acceptHandle;
+            e.AcceptSocket = GetOrCreateAcceptSocket(e.AcceptSocket, true, "AcceptSocket", out acceptHandle);
+
+            // Prepare for and make the native call.
+            e.StartOperationCommon(this, SocketAsyncOperation.Accept);
+            e.StartOperationAccept();
+            SocketError socketError = SocketError.Success;
+            try
+            {
+                socketError = e.DoOperationAccept(this, _handle, acceptHandle);
+            }
+            catch
+            {
+                // Clear in-use flag on event args object.
+                e.Complete();
+                throw;
+            }
+
+            bool pending = (socketError == SocketError.IOPending);
+            if (NetEventSource.IsEnabled) NetEventSource.Exit(this, pending);
+            return pending;
+        }
+
         public bool ConnectAsync(SocketAsyncEventArgs e)
         {
             if (NetEventSource.IsEnabled) NetEventSource.Enter(this, e);
@@ -1087,6 +1137,44 @@ namespace System.Net.Sockets
                 }
                 return _caches;
             }
+        }
+
+        internal static int GetAddressSize(EndPoint endPoint)
+        {
+            AddressFamily fam = endPoint.AddressFamily;
+            return
+                fam == AddressFamily.InterNetwork ? SocketAddressPal.IPv4AddressSize :
+                fam == AddressFamily.InterNetworkV6 ? SocketAddressPal.IPv6AddressSize :
+                endPoint.Serialize().Size;
+        }
+
+        private Internals.SocketAddress SnapshotAndSerialize(ref EndPoint remoteEP)
+        {
+            if (remoteEP is IPEndPoint ipSnapshot)
+            {
+                // Snapshot to avoid external tampering and malicious derivations if IPEndPoint.
+                ipSnapshot = ipSnapshot.Snapshot();
+
+                // DualMode: return an IPEndPoint mapped to an IPv6 address.
+                remoteEP = RemapIPEndPoint(ipSnapshot);
+            }
+            else if (remoteEP is DnsEndPoint)
+            {
+                throw new ArgumentException(SR.Format(SR.net_sockets_invalid_dnsendpoint, nameof(remoteEP)), nameof(remoteEP));
+            }
+
+            return IPEndPointExtensions.Serialize(remoteEP);
+        }
+
+
+        // DualMode: automatically re-map IPv4 addresses to IPv6 addresses.
+        private IPEndPoint RemapIPEndPoint(IPEndPoint input)
+        {
+            if (input.AddressFamily == AddressFamily.InterNetwork && IsDualMode)
+            {
+                return new IPEndPoint(input.Address.MapToIPv6(), input.Port);
+            }
+            return input;
         }
 
         private void DoConnect(EndPoint endPointSnapshot, Internals.SocketAddress socketAddress)

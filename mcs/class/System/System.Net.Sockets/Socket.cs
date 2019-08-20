@@ -460,37 +460,6 @@ namespace System.Net.Sockets
 
 #region Accept
 
-#if FIXME
-		public Socket Accept()
-		{
-			ThrowIfDisposedAndClosed ();
-
-			if (!is_bound)
-				throw new InvalidOperationException (SR.net_sockets_mustbind);
-
-			if (!_isListening)
-				throw new InvalidOperationException (SR.net_sockets_mustlisten);
-
-			SocketAddress socketAddress = IPEndPointExtensions.Serialize (_rightEndPoint);
-
-			int error = 0;
-			SafeSocketHandle safe_handle = Accept_internal (this._handle, out error, _willBlockInternal);
-
-			if (error != 0) {
-				if (is_closed)
-					error = SOCKET_CLOSED_CODE;
-				throw new SocketException(error);
-			}
-
-			Socket accepted = new Socket (this.AddressFamily, this.SocketType, this.ProtocolType, safe_handle) {
-				_rightEndPoint = _rightEndPoint.Create (socketAddress),
-				Blocking = this.Blocking,
-			};
-
-			return accepted;
-		}
-#endif
-
 		internal void Accept (Socket acceptSocket)
 		{
 			ThrowIfDisposedAndClosed ();
@@ -515,6 +484,7 @@ namespace System.Net.Sockets
 			// FIXME: figure out what if anything else needs to be reset
 		}
 
+#if FIXME
 		public bool AcceptAsync (SocketAsyncEventArgs e)
 		{
 			// NO check is made whether e != null in MS.NET (NRE is thrown in such case)
@@ -542,6 +512,7 @@ namespace System.Net.Sockets
 
 			return true;
 		}
+#endif
 
 		static AsyncCallback AcceptAsyncCallback = new AsyncCallback (ares => {
 			SocketAsyncEventArgs e = (SocketAsyncEventArgs) ((SocketAsyncResult) ares).AsyncState;
@@ -2560,29 +2531,6 @@ namespace System.Net.Sockets
 			}
 		}
 
-		SocketAddress SnapshotAndSerialize (ref EndPoint remoteEP)
-		{
-			if (remoteEP is IPEndPoint ipSnapshot) {
-				// Snapshot to avoid external tampering and malicious derivations if IPEndPoint.
-				ipSnapshot = ipSnapshot.Snapshot ();
-
-				// DualMode: return an IPEndPoint mapped to an IPv6 address.
-				remoteEP = RemapIPEndPoint (ipSnapshot);
-			} else if (remoteEP is DnsEndPoint) {
-				throw new ArgumentException (SR.Format (SR.net_sockets_invalid_dnsendpoint, nameof (remoteEP)), nameof (remoteEP));
-			}
-
-			return IPEndPointExtensions.Serialize (remoteEP);
-		}
-
-		IPEndPoint RemapIPEndPoint (IPEndPoint input) {
-			// If socket is DualMode ensure we automatically handle mapping IPv4 addresses to IPv6.
-			if (IsDualMode && input.AddressFamily == AddressFamily.InterNetwork)
-				return new IPEndPoint (input.Address.MapToIPv6 (), input.Port);
-			
-			return input;
-		}
-		
 		[StructLayout (LayoutKind.Sequential)]
 		struct WSABUF {
 			public int len;

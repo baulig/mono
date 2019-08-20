@@ -885,6 +885,70 @@ namespace System.Net.Sockets
             return false;
         }
 
+        public SocketError Accept(byte[] socketAddress, ref int socketAddressLen, out IntPtr acceptedFd)
+        {
+            Debug.Assert(socketAddress != null, "Expected non-null socketAddress");
+            Debug.Assert(socketAddressLen > 0, $"Unexpected socketAddressLen: {socketAddressLen}");
+
+            SocketError errorCode;
+            int observedSequenceNumber;
+            if (_receiveQueue.IsReady(this, out observedSequenceNumber) &&
+                SocketPal.TryCompleteAccept(_socket, socketAddress, ref socketAddressLen, out acceptedFd, out errorCode))
+            {
+                Debug.Assert(errorCode == SocketError.Success || acceptedFd == (IntPtr)(-1), $"Unexpected values: errorCode={errorCode}, acceptedFd={acceptedFd}");
+                return errorCode;
+            }
+
+            var operation = new AcceptOperation(this)
+            {
+                SocketAddress = socketAddress,
+                SocketAddressLen = socketAddressLen,
+            };
+
+            PerformSyncOperation(ref _receiveQueue, operation, -1, observedSequenceNumber);
+
+            socketAddressLen = operation.SocketAddressLen;
+            acceptedFd = operation.AcceptedFileDescriptor;
+            return operation.ErrorCode;
+        }
+
+        public SocketError AcceptAsync(byte[] socketAddress, ref int socketAddressLen, out IntPtr acceptedFd, Action<IntPtr, byte[], int, SocketError> callback)
+        {
+            Debug.Assert(socketAddress != null, "Expected non-null socketAddress");
+            Debug.Assert(socketAddressLen > 0, $"Unexpected socketAddressLen: {socketAddressLen}");
+            Debug.Assert(callback != null, "Expected non-null callback");
+
+            SetNonBlocking();
+
+            SocketError errorCode;
+            int observedSequenceNumber;
+            if (_receiveQueue.IsReady(this, out observedSequenceNumber) &&
+                SocketPal.TryCompleteAccept(_socket, socketAddress, ref socketAddressLen, out acceptedFd, out errorCode))
+            {
+                Debug.Assert(errorCode == SocketError.Success || acceptedFd == (IntPtr)(-1), $"Unexpected values: errorCode={errorCode}, acceptedFd={acceptedFd}");
+
+                return errorCode;
+            }
+
+            AcceptOperation operation = RentAcceptOperation();
+            operation.Callback = callback;
+            operation.SocketAddress = socketAddress;
+            operation.SocketAddressLen = socketAddressLen;
+
+            if (!_receiveQueue.StartAsyncOperation(this, operation, observedSequenceNumber))
+            {
+                socketAddressLen = operation.SocketAddressLen;
+                acceptedFd = operation.AcceptedFileDescriptor;
+                errorCode = operation.ErrorCode;
+
+                ReturnOperation(operation);
+                return errorCode;
+            }
+
+            acceptedFd = (IntPtr)(-1);
+            return SocketError.IOPending;
+        }
+
         public SocketError Connect(byte[] socketAddress, int socketAddressLen)
         {
             Debug.Assert(socketAddress != null, "Expected non-null socketAddress");
