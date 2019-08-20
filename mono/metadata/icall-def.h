@@ -541,7 +541,7 @@ ICALL(MAC_IFACE_PROPS_1, "ParseRouteInfo_internal", ves_icall_System_Net_Network
 #ifndef DISABLE_SOCKETS
 ICALL_TYPE(SOCK, "System.Net.Sockets.Socket", SOCK_1)
 HANDLES(SOCK_1, "Accept_internal(intptr,int&,bool)", ves_icall_System_Net_Sockets_Socket_Accept_internal, gpointer, 3, (gsize, gint32_ref, MonoBoolean))
-HANDLES(SOCK_25, "Accept_internal2(intptr,byte*,int&,int&,bool)", ves_icall_System_Net_Sockets_Socket_Accept_internal2, gpointer, 4, (gsize, char_ptr, gint32_ref, gint32_ref))
+HANDLES(SOCK_25, "Accept_internal2(intptr,byte*,int*,int&)", ves_icall_System_Net_Sockets_Socket_Accept_internal2, gpointer, 4, (gsize, char_ptr, gint32_ref, gint32_ref))
 HANDLES(SOCK_2, "Available_internal(intptr,int&)", ves_icall_System_Net_Sockets_Socket_Available_internal, gint32, 2, (gsize, gint32_ref))
 HANDLES(SOCK_3, "Bind_internal(intptr,System.Net.SocketAddress,int&)", ves_icall_System_Net_Sockets_Socket_Bind_internal, void, 3, (gsize, MonoObject, gint32_ref))
 HANDLES(SOCK_4, "Blocking_internal(intptr,bool,int&)", ves_icall_System_Net_Sockets_Socket_Blocking_internal, void, 3, (gsize, MonoBoolean, gint32_ref))

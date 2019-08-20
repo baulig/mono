@@ -143,7 +143,7 @@ namespace System.Net.Sockets
             {
                 try
                 {
-                    fd = Socket.Accept_internal((SafeSocketHandle)socket, socketAddress, ref socketAddressLen, out var error, true);
+                    fd = Socket.Accept_internal((SafeSocketHandle)socket, rawSocketAddress, &sockAddrLen, out var error);
                     errorCode = (SocketError)error;
                 }
                 catch (ObjectDisposedException)
