@@ -18,6 +18,11 @@ namespace System.Net.Sockets
             return SocketError.Success;
         }
 
+        public static SocketError Accept(SafeCloseSocket handle, byte[] buffer, ref int nameLen, out SafeCloseSocket socket)
+        {
+            return SafeCloseSocket.Accept(handle, buffer, ref nameLen, out socket);
+        }
+
         public static SocketError Connect(SafeCloseSocket handle, byte[] socketAddress, int socketAddressLen)
         {
             if (!handle.IsNonBlocking)

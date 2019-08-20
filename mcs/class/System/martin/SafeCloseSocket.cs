@@ -194,6 +194,12 @@ namespace System.Net.Sockets
             return (SocketError)error;
         }
 
+        public static unsafe SocketError Accept(SafeCloseSocket socketHandle, byte[] socketAddress, ref int socketAddressSize, out SafeCloseSocket socket)
+        {
+            socket = Socket.Accept_internal ((SafeSocketHandle)socketHandle, out var error, true);
+            return (SocketError)error;
+        }
+
         partial class InnerSafeCloseSocket
         {
             private unsafe SocketError InnerReleaseHandle()

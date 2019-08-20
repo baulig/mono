@@ -56,6 +56,28 @@ namespace System.Net.Sockets
 
         private int _closeTimeout = Socket.DefaultCloseTimeout;
 
+        // Called by the class to create a socket to accept an incoming request.
+        private Socket(SafeCloseSocket fd)
+        {
+            // NOTE: If this ctor is ever made public/protected, this check will need
+            // to be converted into a runtime exception.
+            Debug.Assert(fd != null && !fd.IsInvalid);
+
+            if (NetEventSource.IsEnabled) NetEventSource.Enter(this);
+            InitializeSockets();
+
+#if MONO
+            _handle = (SafeSocketHandle)fd;
+#else
+            _handle = fd;
+#endif
+
+            _addressFamily = Sockets.AddressFamily.Unknown;
+            _socketType = Sockets.SocketType.Unknown;
+            _protocolType = Sockets.ProtocolType.Unknown;
+            if (NetEventSource.IsEnabled) NetEventSource.Exit(this);
+        }
+
         // Gets the local end point.
         public EndPoint LocalEndPoint
         {
@@ -531,6 +553,64 @@ namespace System.Net.Sockets
             if (NetEventSource.IsEnabled) NetEventSource.Exit(this);
         }
 
+        // Creates a new Sockets.Socket instance to handle an incoming connection.
+        public Socket Accept()
+        {
+            if (NetEventSource.IsEnabled) NetEventSource.Enter(this);
+
+            // Validate input parameters.
+
+            if (CleanedUp)
+            {
+                throw new ObjectDisposedException(this.GetType().FullName);
+            }
+
+            if (_rightEndPoint == null)
+            {
+                throw new InvalidOperationException(SR.net_sockets_mustbind);
+            }
+
+            if (!_isListening)
+            {
+                throw new InvalidOperationException(SR.net_sockets_mustlisten);
+            }
+
+            if (_isDisconnected)
+            {
+                throw new InvalidOperationException(SR.net_sockets_disconnectedAccept);
+            }
+
+            ValidateBlockingMode();
+            if (NetEventSource.IsEnabled) NetEventSource.Info(this, $"SRC:{LocalEndPoint}");
+
+            Internals.SocketAddress socketAddress = IPEndPointExtensions.Serialize(_rightEndPoint);
+
+            // This may throw ObjectDisposedException.
+            SafeCloseSocket acceptedSocketHandle;
+            SocketError errorCode = SocketPal.Accept(
+                _handle,
+                socketAddress.Buffer,
+                ref socketAddress.InternalSize,
+                out acceptedSocketHandle);
+
+            // Throw an appropriate SocketException if the native call fails.
+            if (errorCode != SocketError.Success)
+            {
+                Debug.Assert(acceptedSocketHandle.IsInvalid);
+                UpdateStatusAfterSocketErrorAndThrowException(errorCode);
+            }
+
+            Debug.Assert(!acceptedSocketHandle.IsInvalid);
+
+            Socket socket = CreateAcceptSocket(acceptedSocketHandle, _rightEndPoint.Create(socketAddress));
+            if (NetEventSource.IsEnabled)
+            {
+                NetEventSource.Accepted(socket, socket.RemoteEndPoint, socket.LocalEndPoint);
+                NetEventSource.Exit(this, socket);
+            }
+            return socket;
+        }
+
         public bool ConnectAsync(SocketAsyncEventArgs e)
         {
             if (NetEventSource.IsEnabled) NetEventSource.Enter(this, e);
@@ -966,6 +1046,43 @@ namespace System.Net.Sockets
 
             // Don't invoke the callback at all, because we've posted another async connection attempt.
             return false;
+        }
+
+        // CreateAcceptSocket - pulls unmanaged results and assembles them into a new Socket object.
+        internal Socket CreateAcceptSocket(SafeCloseSocket fd, EndPoint remoteEP)
+        {
+            // Internal state of the socket is inherited from listener.
+            Debug.Assert(fd != null && !fd.IsInvalid);
+            Socket socket = new Socket(fd);
+            return UpdateAcceptSocket(socket, remoteEP);
+        }
+
+        internal Socket UpdateAcceptSocket(Socket socket, EndPoint remoteEP)
+        {
+            // Internal state of the socket is inherited from listener.
+            socket._addressFamily = _addressFamily;
+            socket._socketType = _socketType;
+            socket._protocolType = _protocolType;
+            socket._rightEndPoint = _rightEndPoint;
+            socket._remoteEndPoint = remoteEP;
+
+            // The socket is connected.
+            socket.SetToConnected();
+
+            // if the socket is returned by an End(), the socket might have
+            // inherited the WSAEventSelect() call from the accepting socket.
+            // we need to cancel this otherwise the socket will be in non-blocking
+            // mode and we cannot force blocking mode using the ioctlsocket() in
+            // Socket.set_Blocking(), since it fails returning 10022 as documented in MSDN.
+            // (note that the m_AsyncEvent event will not be created in this case.
+
+            socket._willBlock = _willBlock;
+
+            // We need to make sure the Socket is in the right blocking state
+            // even if we don't have to call UnsetAsyncEventSelect
+            socket.InternalSetBlocking(_willBlock);
+
+            return socket;
         }
 
         internal void SetToConnected()

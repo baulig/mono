@@ -460,6 +460,7 @@ namespace System.Net.Sockets
 
 #region Accept
 
+#if FIXME
 		public Socket Accept()
 		{
 			ThrowIfDisposedAndClosed ();
@@ -488,6 +489,7 @@ namespace System.Net.Sockets
 
 			return accepted;
 		}
+#endif
 
 		internal void Accept (Socket acceptSocket)
 		{
@@ -686,7 +688,7 @@ namespace System.Net.Sockets
 			return sockares.AcceptedSocket;
 		}
 
-		static SafeSocketHandle Accept_internal (SafeSocketHandle safeHandle, out int error, bool blocking)
+		internal static SafeSocketHandle Accept_internal (SafeSocketHandle safeHandle, out int error, bool blocking)
 		{
 			try {
 				safeHandle.RegisterForBlockingSyscall ();
