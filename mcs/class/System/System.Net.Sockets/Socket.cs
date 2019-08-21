@@ -1287,6 +1287,8 @@ namespace System.Net.Sockets
 			return ret;
 		}
 
+#endif
+
 		internal int ReceiveFrom (byte [] buffer, int offset, int size, SocketFlags socketFlags, ref EndPoint remoteEP, out SocketError errorCode)
 		{
 			SocketAddress sockaddr = remoteEP.Serialize();
@@ -1324,8 +1326,6 @@ namespace System.Net.Sockets
 
 			return cnt;
 		}
-
-#endif
 
 		public bool ReceiveFromAsync (SocketAsyncEventArgs e)
 		{

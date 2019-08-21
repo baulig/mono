@@ -58,5 +58,10 @@ internal static partial class Interop
 			throw new NotImplementedException ();
 		}
 
+		internal static bool PlatformSupportsDualModeIPv4PacketInfo ()
+		{
+			return true;
+		}
+
 	}
 }

@@ -12,9 +12,30 @@ namespace System.Net.Sockets
     {
 #region CoreFX Code
 
+        public const bool SupportsMultipleConnectAttempts = false;
+        private static readonly bool SupportsDualModeIPv4PacketInfo = GetPlatformSupportsDualModeIPv4PacketInfo();
+
+        private static bool GetPlatformSupportsDualModeIPv4PacketInfo()
+        {
+            return Interop.Sys.PlatformSupportsDualModeIPv4PacketInfo();
+        }
+
+        public static void Initialize()
+        {
+            // nop.  No initialization required.
+        }
+
         public static SocketError GetSocketErrorForErrorCode(Interop.Error errorCode)
         {
             return SocketErrorPal.GetSocketErrorForNativeError(errorCode);
+        }
+
+        public static void CheckDualModeReceiveSupport(Socket socket)
+        {
+            if (!SupportsDualModeIPv4PacketInfo && socket.AddressFamily == AddressFamily.InterNetworkV6 && socket.DualMode)
+            {
+                throw new PlatformNotSupportedException(SR.net_sockets_dualmode_receivefrom_notsupported);
+            }
         }
 
         public static SocketError SetBlocking(SafeCloseSocket handle, bool shouldBlock, out bool willBlock)
@@ -89,6 +110,51 @@ namespace System.Net.Sockets
 
             errorCode = SocketError.Success;
             return false;
+        }
+
+        public static SocketError Receive(SafeCloseSocket handle, IList<ArraySegment<byte>> buffers, ref SocketFlags socketFlags, out int bytesTransferred)
+        {
+            SocketError errorCode;
+            if (!handle.IsNonBlocking)
+            {
+                errorCode = handle.AsyncContext.Receive(buffers, ref socketFlags, handle.ReceiveTimeout, out bytesTransferred);
+            }
+            else
+            {
+                int socketAddressLen = 0;
+                if (!TryCompleteReceiveFrom(handle, buffers, socketFlags, null, ref socketAddressLen, out bytesTransferred, out socketFlags, out errorCode))
+                {
+                    errorCode = SocketError.WouldBlock;
+                }
+            }
+
+            return errorCode;
+        }
+
+        public static SocketError Receive(SafeCloseSocket handle, byte[] buffer, int offset, int count, SocketFlags socketFlags, out int bytesTransferred)
+        {
+            if (!handle.IsNonBlocking)
+            {
+                return handle.AsyncContext.Receive(new Memory<byte>(buffer, offset, count), ref socketFlags, handle.ReceiveTimeout, out bytesTransferred);
+            }
+
+            int socketAddressLen = 0;
+            SocketError errorCode;
+            bool completed = TryCompleteReceiveFrom(handle, new Span<byte>(buffer, offset, count), socketFlags, null, ref socketAddressLen, out bytesTransferred, out socketFlags, out errorCode);
+            return completed ? errorCode : SocketError.WouldBlock;
+        }
+
+        public static SocketError Receive(SafeCloseSocket handle, Span<byte> buffer, SocketFlags socketFlags, out int bytesTransferred)
+        {
+            if (!handle.IsNonBlocking)
+            {
+                return handle.AsyncContext.Receive(buffer, ref socketFlags, handle.ReceiveTimeout, out bytesTransferred);
+            }
+
+            int socketAddressLen = 0;
+            SocketError errorCode;
+            bool completed = TryCompleteReceiveFrom(handle, buffer, socketFlags, null, ref socketAddressLen, out bytesTransferred, out socketFlags, out errorCode);
+            return completed ? errorCode : SocketError.WouldBlock;
         }
 
         private static unsafe int Receive(SafeCloseSocket socket, SocketFlags flags, Span<byte> buffer, byte[] socketAddress, ref int socketAddressLen, out SocketFlags receivedFlags, out Interop.Error errno)
@@ -518,6 +584,16 @@ namespace System.Net.Sockets
             SocketError errorCode;
             bool completed = TryCompleteReceiveFrom(handle, new Span<byte>(buffer, offset, count), socketFlags, socketAddress, ref socketAddressLen, out bytesTransferred, out socketFlags, out errorCode);
             return completed ? errorCode : SocketError.WouldBlock;
+        }
+
+        public static void SetReceivingDualModeIPv4PacketInformation(Socket socket)
+        {
+            // NOTE: some platforms (e.g. OS X) do not support receiving IPv4 packet information for packets received
+            //       on dual-mode sockets. On these platforms, this call is a no-op.
+            if (SupportsDualModeIPv4PacketInfo)
+            {
+                socket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.PacketInformation, true);
+            }
         }
 
 #endregion

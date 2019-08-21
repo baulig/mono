@@ -56,6 +56,9 @@ namespace System.Net.Sockets
             internal CallbackClosure ReceiveClosureCache;
         }
 
+        // Bool marked true if the native socket option IP_PKTINFO or IPV6_PKTINFO has been set.
+        private bool _receivingPacketInformation;
+
         private int _closeTimeout = Socket.DefaultCloseTimeout;
 
         // Called by the class to create a socket to accept an incoming request.
@@ -1463,6 +1466,37 @@ namespace System.Net.Sockets
                 throw new ArgumentNullException(nameof(e));
             }
             e.CancelConnectAsync();
+        }
+
+        // Set the socket option to begin receiving packet information if it has not been
+        // set for this socket previously.
+        internal void SetReceivingPacketInformation()
+        {
+            if (!_receivingPacketInformation)
+            {
+                // DualMode: When bound to IPv6Any you must enable both socket options.
+                // When bound to an IPv4 mapped IPv6 address you must enable the IPv4 socket option.
+                IPEndPoint ipEndPoint = _rightEndPoint as IPEndPoint;
+                IPAddress boundAddress = (ipEndPoint != null ? ipEndPoint.Address : null);
+                Debug.Assert(boundAddress != null, "Not Bound");
+                if (_addressFamily == AddressFamily.InterNetwork)
+                {
+                    SetSocketOption(SocketOptionLevel.IP, SocketOptionName.PacketInformation, true);
+                }
+
+                if ((boundAddress != null && IsDualMode && (boundAddress.IsIPv4MappedToIPv6 || boundAddress.Equals(IPAddress.IPv6Any))))
+                {
+                    SocketPal.SetReceivingDualModeIPv4PacketInformation(this);
+                }
+
+                if (_addressFamily == AddressFamily.InterNetworkV6
+                    && (boundAddress == null || !boundAddress.IsIPv4MappedToIPv6))
+                {
+                    SetSocketOption(SocketOptionLevel.IPv6, SocketOptionName.PacketInformation, true);
+                }
+
+                _receivingPacketInformation = true;
+            }
         }
 
         // This method will ignore failures, but returns the win32
