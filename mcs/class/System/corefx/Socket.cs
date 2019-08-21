@@ -1,6 +1,8 @@
 using System.Threading;
 using System.Diagnostics;
 using System.Net.Internals;
+using System.Collections;
+using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Runtime.ExceptionServices;
 
@@ -613,6 +615,390 @@ namespace System.Net.Sockets
                 NetEventSource.Exit(this, socket);
             }
             return socket;
+        }
+
+        // Receives data from a connected socket.
+        public int Receive(byte[] buffer, int size, SocketFlags socketFlags)
+        {
+            return Receive(buffer, 0, size, socketFlags);
+        }
+
+        public int Receive(byte[] buffer, SocketFlags socketFlags)
+        {
+            return Receive(buffer, 0, buffer != null ? buffer.Length : 0, socketFlags);
+        }
+
+        public int Receive(byte[] buffer)
+        {
+            return Receive(buffer, 0, buffer != null ? buffer.Length : 0, SocketFlags.None);
+        }
+
+        // Receives data from a connected socket into a specific location of the receive buffer.
+        public int Receive(byte[] buffer, int offset, int size, SocketFlags socketFlags)
+        {
+            SocketError errorCode;
+            int bytesTransferred = Receive(buffer, offset, size, socketFlags, out errorCode);
+            if (errorCode != SocketError.Success)
+            {
+                throw new SocketException((int)errorCode);
+            }
+            return bytesTransferred;
+        }
+
+        public int Receive(byte[] buffer, int offset, int size, SocketFlags socketFlags, out SocketError errorCode)
+        {
+            if (NetEventSource.IsEnabled) NetEventSource.Enter(this);
+            if (CleanedUp)
+            {
+                throw new ObjectDisposedException(this.GetType().FullName);
+            }
+
+            // Validate input parameters.
+            if (buffer == null)
+            {
+                throw new ArgumentNullException(nameof(buffer));
+            }
+            if (offset < 0 || offset > buffer.Length)
+            {
+                throw new ArgumentOutOfRangeException(nameof(offset));
+            }
+            if (size < 0 || size > buffer.Length - offset)
+            {
+                throw new ArgumentOutOfRangeException(nameof(size));
+            }
+
+            ValidateBlockingMode();
+            if (NetEventSource.IsEnabled) NetEventSource.Info(this, $"SRC:{LocalEndPoint} DST:{RemoteEndPoint} size:{size}");
+
+            int bytesTransferred;
+            errorCode = SocketPal.Receive(_handle, buffer, offset, size, socketFlags, out bytesTransferred);
+
+            if (errorCode != SocketError.Success)
+            {
+                // Update the internal state of this socket according to the error before throwing.
+                UpdateStatusAfterSocketError(errorCode);
+                if (NetEventSource.IsEnabled)
+                {
+                    NetEventSource.Error(this, new SocketException((int)errorCode));
+                    NetEventSource.Exit(this, 0);
+                }
+                return 0;
+            }
+
+            if (NetEventSource.IsEnabled)
+            {
+#if TRACE_VERBOSE
+                try
+                {
+                    if (NetEventSource.IsEnabled) NetEventSource.Info(this, $"SRC:{LocalEndPoint} DST:{RemoteEndPoint} bytesTransferred:{bytesTransferred}");
+                }
+                catch (ObjectDisposedException) { }
+#endif
+                NetEventSource.DumpBuffer(this, buffer, offset, bytesTransferred);
+                NetEventSource.Exit(this, bytesTransferred);
+            }
+
+            return bytesTransferred;
+        }
+
+        public int Receive(Span<byte> buffer) => Receive(buffer, SocketFlags.None);
+
+        public int Receive(Span<byte> buffer, SocketFlags socketFlags)
+        {
+            int bytesTransferred = Receive(buffer, socketFlags, out SocketError errorCode);
+            return errorCode == SocketError.Success ?
+                bytesTransferred :
+                throw new SocketException((int)errorCode);
+        }
+
+        public int Receive(Span<byte> buffer, SocketFlags socketFlags, out SocketError errorCode)
+        {
+            if (NetEventSource.IsEnabled) NetEventSource.Enter(this);
+            if (CleanedUp) throw new ObjectDisposedException(GetType().FullName);
+            ValidateBlockingMode();
+
+            int bytesTransferred;
+            errorCode = SocketPal.Receive(_handle, buffer, socketFlags, out bytesTransferred);
+
+            if (errorCode != SocketError.Success)
+            {
+                UpdateStatusAfterSocketError(errorCode);
+                if (NetEventSource.IsEnabled) NetEventSource.Error(this, new SocketException((int)errorCode));
+                bytesTransferred = 0;
+            }
+
+            if (NetEventSource.IsEnabled) NetEventSource.Exit(this, bytesTransferred);
+            return bytesTransferred;
+        }
+
+        public int Receive(IList<ArraySegment<byte>> buffers)
+        {
+            return Receive(buffers, SocketFlags.None);
+        }
+
+        public int Receive(IList<ArraySegment<byte>> buffers, SocketFlags socketFlags)
+        {
+            SocketError errorCode;
+            int bytesTransferred = Receive(buffers, socketFlags, out errorCode);
+            if (errorCode != SocketError.Success)
+            {
+                throw new SocketException((int)errorCode);
+            }
+            return bytesTransferred;
+        }
+
+        public int Receive(IList<ArraySegment<byte>> buffers, SocketFlags socketFlags, out SocketError errorCode)
+        {
+            if (NetEventSource.IsEnabled) NetEventSource.Enter(this);
+
+            if (CleanedUp)
+            {
+                throw new ObjectDisposedException(this.GetType().FullName);
+            }
+
+            if (buffers == null)
+            {
+                throw new ArgumentNullException(nameof(buffers));
+            }
+
+            if (buffers.Count == 0)
+            {
+                throw new ArgumentException(SR.Format(SR.net_sockets_zerolist, nameof(buffers)), nameof(buffers));
+            }
+
+
+            ValidateBlockingMode();
+            if (NetEventSource.IsEnabled) NetEventSource.Info(this, $"SRC:{LocalEndPoint} DST:{RemoteEndPoint}");
+
+            int bytesTransferred;
+            errorCode = SocketPal.Receive(_handle, buffers, ref socketFlags, out bytesTransferred);
+
+#if TRACE_VERBOSE
+            if (NetEventSource.IsEnabled)
+            {
+                try
+                {
+                    if (NetEventSource.IsEnabled) NetEventSource.Info(this, $"SRC:{LocalEndPoint} DST:{RemoteEndPoint} Interop.Winsock.send returns errorCode:{errorCode} bytesTransferred:{bytesTransferred}");
+                }
+                catch (ObjectDisposedException) { }
+            }
+#endif
+
+            if (errorCode != SocketError.Success)
+            {
+                // Update the internal state of this socket according to the error before throwing.
+                UpdateStatusAfterSocketError(errorCode);
+                if (NetEventSource.IsEnabled)
+                {
+                    NetEventSource.Error(this, new SocketException((int)errorCode));
+                    NetEventSource.Exit(this, 0);
+                }
+                return 0;
+            }
+
+#if TRACE_VERBOSE
+            if (NetEventSource.IsEnabled)
+            {
+                try
+                {
+                    if (NetEventSource.IsEnabled) NetEventSource.Info(this, $"SRC:{LocalEndPoint} DST:{RemoteEndPoint} bytesTransferred:{bytesTransferred}");
+                }
+                catch (ObjectDisposedException) { }
+            }
+#endif
+
+            if (NetEventSource.IsEnabled) NetEventSource.Exit(this, bytesTransferred);
+
+            return bytesTransferred;
+        }
+
+        // Receives a datagram into a specific location in the data buffer and stores
+        // the end point.
+        public int ReceiveMessageFrom(byte[] buffer, int offset, int size, ref SocketFlags socketFlags, ref EndPoint remoteEP, out IPPacketInformation ipPacketInformation)
+        {
+            if (NetEventSource.IsEnabled) NetEventSource.Enter(this);
+            if (CleanedUp)
+            {
+                throw new ObjectDisposedException(this.GetType().FullName);
+            }
+            if (buffer == null)
+            {
+                throw new ArgumentNullException(nameof(buffer));
+            }
+            if (remoteEP == null)
+            {
+                throw new ArgumentNullException(nameof(remoteEP));
+            }
+            if (!CanTryAddressFamily(remoteEP.AddressFamily))
+            {
+                throw new ArgumentException(SR.Format(SR.net_InvalidEndPointAddressFamily, remoteEP.AddressFamily, _addressFamily), nameof(remoteEP));
+            }
+            if (offset < 0 || offset > buffer.Length)
+            {
+                throw new ArgumentOutOfRangeException(nameof(offset));
+            }
+            if (size < 0 || size > buffer.Length - offset)
+            {
+                throw new ArgumentOutOfRangeException(nameof(size));
+            }
+            if (_rightEndPoint == null)
+            {
+                throw new InvalidOperationException(SR.net_sockets_mustbind);
+            }
+
+            SocketPal.CheckDualModeReceiveSupport(this);
+            ValidateBlockingMode();
+
+            // We don't do a CAS demand here because the contents of remoteEP aren't used by
+            // WSARecvMsg; all that matters is that we generate a unique-to-this-call SocketAddress
+            // with the right address family.
+            EndPoint endPointSnapshot = remoteEP;
+            Internals.SocketAddress socketAddress = SnapshotAndSerialize(ref endPointSnapshot);
+
+            // Save a copy of the original EndPoint.
+            Internals.SocketAddress socketAddressOriginal = IPEndPointExtensions.Serialize(endPointSnapshot);
+
+            SetReceivingPacketInformation();
+
+            Internals.SocketAddress receiveAddress;
+            int bytesTransferred;
+            SocketError errorCode = SocketPal.ReceiveMessageFrom(this, _handle, buffer, offset, size, ref socketFlags, socketAddress, out receiveAddress, out ipPacketInformation, out bytesTransferred);
+
+            // Throw an appropriate SocketException if the native call fails.
+            if (errorCode != SocketError.Success && errorCode != SocketError.MessageSize)
+            {
+                UpdateStatusAfterSocketErrorAndThrowException(errorCode);
+            }
+
+            if (!socketAddressOriginal.Equals(receiveAddress))
+            {
+                try
+                {
+                    remoteEP = endPointSnapshot.Create(receiveAddress);
+                }
+                catch
+                {
+                }
+                if (_rightEndPoint == null)
+                {
+                    // Save a copy of the EndPoint so we can use it for Create().
+                    _rightEndPoint = endPointSnapshot;
+                }
+            }
+
+            if (NetEventSource.IsEnabled) NetEventSource.Error(this, errorCode);
+            return bytesTransferred;
+        }
+
+        // Receives a datagram into a specific location in the data buffer and stores
+        // the end point.
+        public int ReceiveFrom(byte[] buffer, int offset, int size, SocketFlags socketFlags, ref EndPoint remoteEP)
+        {
+            if (NetEventSource.IsEnabled) NetEventSource.Enter(this);
+            if (CleanedUp)
+            {
+                throw new ObjectDisposedException(this.GetType().FullName);
+            }
+
+            // Validate input parameters.
+            if (buffer == null)
+            {
+                throw new ArgumentNullException(nameof(buffer));
+            }
+            if (remoteEP == null)
+            {
+                throw new ArgumentNullException(nameof(remoteEP));
+            }
+            if (!CanTryAddressFamily(remoteEP.AddressFamily))
+            {
+                throw new ArgumentException(SR.Format(SR.net_InvalidEndPointAddressFamily,
+                    remoteEP.AddressFamily, _addressFamily), nameof(remoteEP));
+            }
+            if (offset < 0 || offset > buffer.Length)
+            {
+                throw new ArgumentOutOfRangeException(nameof(offset));
+            }
+            if (size < 0 || size > buffer.Length - offset)
+            {
+                throw new ArgumentOutOfRangeException(nameof(size));
+            }
+            if (_rightEndPoint == null)
+            {
+                throw new InvalidOperationException(SR.net_sockets_mustbind);
+            }
+
+            SocketPal.CheckDualModeReceiveSupport(this);
+
+            ValidateBlockingMode();
+            if (NetEventSource.IsEnabled) NetEventSource.Info(this, $"SRC{LocalEndPoint} size:{size} remoteEP:{remoteEP}");
+
+            // We don't do a CAS demand here because the contents of remoteEP aren't used by
+            // WSARecvFrom; all that matters is that we generate a unique-to-this-call SocketAddress
+            // with the right address family.
+            EndPoint endPointSnapshot = remoteEP;
+            Internals.SocketAddress socketAddress = SnapshotAndSerialize(ref endPointSnapshot);
+            Internals.SocketAddress socketAddressOriginal = IPEndPointExtensions.Serialize(endPointSnapshot);
+
+            int bytesTransferred;
+            SocketError errorCode = SocketPal.ReceiveFrom(_handle, buffer, offset, size, socketFlags, socketAddress.Buffer, ref socketAddress.InternalSize, out bytesTransferred);
+
+            // If the native call fails we'll throw a SocketException.
+            SocketException socketException = null;
+            if (errorCode != SocketError.Success)
+            {
+                socketException = new SocketException((int)errorCode);
+                UpdateStatusAfterSocketError(socketException);
+                if (NetEventSource.IsEnabled) NetEventSource.Error(this, socketException);
+
+                if (socketException.SocketErrorCode != SocketError.MessageSize)
+                {
+                    throw socketException;
+                }
+            }
+
+            if (!socketAddressOriginal.Equals(socketAddress))
+            {
+                try
+                {
+                    remoteEP = endPointSnapshot.Create(socketAddress);
+                }
+                catch
+                {
+                }
+                if (_rightEndPoint == null)
+                {
+                    // Save a copy of the EndPoint so we can use it for Create().
+                    _rightEndPoint = endPointSnapshot;
+                }
+            }
+
+            if (socketException != null)
+            {
+                throw socketException;
+            }
+
+            if (NetEventSource.IsEnabled)
+            {
+                NetEventSource.DumpBuffer(this, buffer, offset, size);
+                NetEventSource.Exit(this, bytesTransferred);
+            }
+            return bytesTransferred;
+        }
+
+        // Receives a datagram and stores the source end point.
+        public int ReceiveFrom(byte[] buffer, int size, SocketFlags socketFlags, ref EndPoint remoteEP)
+        {
+            return ReceiveFrom(buffer, 0, size, socketFlags, ref remoteEP);
+        }
+
+        public int ReceiveFrom(byte[] buffer, SocketFlags socketFlags, ref EndPoint remoteEP)
+        {
+            return ReceiveFrom(buffer, 0, buffer != null ? buffer.Length : 0, socketFlags, ref remoteEP);
+        }
+
+        public int ReceiveFrom(byte[] buffer, ref EndPoint remoteEP)
+        {
+            return ReceiveFrom(buffer, 0, buffer != null ? buffer.Length : 0, SocketFlags.None, ref remoteEP);
         }
 
         // Routine Description:

@@ -1737,7 +1737,7 @@ namespace System.Net.Sockets {
             return SendTo(buffer, 0, buffer!=null ? buffer.Length : 0, SocketFlags.None, remoteEP);
         }
 
-
+#if !MONO
         /// <devdoc>
         ///    <para>Receives data from a connected socket.</para>
         /// </devdoc>
@@ -1771,7 +1771,6 @@ namespace System.Net.Sockets {
             return bytesTransferred;
         }
 
-#if !MONO
         public int Receive(byte[] buffer, int offset, int size, SocketFlags socketFlags, out SocketError errorCode) {
             if(s_LoggingEnabled)Logging.Enter(Logging.Sockets, this, "Receive", "");
             if (CleanedUp) {
@@ -1849,7 +1848,6 @@ namespace System.Net.Sockets {
 
             return bytesTransferred;
         }
-#endif // !MONO
 
         public int Receive(IList<ArraySegment<byte>> buffers) {
             return Receive(buffers,SocketFlags.None);
@@ -1865,7 +1863,6 @@ namespace System.Net.Sockets {
             return bytesTransferred;
         }
 
-#if !MONO
         public int Receive(IList<ArraySegment<byte>> buffers, SocketFlags socketFlags, out SocketError errorCode) {
             if(s_LoggingEnabled)Logging.Enter(Logging.Sockets, this, "Receive", "");
             if (CleanedUp) {
@@ -1971,9 +1968,6 @@ namespace System.Net.Sockets {
 
             return bytesTransferred;
         }
-
-
-
 
         /// <devdoc>
         ///    <para>Receives a datagram into a specific location in the data buffer and stores
@@ -2183,7 +2177,6 @@ namespace System.Net.Sockets {
             if(s_LoggingEnabled)Logging.Exit(Logging.Sockets, this, "ReceiveFrom", bytesTransferred);
             return bytesTransferred;
         }
-#endif // !MONO
 
         /// <devdoc>
         ///    <para>Receives a datagram and stores the source end point.</para>
@@ -2204,7 +2197,6 @@ namespace System.Net.Sockets {
             return ReceiveFrom(buffer, 0, buffer!=null ? buffer.Length : 0, SocketFlags.None, ref remoteEP);
         }
 
-#if !MONO
         // UE
         /// <devdoc>
         ///    <para>[To be supplied.]</para>

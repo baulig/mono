@@ -981,6 +981,8 @@ namespace System.Net.Sockets
 
 #region Receive
 
+#if REPLACED_WITH_COREFX
+
 		public int Receive (byte [] buffer, int offset, int size, SocketFlags socketFlags, out SocketError errorCode)
 		{
 			ThrowIfDisposedAndClosed ();
@@ -1060,11 +1062,15 @@ namespace System.Net.Sockets
 			return result;
 		}
 
+#endif
+
 		public int Send(ReadOnlySpan<byte> buffer, SocketFlags socketFlags, out SocketError errorCode)
 		{
 			byte[] bufferBytes = buffer.ToArray();
 			return Send(bufferBytes, 0, bufferBytes.Length, socketFlags, out errorCode);
 		}
+
+#if REPLACED_WITH_COREFX
 
 		public int Receive (Span<byte> buffer, SocketFlags socketFlags)
 		{
@@ -1075,6 +1081,8 @@ namespace System.Net.Sockets
 		}
 
 		public int Receive (Span<byte> buffer) => Receive (buffer, SocketFlags.None);
+
+#endif
 
 		public bool ReceiveAsync (SocketAsyncEventArgs e)
 		{
@@ -1252,6 +1260,8 @@ namespace System.Net.Sockets
 
 #region ReceiveFrom
 
+#if REPLACED_WITH_COREFX
+
 		public int ReceiveFrom (byte [] buffer, int offset, int size, SocketFlags socketFlags, ref EndPoint remoteEP)
 		{
 			ThrowIfDisposedAndClosed ();
@@ -1314,6 +1324,8 @@ namespace System.Net.Sockets
 
 			return cnt;
 		}
+
+#endif
 
 		public bool ReceiveFromAsync (SocketAsyncEventArgs e)
 		{
@@ -1448,6 +1460,8 @@ namespace System.Net.Sockets
 
 #region ReceiveMessageFrom
 
+#if REPLACED_WITH_COREFX
+
 		[MonoTODO ("Not implemented")]
 		public int ReceiveMessageFrom (byte[] buffer, int offset, int size, ref SocketFlags socketFlags, ref EndPoint remoteEP, out IPPacketInformation ipPacketInformation)
 		{
@@ -1461,6 +1475,8 @@ namespace System.Net.Sockets
 			// FIXME: figure out how we get hold of the IPPacketInformation
 			throw new NotImplementedException ();
 		}
+
+#endif
 
 		[MonoTODO ("Not implemented")]
 		public bool ReceiveMessageFromAsync (SocketAsyncEventArgs e)
