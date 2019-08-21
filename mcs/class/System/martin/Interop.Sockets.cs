@@ -1,4 +1,5 @@
 using System;
+using System.Net;
 using System.Net.Sockets;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -51,6 +52,11 @@ internal static partial class Interop
 
 		[MethodImplAttribute (MethodImplOptions.InternalCall)]
 		private static extern unsafe int Socket_GetBytesAvailable_internal (IntPtr socket, int* available);
+
+		internal static int GetControlMessageBufferSize (bool isIPv4, bool isIPv6)
+		{
+			throw new NotImplementedException ();
+		}
 
 	}
 }
