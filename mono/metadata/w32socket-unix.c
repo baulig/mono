@@ -1795,8 +1795,10 @@ mono_w32socket_receive_message (SOCKET sock, void *messageHeaderPtr, int32_t fla
 	info = mono_thread_info_current ();
 
 	int socketFlags;
-	if (!ConvertSocketFlagsPalToPlatform (flags, &socketFlags))
+	if (!ConvertSocketFlagsPalToPlatform (flags, &socketFlags)) {
+		mono_fdhandle_unref ((MonoFDHandle*) sockethandle);
 		return Error_ENOTSUP;
+	}
 
 	struct msghdr header;
 	ConvertMessageHeaderToMsghdr (&header, messageHeader, ((MonoFDHandle*) sockethandle)->fd);
@@ -1819,6 +1821,8 @@ mono_w32socket_receive_message (SOCKET sock, void *messageHeaderPtr, int32_t fla
 
 	messageHeader->Flags = ConvertSocketFlagsPlatformToPal (header.msg_flags);
 
+	mono_fdhandle_unref ((MonoFDHandle*) sockethandle);
+
 	if (res != -1) {
 		*received = res;
 		return Error_SUCCESS;
@@ -1827,4 +1831,42 @@ mono_w32socket_receive_message (SOCKET sock, void *messageHeaderPtr, int32_t fla
 	*received = 0;
 	// FIXME: They call SystemNative_ConvertErrorPlatformToPal(errno), which we currently do from the managed side.
 	return errno;
+}
+
+int32_t
+mono_w32socket_get_bytes_available (SOCKET sock, int32_t* available)
+{
+	SocketHandle *sockethandle;
+	MonoThreadInfo *info;
+
+	if (available == NULL)
+		return Error_EFAULT;
+
+	info = mono_thread_info_current ();
+
+	if (!mono_fdhandle_lookup_and_ref (sock, (MonoFDHandle**) &sockethandle))
+		return Error_ENOTSOCK;
+
+	if (((MonoFDHandle*) sockethandle)->type != MONO_FDTYPE_SOCKET) {
+		mono_fdhandle_unref ((MonoFDHandle*) sockethandle);
+		return Error_ENOTSOCK;
+	}
+
+	int result;
+	int err;
+	do {
+		MONO_ENTER_GC_SAFE;
+		err = ioctl (((MonoFDHandle*) sockethandle)->fd, FIONREAD, &result);
+		MONO_EXIT_GC_SAFE;
+	} while (err < 0 && errno == EINTR && !mono_thread_info_is_interrupt_state (info));
+
+	mono_fdhandle_unref ((MonoFDHandle*) sockethandle);
+
+	if (err == -1) {
+		*available = 0;
+		return errno;
+	}
+
+	*available = (int32_t)result;
+	return Error_SUCCESS;
 }

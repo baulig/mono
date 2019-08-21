@@ -156,4 +156,7 @@ mono_w32socket_accept2 (SOCKET sock, struct sockaddr *addr, socklen_t *addrlen, 
 int
 mono_w32socket_receive_message (SOCKET sock, void *messageHeaderPtr, int32_t flags, int64_t* received);
 
+int32_t
+mono_w32socket_get_bytes_available (SOCKET sock, int32_t* available);
+
 #endif // __MONO_METADATA_W32SOCKET_INTERNALS_H__

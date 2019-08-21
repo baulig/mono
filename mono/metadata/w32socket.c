@@ -2835,4 +2835,12 @@ ves_icall_Interop_Sys_Socket_ReceiveMessage_internal (gsize sock, gchar *message
 	return mono_w32socket_receive_message (sock, messageHeaderPtr, flags, received);
 }
 
+gint
+ves_icall_Interop_Sys_Socket_GetBytesAvailable_internal (gsize sock, gint32 *available, MonoError *error)
+{
+	error_init (error);
+
+	return mono_w32socket_get_bytes_available (sock, available);
+}
+
 #endif /* #ifndef DISABLE_SOCKETS */

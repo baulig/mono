@@ -37,5 +37,20 @@ internal static partial class Interop
 		[MethodImplAttribute (MethodImplOptions.InternalCall)]
 		private static extern unsafe int Socket_ReceiveMessage_internal (IntPtr socket, MessageHeader* messageHeader, SocketFlags flags, long* received);
 
+		internal static unsafe Error GetBytesAvailable (SafeHandle safeHandle, int* available)
+		{
+			var socketHandle = (SafeSocketHandle)safeHandle;
+			try {
+				socketHandle.RegisterForBlockingSyscall ();
+				var errno = Socket_GetBytesAvailable_internal (socketHandle.DangerousGetHandle (), available);
+				return Interop.Sys.ConvertErrorPlatformToPal (errno);
+			} finally {
+				socketHandle.UnRegisterForBlockingSyscall ();
+			}
+		}
+
+		[MethodImplAttribute (MethodImplOptions.InternalCall)]
+		private static extern unsafe int Socket_GetBytesAvailable_internal (IntPtr socket, int* available);
+
 	}
 }
