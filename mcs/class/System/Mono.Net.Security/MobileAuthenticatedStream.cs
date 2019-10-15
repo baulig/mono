@@ -479,10 +479,16 @@ namespace Mono.Net.Security
 			return task;
 		}
 
+		static int myNextID;
+
 		async Task<int> StartOperation (OperationType type, AsyncProtocolRequest asyncRequest, CancellationToken cancellationToken)
 		{
 			CheckThrow (true, type != OperationType.Read);
 			Debug ("StartOperationAsync: {0} {1}", asyncRequest, type);
+
+			var id = ++myNextID;
+			var frame = $"I LIVE ON THE MOON: {myNextID} {type} {Environment.StackTrace}";
+//			Console.Error.WriteLine (frame);
 
 			if (type == OperationType.Read) {
 				if (Interlocked.CompareExchange (ref asyncReadRequest, asyncRequest, null) != null)
@@ -531,8 +537,12 @@ namespace Mono.Net.Security
 				}
 			}
 
-			if (result.Error != null)
-				result.Error.Throw ();
+			if (result.Error != null) {
+//				Console.Error.WriteLine ($"RESULT ERROR: {frame}");
+//				result.Error.Throw ();
+//				throw new InvalidTimeZoneException ($"I LIVE ON THE MOON: {frame}", result.Error.SourceException);
+				throw new InvalidTimeZoneException ($"I LIVE ON THE MOON: {myNextID} {type}");
+			}
 			return result.UserResult;
 		}
 
