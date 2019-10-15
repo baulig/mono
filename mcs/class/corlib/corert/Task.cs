@@ -11,6 +11,22 @@ namespace System.Threading.Tasks
 	// these members were copied from https://github.com/mono/mono/blob/7b4dfeebc40cf8c027819b8b7bd85a4e7c87ad50/mcs/class/referencesource/mscorlib/system/threading/Tasks/Task.cs#L220-L246
 	partial class Task
 	{
+		static int nextId;
+
+		static int GetNextID ()
+		{
+			var id = ++nextId;
+			if (id == 517) {
+				Console.Error.WriteLine($"I LIVE ON THE MOON: {id}\n{Environment.StackTrace}");
+//				throw new InvalidTimeZoneException("I LIVE ON THE MOON!!!!");
+			}
+			return id;
+		}
+
+		internal readonly int ID = GetNextID ();
+
+		public override string ToString () => $"[Task {ID}]";
+
 		// This dictonary relates the task id, from an operation id located in the Async Causality log to the actual
 		// task. This is to be used by the debugger ONLY. Task in this dictionary represent current active tasks.
 		private static readonly Dictionary<int, Task> s_currentActiveTasks = new Dictionary<int, Task> ();

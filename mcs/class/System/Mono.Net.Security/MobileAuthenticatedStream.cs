@@ -412,11 +412,13 @@ namespace Mono.Net.Security
 		{
 			var asyncRequest = new AsyncReadRequest (this, false, buffer, offset, count);
 			var task = StartOperation (OperationType.Read, asyncRequest, CancellationToken.None);
+			Console.Error.WriteLine ($"MAS BR: {task}");
 			return TaskToApm.Begin (task, asyncCallback, asyncState);
 		}
 
 		public override int EndRead (IAsyncResult asyncResult)
 		{
+			Console.Error.WriteLine ($"MAS ER: {asyncResult}");
 			return TaskToApm.End<int> (asyncResult);
 		}
 
@@ -541,7 +543,7 @@ namespace Mono.Net.Security
 //				Console.Error.WriteLine ($"RESULT ERROR: {frame}");
 //				result.Error.Throw ();
 //				throw new InvalidTimeZoneException ($"I LIVE ON THE MOON: {frame}", result.Error.SourceException);
-				throw new InvalidTimeZoneException ($"I LIVE ON THE MOON: {myNextID} {type}");
+				throw new InvalidTimeZoneException ($"I LIVE ON THE MOON: {myNextID} {type}\n{frame}");
 			}
 			return result.UserResult;
 		}

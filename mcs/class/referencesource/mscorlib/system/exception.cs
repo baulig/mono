@@ -51,6 +51,9 @@ namespace System {
         , _Exception
 #endif
 {
+        static int nextId;
+        internal readonly int ID = ++nextId;
+
         private void Init()
         {
             _message = null;

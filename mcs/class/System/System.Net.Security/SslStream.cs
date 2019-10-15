@@ -474,11 +474,14 @@ namespace System.Net.Security
 		// [HostProtection (ExternalThreading=true)]
 		public override IAsyncResult BeginRead (byte[] buffer, int offset, int count, AsyncCallback asyncCallback, object asyncState)
 		{
-			return Impl.BeginRead (buffer, offset, count, asyncCallback, asyncState);
+			var ares = Impl.BeginRead (buffer, offset, count, asyncCallback, asyncState);
+			Console.Error.WriteLine ($"SS BR: {ares}");
+			return ares;
 		}
 
 		public override int EndRead (IAsyncResult asyncResult)
 		{
+			Console.Error.WriteLine ($"SS ER: {asyncResult} {impl != null}");
 			return Impl.EndRead (asyncResult);
 		}
 
