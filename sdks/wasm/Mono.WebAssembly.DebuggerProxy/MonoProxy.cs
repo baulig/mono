@@ -177,40 +177,7 @@ namespace WebAssembly.Net.Debugging {
 				}
 
 			case "Debugger.setBreakpointByUrl": {
-					var resp = await SendCommand (id, method, args, token);
-					if (!resp.IsOk) {
-						SendResponse (id, resp, token);
-						return true;
-					}
-
-					var bpid = resp.Value["breakpointId"]?.ToString ();
-					var locations = resp.Value["locations"]?.Values<object>();
-					var request = BreakpointRequest.Parse (bpid, args);
-
-					// is the store done loading?
-					var loaded = context.Source.Task.IsCompleted;
-					if (!loaded) {
-						// Send and empty response immediately if not
-						// and register the breakpoint for resolution
-						context.BreakpointRequests [bpid] = request;
-						SendResponse (id, resp, token);
-					}
-
-					if (await IsRuntimeAlreadyReadyAlready (id, token)) {
-						var store = await RuntimeReady (id, token);
-
-						Log ("verbose", $"BP req {args}");
-						await SetBreakpoint (id, store, request, !loaded, token);
-					}
-
-					if (loaded) {
-						// we were already loaded so we should send a response
-						// with the locations included and register the request
-						context.BreakpointRequests [bpid] = request;
-						var result = Result.OkFromObject (request.AsSetBreakpointByUrlResponse (locations));
-						SendResponse (id, result, token);
-
-					}
+					await OnSetBreakpointByUrl (id, method, args, context, token);
 					return true;
 				}
 
@@ -242,7 +209,8 @@ namespace WebAssembly.Net.Debugging {
 
 					switch (objectId.Scheme) {
 					case "scope":
-						return await OnEvaluateOnCallFrame (id,
+						return await OnEvaluateOnCallFrame (
+								id, context,
 								int.Parse (objectId.Value),
 								args? ["expression"]?.Value<string> (), token);
 					default:
@@ -381,6 +349,195 @@ namespace WebAssembly.Net.Debugging {
 				}
 			} else {
 				res = Result.Ok (JObject.FromObject (new { result = res.Value ["result"] ["value"] }));
+				}
+
+			return res;
+		}
+
+		object GetMonoFrame (DebugStore store, JObject mono_frame, int frame_id, out Frame frame)
+		{
+			var il_pos = mono_frame ["il_pos"].Value<int> ();
+			var method_token = mono_frame ["method_token"].Value<uint> ();
+			var assembly_name = mono_frame ["assembly_name"].Value<string> ();
+
+			// This can be different than `method.Name`, like in case of generic methods
+			var method_name = mono_frame ["method_name"]?.Value<string> ();
+
+			var asm = store.GetAssemblyByName (assembly_name);
+			if (asm == null) {
+				Log ("info", $"Unable to find assembly: {assembly_name}");
+				frame = null;
+				return null;
+			}
+
+			var method = asm.GetMethodByToken (method_token);
+
+			if (method == null) {
+				Log ("info", $"Unable to find il offset: {il_pos} in method token: {method_token} assembly name: {assembly_name}");
+				frame = null;
+				return null;
+			}
+
+			var location = method?.GetLocationByIl (il_pos);
+
+			// When hitting a breakpoint on the "IncrementCount" method in the standard
+			// Blazor project template, one of the stack frames is inside mscorlib.dll
+			// and we get location==null for it. It will trigger a NullReferenceException
+			// if we don't skip over that stack frame.
+			if (location == null) {
+				frame = null;
+				return null;
+			}
+
+			Log ("info", $"frame il offset: {il_pos} method token: {method_token} assembly name: {assembly_name}");
+			Log ("info", $"\tmethod {method_name} location: {location}");
+			frame = new Frame (method, location, frame_id - 1);
+
+			return new {
+				functionName = method_name,
+				callFrameId = $"dotnet:scope:{frame_id - 1}",
+				functionLocation = method.StartLocation.AsLocation (),
+
+				location = location.AsLocation (),
+
+				url = store.ToUrl (location),
+
+				scopeChain = new [] {
+					new {
+						type = "local",
+						@object = new {
+							@type = "object",
+							className = "Object",
+							description = "Object",
+							objectId = $"dotnet:scope:{frame_id-1}",
+						},
+						name = method_name,
+						startLocation = method.StartLocation.AsLocation (),
+						endLocation = method.EndLocation.AsLocation (),
+					}}
+			};
+		}
+
+		void GetMonoFrames (ExecutionContext context, DebugStore store, List<object> callFrames, IEnumerable<JObject> the_mono_frames)
+		{
+			var frames = new List<Frame> ();
+			int frame_id = 0;
+
+			foreach (var mono_frame in the_mono_frames) {
+				var call_frame = GetMonoFrame (store, mono_frame, ++frame_id, out var frame);
+				if (call_frame == null)
+					continue;
+				frames.Add (frame);
+
+				callFrames.Add (call_frame);
+			}
+
+			context.CallStack = frames;
+		}
+
+		async Task<IDictionary<string, JObject>> GetJavaScriptVariables (SessionId id, JObject frame, CancellationToken token)
+		{
+			// We are stopped on a managed -> javascript call - like for instance mono_wasm_fire_exc().
+			Log ("verbose", $"getting javascript variables");
+			var scopeChain = frame ["scopeChain"]?.Values<JObject> ();
+			if (scopeChain == null || scopeChain.Count () == 0) {
+				Log ("info", $"Frame is missing scopeChain");
+				return null;
+			}
+			var scopeObj = scopeChain.First () ["object"]?.Value<JObject> ();
+			if (scopeObj == null) {
+				Log ("info", $"Frame is missing scope object");
+				return null;
+			}
+
+			var objectId = scopeObj ["objectId"]?.Value<string> ();
+			if (objectId == null) {
+				Log ("info", $"missing objectId");
+				return null;
+			}
+
+			var cmd_args = JObject.FromObject (new {
+				objectId,
+				ownProperties = false,
+				accessorPropertiesOnly = false,
+				generatePreview = true
+			});
+
+			var cmd_res = await SendCommand (id, "Runtime.getProperties", cmd_args, token);
+			if (!cmd_res.IsOk) {
+				Log ("info", $"command failed");
+				return null;
+			}
+
+			Log ("verbose", $"got properties: {cmd_res}");
+			var variables = cmd_res.Value ["result"]?.Values<JObject> ();
+			if (variables == null || variables.Count () == 0) {
+				Log ("info", $"did not get any variables");
+				return null;
+			}
+
+			var dict = new Dictionary<string, JObject> ();
+
+			foreach (var variable in variables) {
+				Log ("verbose", $"got variable: {variable}");
+				var name = variable ["name"]?.Value<string> ();
+				if (name != null)
+					dict.Add (name, variable);
+			}
+
+			return dict;
+		}
+
+		string GetVariableValue (JObject variable, string expectedType)
+		{
+			var value = variable ["value"]?.Value<JObject> ();
+			if (value == null) {
+				Log ("info", $"value is null");
+				return null;
+			}
+
+			var type = value ["type"]?.Value<string> ();
+			if (!string.Equals (type, expectedType)) {
+				Log ("info", $"variable has invalid type {type}");
+				return null;
+			}
+
+			var innerValue = value ["value"]?.Value<string> ();
+			if (string.IsNullOrEmpty (innerValue)) {
+				Log ("info", $"missing number value");
+				return null;
+			}
+
+			return innerValue;
+		}
+
+		string GetNumberValue (JObject variable) => GetVariableValue (variable, "number");
+
+		string GetStringValue (JObject variable) => GetVariableValue (variable, "string");
+
+		async Task<JObject> HandleExceptionFrame (SessionId id, JObject frame, CancellationToken token)
+		{
+			// We are stopped in mono_wasm_fire_exc(), which is called from the managed side with
+			// the arguments: a boolean describing whether the exception is unhandled and the
+			// exception object's object id.
+			//
+			// GetJavaScriptVariables() is a general-purpose method to get the variables from a
+			// call frame.
+			var variables = await GetJavaScriptVariables (id, frame, token);
+			if (variables == null) {
+				Log ("info", $"failed to get JS variables");
+				return null;
+			}
+
+			// Okay, we should have two variables, let's do some sanity checking.
+			if (!variables.TryGetValue ("exception", out var exception)) {
+				Log ("info", $"variables do not contain exception object");
+				return null;
+			}
+
+			if (!variables.TryGetValue ("unhandled", out var unhandled)) {
+				Log ("info", $"variables do not contain exception object");
+				return null;
 			}
 
 			return res;
@@ -610,13 +767,9 @@ namespace WebAssembly.Net.Debugging {
 			return null;
 		}
 
-		async Task<bool> OnEvaluateOnCallFrame (MessageId msg_id, int scope_id, string expression, CancellationToken token)
+		async Task<bool> OnEvaluateOnCallFrame (MessageId msg_id, ExecutionContext context, int scope_id, string expression, CancellationToken token)
 		{
 			try {
-				var context = GetContext (msg_id);
-				if (context.CallStack == null)
-					return false;
-
 				var varValue = await TryGetVariableValue (msg_id, scope_id, expression, false, token);
 
 				if (varValue != null) {
@@ -812,14 +965,51 @@ namespace WebAssembly.Net.Debugging {
 				};
 
 				if (sendResolvedEvent)
-					SendEvent (sessionId, "Debugger.breakpointResolved", JObject.FromObject (resolvedLocation), token);
+					await SendEvent (sessionId, "Debugger.breakpointResolved", JObject.FromObject (resolvedLocation), token);
 			}
 
 			req.Locations.AddRange (breakpoints);
 			return;
 		}
 
-		async Task<bool> GetPossibleBreakpoints (MessageId msg, SourceLocation start, SourceLocation end, CancellationToken token)
+		async Task OnSetBreakpointByUrl (MessageId id, string method, JObject args, ExecutionContext context, CancellationToken token)
+		{
+			var resp = await SendCommand (id, method, args, token);
+			if (!resp.IsOk) {
+				await SendResponse (id, resp, token);
+				return;
+			}
+
+			var bpid = resp.Value["breakpointId"]?.ToString ();
+			var locations = resp.Value["locations"]?.Values<object>();
+			var request = BreakpointRequest.Parse (bpid, args);
+
+			// is the store done loading?
+			var loaded = context.Source.Task.IsCompleted;
+			if (!loaded) {
+				// Send and empty response immediately if not
+				// and register the breakpoint for resolution
+				context.BreakpointRequests [bpid] = request;
+				await SendResponse (id, resp, token);
+			}
+
+			if (await IsRuntimeAlreadyReadyAlready (id, token)) {
+				var store = await RuntimeReady (id, token);
+
+				Log ("verbose", $"BP req {args}");
+				await SetBreakpoint (id, store, request, !loaded, token);
+			}
+
+			if (loaded) {
+				// we were already loaded so we should send a response
+				// with the locations included and register the request
+				context.BreakpointRequests [bpid] = request;
+				var result = Result.OkFromObject (request.AsSetBreakpointByUrlResponse (locations));
+				await SendResponse (id, result, token);
+			}
+		}
+
+		async Task<Result> OnGetPossibleBreakpoints (MessageId id, string method, JObject args, ExecutionContext context, CancellationToken token)
 		{
 			var bps = (await RuntimeReady (msg, token)).FindPossibleBreakpoints (start, end);
 
