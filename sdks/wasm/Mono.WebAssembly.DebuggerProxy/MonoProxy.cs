@@ -198,8 +198,9 @@ namespace WebAssembly.Net.Debugging {
 				}
 
 			case "Debugger.removeBreakpoint": {
-					await RemoveBreakpoint (id, args, token);
-					break;
+					var result = await OnRemoveBreakpoint (id, method, args, context, token);
+					SendResponse (id, result, token);
+					return true;
 				}
 
 			case "Debugger.resume": {
@@ -738,15 +739,21 @@ namespace WebAssembly.Net.Debugging {
 			return store;
 		}
 
-		async Task RemoveBreakpoint(MessageId msg_id, JObject args, CancellationToken token) {
+		async Task<Result> OnRemoveBreakpoint (MessageId id, string method, JObject args, ExecutionContext context, CancellationToken token)
+		{
+			var resp = await SendCommand (id, method, args, token);
+			if (!resp.IsOk)
+				return resp;
+
 			var bpid = args? ["breakpointId"]?.Value<string> ();
 
-			var context = GetContext (msg_id);
-			if (!context.BreakpointRequests.TryGetValue (bpid, out var breakpointRequest))
-				return;
+			if (!context.BreakpointRequests.TryGetValue (bpid, out var breakpointRequest)) {
+				// FIXME: send error response.
+				return Result.Ok (new JObject { });
+			}
 
 			foreach (var bp in breakpointRequest.Locations) {
-				var res = await SendMonoCommand (msg_id, MonoCommands.RemoveBreakpoint (bp.RemoteId), token);
+				var res = await SendMonoCommand (id, MonoCommands.RemoveBreakpoint (bp.RemoteId), token);
 				var ret_code = res.Value? ["result"]? ["value"]?.Value<int> ();
 
 				if (ret_code.HasValue) {
@@ -755,6 +762,7 @@ namespace WebAssembly.Net.Debugging {
 				}
 			}
 			breakpointRequest.Locations.Clear ();
+			return Result.Ok (new JObject { });
 		}
 
 		async Task SetBreakpoint (SessionId sessionId, DebugStore store, BreakpointRequest req, CancellationToken token)
