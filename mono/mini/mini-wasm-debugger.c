@@ -55,11 +55,11 @@ extern void mono_wasm_add_array_item (int);
 extern void mono_wasm_set_is_async_method (guint64);
 extern void mono_wasm_add_typed_value (const char *type, const char *str_value, int int_value);
 extern void mono_wasm_add_exc_var (const char *className, const char *message, const char *stack, guint64 objectId);
-extern void mono_wasm_add_string_var (const char *name, const char *value);
 
 G_END_DECLS
 
 static void describe_object_properties_for_klass (void *obj, MonoClass *klass, gboolean isAsyncLocalThis, gboolean expandValueType);
+static void handle_exception (MonoException *exc, MonoContext *throw_ctx, MonoContext *catch_ctx, StackFrameInfo *catch_frame);
 
 static void martin_test_init (void);
 
@@ -334,7 +334,7 @@ mono_wasm_debugger_init (void)
 	if (!debugger_enabled)
 		return;
 
-	DebuggerEngineCallbacks cbs = {
+	DebuggerEngineCallbacks de_cbs = {
 		.tls_get_restore_state = tls_get_restore_state,
 		.try_process_suspend = try_process_suspend,
 		.begin_breakpoint_processing = begin_breakpoint_processing,
@@ -354,7 +354,7 @@ mono_wasm_debugger_init (void)
 	};
 
 	mono_debug_init (MONO_DEBUG_FORMAT_MONO);
-	mono_de_init (&cbs);
+	mono_de_init (&de_cbs);
 	mono_de_set_log_level (log_level, stdout);
 
 	mini_debug_options.gen_sdb_seq_points = TRUE;
@@ -370,7 +370,12 @@ mono_wasm_debugger_init (void)
 	obj_to_objref = g_hash_table_new (NULL, NULL);
 	objrefs = g_hash_table_new_full (NULL, NULL, NULL, mono_debugger_free_objref);
 
-	martin_test_init ();
+	MonoDebuggerCallbacks dbg_cbs;
+	// Keep this at the end, we need to first initialize the callbacks - and then we
+	// just override the ones we need (which is only handle_exception at the moment).
+	memcpy (&dbg_cbs, mini_get_dbg_callbacks (), sizeof (MonoDebuggerCallbacks));
+	dbg_cbs.handle_exception = handle_exception;
+	mini_install_dbg_callbacks (&dbg_cbs);
 }
 
 MONO_API void
@@ -378,7 +383,6 @@ mono_wasm_enable_debugging (int debug_level)
 {
 	DEBUG_PRINTF (1, "DEBUGGING ENABLED: %d\n", debug_level);
 	debugger_enabled = TRUE;
-	log_level = 9;
 }
 
 EMSCRIPTEN_KEEPALIVE int
@@ -517,12 +521,11 @@ mono_wasm_remove_breakpoint (int bp_id)
 EMSCRIPTEN_KEEPALIVE int
 mono_wasm_set_pause_on_exceptions (gboolean pauseOnExceptions, gboolean unhandledOnly)
 {
-	DEBUG_PRINTF (1, "SET PAUSE ON EXC #1\n");
-	g_message (G_STRLOC ": SET PAUSE ON EXC #2");
 	if (pauseOnExceptions)
 		pause_on_exc = unhandledOnly ? 1 : 2;
 	else
 		pause_on_exc = 0;
+	DEBUG_PRINTF (1, "setting pause on exception: %d\n", pause_on_exc);
 	return 1;
 }
 
@@ -1140,8 +1143,6 @@ describe_exception_properties (guint64 objectId)
 
 	MonoClass *klass = exc->object.vtable->klass;
 
-	// describe_object_properties_for_klass (exc, exc->object.vtable->klass, FALSE, FALSE);
-
 	MonoType *type = m_class_get_byval_arg (klass);
 
 	char *class_name = mono_type_full_name (type);
@@ -1338,7 +1339,7 @@ mono_wasm_get_object_properties (int object_id, gboolean expand_value_types)
 EMSCRIPTEN_KEEPALIVE void
 mono_wasm_get_exception_properties (int object_id)
 {
-	DEBUG_PRINTF (1, "GET EXCEPTION PROPERTIES: %x\n", object_id);
+	DEBUG_PRINTF (2, "getting properties of exception %d\n", object_id);
 
 	describe_exception_properties (object_id);
 }
@@ -1369,7 +1370,7 @@ mono_debugger_tls_thread_id (DebuggerTlsData *debuggerTlsData)
 static void
 handle_exception (MonoException *exc, MonoContext *throw_ctx, MonoContext *catch_ctx, StackFrameInfo *catch_frame)
 {
-	DEBUG_PRINTF (1, "HANDLE EXCEPTION - %d - %p - %p - %p\n", pause_on_exc, exc, throw_ctx, catch_ctx);
+	DEBUG_PRINTF (2, "handle exception - %d - %p - %p - %p\n", pause_on_exc, exc, throw_ctx, catch_ctx);
 
 	if (pause_on_exc == 0)
 		return;
@@ -1377,27 +1378,10 @@ handle_exception (MonoException *exc, MonoContext *throw_ctx, MonoContext *catch
 		return;
 
 	int obj_id = get_object_id ((MonoObject *)exc);
-	DEBUG_PRINTF (1, "HANDLE EXCEPTION - FIRE BREAKPOINT: %p - %x\n", exc, obj_id);
+	DEBUG_PRINTF (2, "handle exception - calling mono_wasm_fire_exc(): %d\n", obj_id);
 
-	char *stacktrace = mono_exception_get_managed_backtrace (exc);
-	char *klass = mono_string_to_utf8_ignore (exc->class_name);
-	char *message = mono_string_to_utf8_ignore (exc->message);
-	DEBUG_PRINTF (1, "HANDLE EXCEPTION - FIRE BREAKPOINT #1: %s - %s\n", klass, message);
-	DEBUG_PRINTF (1, "HANDLE EXCEPTION - FIRE BREAKPOINT #2: %s\n", stacktrace);
 	mono_wasm_fire_exc (catch_ctx == NULL, obj_id);
-	DEBUG_PRINTF (1, "HANDLE EXCEPTION DONE\n");
-}
-
-
-static void
-martin_test_init (void)
-{
-	DEBUG_PRINTF (1, "MARTIN TEST INIT\n");
-
-	MonoDebuggerCallbacks cbs;
-	memcpy (&cbs, mini_get_dbg_callbacks (), sizeof (MonoDebuggerCallbacks));
-	cbs.handle_exception = handle_exception;
-	mini_install_dbg_callbacks (&cbs);
+	DEBUG_PRINTF (2, "handle exception - done\n");
 }
 
 #else // HOST_WASM

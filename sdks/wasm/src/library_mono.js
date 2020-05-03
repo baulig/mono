@@ -200,7 +200,6 @@ var MonoSupportLib = {
 
 			this.var_info = [];
 			this.mono_wasm_get_exception_properties_info (objId);
-			console.log(`GET EXCEPTION PROPERTIES`);
 
 			var res = this.var_info;
 			this.var_info = [];
@@ -295,11 +294,7 @@ var MonoSupportLib = {
 		},
 
 		_get_details_for_exception: function (objectId, objectId) {
-			var res = this.mono_wasm_get_exception_properties(objectId);
-			// var details = this._post_process_details(this.mono_wasm_get_exception_properties(objectId));
-			// console.log(`DETAILS FOR EXCEPTION`, details);
-			// return details;
-			return res;
+			return this.mono_wasm_get_exception_properties(objectId);
 		},
 
 		_is_object_id_array: function (objectId) {
@@ -925,8 +920,6 @@ var MonoSupportLib = {
 	},
 
 	mono_wasm_add_exc_var: function(className, message, stack, objectId) {
-		console.log(`ADD EXC VAR`, className, message, stack, objectId)
-
 		function add_string_var(name, value) {
 			MONO.var_info.push({ name, value: { type: "string", value } });
 		}
@@ -948,8 +941,6 @@ var MonoSupportLib = {
 				objectId: "dotnet:object:"+ objectId,
 			}
 		});
-
-		console.log(`ADD EXC VAR DONE`);
 	},
 
 	/*
