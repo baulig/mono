@@ -60,8 +60,7 @@ G_END_DECLS
 
 static void describe_object_properties_for_klass (void *obj, MonoClass *klass, gboolean isAsyncLocalThis, gboolean expandValueType);
 static void handle_exception (MonoException *exc, MonoContext *throw_ctx, MonoContext *catch_ctx, StackFrameInfo *catch_frame);
-
-static void martin_test_init (void);
+static void describe_exception_properties (MonoException *exc, char *class_name, guint64 object_id);
 
 //FIXME move all of those fields to the profiler object
 static gboolean debugger_enabled;
@@ -895,6 +894,9 @@ static gboolean describe_value(MonoType * type, gpointer addr, gboolean expandVa
 
 				mono_wasm_add_func_var (class_name, tm_desc, obj_id);
 				g_free (tm_desc);
+			} else if (mono_object_isinst_checked (obj, mono_defaults.exception_class, error)) {
+				DEBUG_PRINTF (1, "IS EXCEPTION CLASS: %s\n", class_name);
+				describe_exception_properties ((MonoException *)obj, class_name, obj_id);
 			} else {
 				char *to_string_val = get_to_string_description (class_name, klass, addr);
 				mono_wasm_add_obj_var (class_name, to_string_val, obj_id);
@@ -1130,23 +1132,10 @@ describe_object_properties (guint64 objectId, gboolean isAsyncLocalThis, gboolea
 	return TRUE;
 }
 
-static gboolean
-describe_exception_properties (guint64 objectId)
+static void
+describe_exception_properties (MonoException *exc, char *class_name, guint64 objectId)
 {
 	ERROR_DECL (error);
-	DEBUG_PRINTF (2, "describe_exception_properties %llu\n", objectId);
-	MonoException *exc = (MonoException *)get_object_from_id (objectId);
-	if (!exc) {
-		DEBUG_PRINTF (2, "describe_exception_properties !obj\n");
-		return FALSE;
-	}
-
-	MonoClass *klass = exc->object.vtable->klass;
-
-	MonoType *type = m_class_get_byval_arg (klass);
-
-	char *class_name = mono_type_full_name (type);
-	DEBUG_PRINTF (2, "describe_exception_properties #2: %s\n", class_name);
 
 	char *message = mono_string_to_utf8_checked_internal (exc->message, error);
 	mono_error_assert_ok (error);
@@ -1160,11 +1149,8 @@ describe_exception_properties (guint64 objectId)
 
 	DEBUG_PRINTF (2, "describe_exception_properties done\n");
 
-	g_free (class_name);
 	g_free (message);
 	g_free (stack_trace);
-
-	return TRUE;
 }
 
 static gboolean 
@@ -1330,7 +1316,6 @@ mono_wasm_get_var_info (int scope, int* pos, int len)
 EMSCRIPTEN_KEEPALIVE void
 mono_wasm_get_object_properties (int object_id, gboolean expand_value_types)
 {
-	DEBUG_PRINTF (1, "GET OBJECT PROPERTIES: %x\n", object_id);
 	DEBUG_PRINTF (2, "getting properties of object %d\n", object_id);
 
 	describe_object_properties (object_id, FALSE, expand_value_types);
@@ -1341,7 +1326,18 @@ mono_wasm_get_exception_properties (int object_id)
 {
 	DEBUG_PRINTF (2, "getting properties of exception %d\n", object_id);
 
-	describe_exception_properties (object_id);
+	MonoException *exc = (MonoException *)get_object_from_id (object_id);
+	if (!exc) {
+		DEBUG_PRINTF (2, "describe_exception_properties !obj\n");
+		return;
+	}
+
+	MonoClass *klass = exc->object.vtable->klass;
+	MonoType *type = m_class_get_byval_arg (klass);
+
+	char *class_name = mono_type_full_name (type);
+	describe_exception_properties (exc, class_name, object_id);
+	g_free (class_name);
 }
 
 EMSCRIPTEN_KEEPALIVE void
