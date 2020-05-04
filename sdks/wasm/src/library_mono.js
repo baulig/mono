@@ -201,7 +201,7 @@ var MonoSupportLib = {
 			this.var_info = [];
 			this.mono_wasm_get_exception_properties_info (objId);
 
-			var res = this.var_info;
+			var res = MONO._fixup_name_value_objects (this.var_info);
 			this.var_info = [];
 			return res;
 		},
@@ -902,7 +902,7 @@ var MonoSupportLib = {
 		});
 	},
 
-	mono_wasm_add_obj_var: function(className, toString, objectId) {
+	mono_wasm_add_obj_var: function(className, toString, scope, objectId) {
 		if (objectId == 0) {
 			MONO.mono_wasm_add_null_var (className);
 			return;
@@ -914,14 +914,15 @@ var MonoSupportLib = {
 				type: "object",
 				className: fixed_class_name,
 				description: (toString == 0 ? fixed_class_name : Module.UTF8ToString (toString)),
-				objectId: "dotnet:object:"+ objectId,
+				objectId: "dotnet:" + Module.UTF8ToString(scope) + ":" + objectId,
 			}
 		});
 	},
 
 	mono_wasm_add_exc_var: function(className, message, stack, objectId) {
 		function add_string_var(name, value) {
-			MONO.var_info.push({ name, value: { type: "string", value } });
+			MONO.var_info.push({ name })
+			MONO.var_info.push({ value: { type: "string", value } });
 		}
 
 		var fixed_class_name = MONO._mono_csharp_fixup_class_name(Module.UTF8ToString(className));
@@ -932,8 +933,8 @@ var MonoSupportLib = {
 		add_string_var("message", message_str);
 		add_string_var("stack", stack_str);
 
+		MONO.var_info.push({ name: "__obj__" })
 		MONO.var_info.push({
-			name: "__obj__",
 			value: {
 				type: "object",
 				className: fixed_class_name,

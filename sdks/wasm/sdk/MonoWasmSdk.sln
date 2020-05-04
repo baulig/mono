@@ -37,6 +37,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Mono.WebAssembly.Runtime.Ao
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Mono.WebAssembly.DebuggerProxy", "Mono.WebAssembly.DebuggerProxy\Mono.WebAssembly.DebuggerProxy.csproj", "{10F7380D-0B18-4A0F-9B6A-4656BCECDA10}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Mono.WebAssembly.Bindings", "Mono.WebAssembly.Bindings\Mono.WebAssembly.Bindings.csproj", "{668EDC0B-DECD-4942-8B4A-D081681376E2}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -194,6 +196,18 @@ Global
 		{10F7380D-0B18-4A0F-9B6A-4656BCECDA10}.Release|x64.Build.0 = Release|Any CPU
 		{10F7380D-0B18-4A0F-9B6A-4656BCECDA10}.Release|x86.ActiveCfg = Release|Any CPU
 		{10F7380D-0B18-4A0F-9B6A-4656BCECDA10}.Release|x86.Build.0 = Release|Any CPU
+		{668EDC0B-DECD-4942-8B4A-D081681376E2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{668EDC0B-DECD-4942-8B4A-D081681376E2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{668EDC0B-DECD-4942-8B4A-D081681376E2}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{668EDC0B-DECD-4942-8B4A-D081681376E2}.Debug|x64.Build.0 = Debug|Any CPU
+		{668EDC0B-DECD-4942-8B4A-D081681376E2}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{668EDC0B-DECD-4942-8B4A-D081681376E2}.Debug|x86.Build.0 = Debug|Any CPU
+		{668EDC0B-DECD-4942-8B4A-D081681376E2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{668EDC0B-DECD-4942-8B4A-D081681376E2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{668EDC0B-DECD-4942-8B4A-D081681376E2}.Release|x64.ActiveCfg = Release|Any CPU
+		{668EDC0B-DECD-4942-8B4A-D081681376E2}.Release|x64.Build.0 = Release|Any CPU
+		{668EDC0B-DECD-4942-8B4A-D081681376E2}.Release|x86.ActiveCfg = Release|Any CPU
+		{668EDC0B-DECD-4942-8B4A-D081681376E2}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{698112D0-15B0-4B6F-91AF-22E860B58E39} = {8776EC91-E030-48FD-801A-EEA6D101DCC6}
