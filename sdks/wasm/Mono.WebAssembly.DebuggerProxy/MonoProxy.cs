@@ -215,7 +215,8 @@ namespace WebAssembly.Net.Debugging {
 
 					switch (objectId.Scheme) {
 					case "scope":
-						return await OnEvaluateOnCallFrame (id,
+						return await OnEvaluateOnCallFrame (
+								id, context,
 								int.Parse (objectId.Value),
 								args? ["expression"]?.Value<string> (), token);
 					default:
@@ -788,13 +789,9 @@ namespace WebAssembly.Net.Debugging {
 			return null;
 		}
 
-		async Task<bool> OnEvaluateOnCallFrame (MessageId msg_id, int scope_id, string expression, CancellationToken token)
+		async Task<bool> OnEvaluateOnCallFrame (MessageId msg_id, ExecutionContext context, int scope_id, string expression, CancellationToken token)
 		{
 			try {
-				var context = GetContext (msg_id);
-				if (context.CallStack == null)
-					return false;
-
 				var varValue = await TryGetVariableValue (msg_id, scope_id, expression, false, token);
 
 				if (varValue != null) {
