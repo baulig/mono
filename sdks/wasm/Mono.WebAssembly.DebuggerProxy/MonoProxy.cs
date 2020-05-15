@@ -430,6 +430,8 @@ namespace WebAssembly.Net.Debugging {
 
 			foreach (var mono_frame in the_mono_frames) {
 				var call_frame = GetMonoFrame (store, mono_frame, ++frame_id, out var frame);
+				if (call_frame == null)
+					continue;
 				frames.Add (frame);
 
 				callFrames.Add (call_frame);
