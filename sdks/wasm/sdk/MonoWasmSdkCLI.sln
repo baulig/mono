@@ -31,6 +31,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Mono.WebAssembly.DebuggerPr
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Mono.WebAssembly.Bindings", "Mono.WebAssembly.Bindings\Mono.WebAssembly.Bindings.csproj", "{0DB34293-622A-447F-9F07-C2A99739C0A8}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Mono.WebAssembly.Tools", "Mono.WebAssembly.Tools\Mono.WebAssembly.Tools.csproj", "{FE4BA64D-48E0-4C9D-8321-99E0ABB9A18B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -176,6 +178,18 @@ Global
 		{0DB34293-622A-447F-9F07-C2A99739C0A8}.Release|x64.Build.0 = Release|Any CPU
 		{0DB34293-622A-447F-9F07-C2A99739C0A8}.Release|x86.ActiveCfg = Release|Any CPU
 		{0DB34293-622A-447F-9F07-C2A99739C0A8}.Release|x86.Build.0 = Release|Any CPU
+		{FE4BA64D-48E0-4C9D-8321-99E0ABB9A18B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FE4BA64D-48E0-4C9D-8321-99E0ABB9A18B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FE4BA64D-48E0-4C9D-8321-99E0ABB9A18B}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{FE4BA64D-48E0-4C9D-8321-99E0ABB9A18B}.Debug|x64.Build.0 = Debug|Any CPU
+		{FE4BA64D-48E0-4C9D-8321-99E0ABB9A18B}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{FE4BA64D-48E0-4C9D-8321-99E0ABB9A18B}.Debug|x86.Build.0 = Debug|Any CPU
+		{FE4BA64D-48E0-4C9D-8321-99E0ABB9A18B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FE4BA64D-48E0-4C9D-8321-99E0ABB9A18B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FE4BA64D-48E0-4C9D-8321-99E0ABB9A18B}.Release|x64.ActiveCfg = Release|Any CPU
+		{FE4BA64D-48E0-4C9D-8321-99E0ABB9A18B}.Release|x64.Build.0 = Release|Any CPU
+		{FE4BA64D-48E0-4C9D-8321-99E0ABB9A18B}.Release|x86.ActiveCfg = Release|Any CPU
+		{FE4BA64D-48E0-4C9D-8321-99E0ABB9A18B}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 	EndGlobalSection
