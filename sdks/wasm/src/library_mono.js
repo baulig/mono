@@ -890,18 +890,6 @@ var MonoSupportLib = {
 			// and nested class names like Foo/Bar to Foo.Bar
 			return className.replace(/\//g, '.').replace(/`\d+/g, '');
 		},
-
-		_mono_wasm_format_stack_trace: function(stackTrace) {
-			// FIXME: Can undefined ever happen here?
-			if (stackTrace === 0 || stackTrace === undefined)
-				return "";
-			let stackTraceString = Module.UTF8ToString (stackTrace).trim();
-			if (stackTraceString.startsWith("managed backtrace not available") || stackTraceString === "")
-				return "";
-			if (!stackTraceString.startsWith("at")) // FIXME: can this actually happen?
-				return "    at" + stackTraceString;
-			return "    " + stackTraceString;
-		},
 	},
 
 	mono_wasm_add_typed_value: function (type, str_value, value) {
@@ -1015,7 +1003,7 @@ var MonoSupportLib = {
 		 });
 	},
 
-	mono_wasm_add_exc_var: function(className, message, stackTrace, objectId) {
+	mono_wasm_add_exc_var: function(className, message, stack, objectId) {
 		if (objectId == 0) {
 			MONO.mono_wasm_add_null_var (className);
 			return;
@@ -1023,7 +1011,7 @@ var MonoSupportLib = {
 
 		let fixed_class_name = MONO._mono_csharp_fixup_class_name(Module.UTF8ToString (className));
 		let messageString = Module.UTF8ToString (message);
-		let stackTraceString = MONO._mono_wasm_format_stack_trace(stackTrace)
+		let stackTraceString = stack !== 0 ? Module.UTF8ToString (stack) : "";
 
 		MONO.var_info.push({
 			value: {
@@ -1036,7 +1024,7 @@ var MonoSupportLib = {
 		});
 	},
 
-	mono_wasm_add_exc_prop: function(className, message, stack, objectId) {
+	mono_wasm_add_exc_prop: function(className, message, stack) {
 		function add_string_var(name, value) {
 			MONO.var_info.push({ name })
 			MONO.var_info.push({ value: { type: "string", value } });
@@ -1044,7 +1032,7 @@ var MonoSupportLib = {
 
 		let fixed_class_name = MONO._mono_csharp_fixup_class_name(Module.UTF8ToString(className));
 		let messageString = Module.UTF8ToString (message);
-		let stackTraceString = MONO._mono_wasm_format_stack_trace(stack)
+		let stackTraceString = stack !== 0 ? Module.UTF8ToString (stack) : "";
 
 		add_string_var("__class__", fixed_class_name);
 		add_string_var("Message", messageString);

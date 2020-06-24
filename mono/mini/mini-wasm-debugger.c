@@ -47,6 +47,7 @@ extern void mono_wasm_fire_bp (void);
 extern void mono_wasm_fire_exc (gboolean unhandled, int exc_obj_id);
 extern void mono_wasm_add_obj_var (const char*, const char *, guint64);
 extern void mono_wasm_add_exc_var (const char*, const char *, const char *, guint64);
+extern void mono_wasm_add_exc_prop (const char *, const char *, const char *);
 extern void mono_wasm_add_value_type_unexpanded_var (const char*, const char*);
 extern void mono_wasm_begin_value_type_var (const char*, const char*);
 extern void mono_wasm_end_value_type_var (void);
@@ -56,13 +57,11 @@ extern void mono_wasm_add_properties_var (const char*, gint32);
 extern void mono_wasm_add_array_item (int);
 extern void mono_wasm_set_is_async_method (guint64);
 extern void mono_wasm_add_typed_value (const char *type, const char *str_value, double value);
-extern void mono_wasm_add_exc_prop (const char *className, const char *message, const char *stack, guint64 objectId);
 
 G_END_DECLS
 
 static void describe_object_properties_for_klass (void *obj, MonoClass *klass, gboolean isAsyncLocalThis, gboolean expandValueType);
 static void handle_exception (MonoException *exc, MonoContext *throw_ctx, MonoContext *catch_ctx, StackFrameInfo *catch_frame);
-static void describe_exception_properties (MonoException *exc, char *class_name, guint64 object_id);
 
 //FIXME move all of those fields to the profiler object
 static gboolean debugger_enabled;
@@ -87,6 +86,8 @@ to_string_as_descr_names[] = {
 	"System.Decimal",
 	"System.TimeSpan"
 };
+
+static const char *backtrace_indent = "    ";
 
 #define THREAD_TO_INTERNAL(thread) (thread)->internal_thread
 
@@ -899,10 +900,10 @@ static gboolean describe_value(MonoType * type, gpointer addr, gboolean expandVa
 			} else if (mono_object_isinst_checked (obj, mono_defaults.exception_class, error)) {
 				MonoException *exc = (MonoException *)obj;
 				char *message = mono_string_to_utf8_checked_internal (exc->message, error);
-				char *stackTrace = mono_string_to_utf8_checked_internal (exc->stack_trace, error);
-				char *stackTrace2 = mono_exception_get_managed_backtrace (exc);
-				DEBUG_PRINTF (1, "ADD EXCEPTION VAR: %p - %x - %s - %s - %s\n", exc, obj_id, message, stackTrace, stackTrace2);
-				mono_wasm_add_exc_var (class_name, message, stackTrace2, obj_id);
+				char *stackTrace;
+				mono_exception_try_get_managed_backtrace (exc, backtrace_indent, &stackTrace);
+				DEBUG_PRINTF (1, "ADD EXCEPTION VAR: %p - %x - %s - %s\n", exc, obj_id, message, stackTrace);
+				mono_wasm_add_exc_var (class_name, message, stackTrace, obj_id);
 				g_free (message);
 			} else {
 				char *to_string_val = get_to_string_description (class_name, klass, addr);
@@ -1149,29 +1150,6 @@ describe_object_properties (guint64 objectId, gboolean isAsyncLocalThis, gboolea
 	return TRUE;
 }
 
-static void
-describe_exception_properties (MonoException *exc, char *class_name, guint64 objectId)
-{
-	ERROR_DECL (error);
-
-	char *message = mono_string_to_utf8_checked_internal (exc->message, error);
-	mono_error_assert_ok (error);
-	DEBUG_PRINTF (2, "describe_exception_properties #3: %s\n", message);
-
-	char *stack_trace = mono_exception_get_managed_backtrace (exc);
-	DEBUG_PRINTF (2, "describe_exception_properties #4: %s\n", stack_trace);
-	mono_error_assert_ok (error);
-
-	mono_wasm_add_exc_prop (class_name, message, stack_trace, objectId);
-
-	describe_object_properties_for_klass (exc, ((MonoObject *)exc)->vtable->klass, FALSE, FALSE);
-
-	DEBUG_PRINTF (2, "describe_exception_properties done\n");
-
-	g_free (message);
-	g_free (stack_trace);
-}
-
 static gboolean
 invoke_getter_on_object (guint64 objectId, const char *name)
 {
@@ -1373,11 +1351,13 @@ mono_wasm_get_object_properties (int object_id, gboolean expand_value_types)
 EMSCRIPTEN_KEEPALIVE void
 mono_wasm_get_exception_properties (int object_id)
 {
+	ERROR_DECL (error);
+
 	DEBUG_PRINTF (2, "getting properties of exception %d\n", object_id);
 
 	MonoException *exc = (MonoException *)get_object_from_id (object_id);
 	if (!exc) {
-		DEBUG_PRINTF (2, "describe_exception_properties !obj\n");
+		DEBUG_PRINTF (2, "mono_wasm_get_exception_properties !obj\n");
 		return;
 	}
 
@@ -1385,7 +1365,24 @@ mono_wasm_get_exception_properties (int object_id)
 	MonoType *type = m_class_get_byval_arg (klass);
 
 	char *class_name = mono_type_full_name (type);
-	describe_exception_properties (exc, class_name, object_id);
+
+	char *message = mono_string_to_utf8_checked_internal (exc->message, error);
+	mono_error_assert_ok (error);
+	DEBUG_PRINTF (2, "mono_wasm_get_exception_properties #1: %s\n", message);
+
+	char *stack_trace;
+	mono_exception_try_get_managed_backtrace (exc, backtrace_indent, &stack_trace);
+	DEBUG_PRINTF (2, "mono_wasm_get_exception_properties #2: %s\n", stack_trace);
+	mono_error_assert_ok (error);
+
+	mono_wasm_add_exc_prop (class_name, message, stack_trace);
+
+	describe_object_properties_for_klass (exc, ((MonoObject *)exc)->vtable->klass, FALSE, FALSE);
+
+	DEBUG_PRINTF (2, "mono_wasm_get_exception_properties done\n");
+
+	g_free (message);
+	g_free (stack_trace);
 	g_free (class_name);
 }
 
