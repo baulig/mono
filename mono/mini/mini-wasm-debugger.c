@@ -1375,7 +1375,18 @@ mono_wasm_get_exception_properties (int object_id)
 	DEBUG_PRINTF (2, "mono_wasm_get_exception_properties #2: %s\n", stack_trace);
 	mono_error_assert_ok (error);
 
-	mono_wasm_add_exc_prop (class_name, message, stack_trace);
+	mono_wasm_add_properties_var ("__class__", 0);
+	EM_ASM ({
+		MONO.mono_wasm_add_typed_value ('string', $0, { isClassName: true });
+	}, class_name);
+
+	mono_wasm_add_properties_var ("Message", 0);
+	mono_wasm_add_typed_value ("string", message, 0);
+
+	mono_wasm_add_properties_var ("Stack", 0);
+	EM_ASM ({
+		MONO.mono_wasm_add_typed_value ('string', 'Error: ' + Module.UTF8ToString ($0) + '\n' + Module.UTF8ToString ($1), 0);
+	}, message, stack_trace);
 
 	describe_object_properties_for_klass (exc, ((MonoObject *)exc)->vtable->klass, FALSE, FALSE);
 

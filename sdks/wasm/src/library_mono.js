@@ -847,7 +847,10 @@ var MonoSupportLib = {
 				break;
 
 			case "string":
-				MONO._mono_wasm_add_string_var (str_value);
+				if (typeof value === `object` && value.isClassName)
+					MONO._mono_wasm_add_string_var (MONO._mono_csharp_fixup_class_name (str_value));
+				else
+					MONO._mono_wasm_add_string_var (str_value);
 				break;
 
 			case "getter":
@@ -1009,9 +1012,9 @@ var MonoSupportLib = {
 			return;
 		}
 
-		let fixed_class_name = MONO._mono_csharp_fixup_class_name(Module.UTF8ToString (className));
+		let fixed_class_name = MONO._mono_csharp_fixup_class_name (Module.UTF8ToString (className));
 		let messageString = Module.UTF8ToString (message);
-		let stackTraceString = stack !== 0 ? Module.UTF8ToString (stack) : "";
+		let stackTraceString = Module.UTF8ToString (stack);
 
 		MONO.var_info.push({
 			value: {
@@ -1022,21 +1025,6 @@ var MonoSupportLib = {
 				objectId: "dotnet:exception:" + objectId,
 			}
 		});
-	},
-
-	mono_wasm_add_exc_prop: function(className, message, stack) {
-		function add_string_var(name, value) {
-			MONO.var_info.push({ name })
-			MONO.var_info.push({ value: { type: "string", value } });
-		}
-
-		let fixed_class_name = MONO._mono_csharp_fixup_class_name(Module.UTF8ToString(className));
-		let messageString = Module.UTF8ToString (message);
-		let stackTraceString = stack !== 0 ? Module.UTF8ToString (stack) : "";
-
-		add_string_var("__class__", fixed_class_name);
-		add_string_var("Message", messageString);
-		add_string_var("Stack", `Error: ${messageString}\n${stackTraceString}`);
 	},
 
 	/*
